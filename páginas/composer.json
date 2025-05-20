@@ -1,0 +1,11 @@
+{
+    "name": "iderl/acc",
+    "autoload": {
+        "psr-4": {
+            "Iderl\\Acc\\": "src/"
+        }
+    },
+    "require": {
+        "phpmailer/phpmailer": "^6.10"
+    }
+}
