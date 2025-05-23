@@ -99,8 +99,50 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     <title>Cadastro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <script>
+    // Validação front‐end
+    function validate() {
+    const email = document.getElementById('email').value.trim();
+    const senha = document.getElementById('senha').value;
+    const conf  = document.getElementById('conf_senha').value;
+
+    const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,}$/;
+
+    let errs = [];
+    //if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email))
+        //errs.push('Use um e‑mail terminando em .ufopa.edu.br');
+    if (senha !== conf) {
+        errs.push('As senhas não coincidem.');
+    }
+    if (!senhaRegex.test(senha)) {
+        errs.push('Senha fraca (mín. 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).');
+    }
+
+    if (errs.length) {
+        alert(errs.join('\n'));
+        return false;
+    }
+    return true;
+    }
+    function toggleFields(){
+        let t = document.getElementById('tipo').value;
+        if(t==='aluno'){
+        document.getElementById('alunoFields').style.display = 'block';
+        document.getElementById('CursoFields').style.display = 'block';
+        document.getElementById('SiapeFilds').style.display = 'none';
+        }else if(t === 'coordenador'){
+        document.getElementById('alunoFields').style.display = 'none';
+        document.getElementById('CursoFields').style.display = 'block';
+        document.getElementById('SiapeFilds').style.display = 'block';
+        }else{
+        document.getElementById('alunoFields').style.display = 'none';
+        document.getElementById('CursoFields').style.display = 'none';
+        document.getElementById('SiapeFilds').style.display = 'block';
+        }
+    }
+  </script>
 </head>
-<body class="bg-pattern font-montserrat min-h-screen flex flex-col" >
+<body class="bg-pattern font-montserrat min-h-screen flex flex-col" onload="toggleFields()">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between h-16">
