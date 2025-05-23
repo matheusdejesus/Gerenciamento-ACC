@@ -93,89 +93,124 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 }
 ?>
 <!DOCTYPE html>
-<html><head>
-  <meta charset="UTF-8">
-  <title>Cadastro</title>
-  <style>/* mínimo CSS */</style>
-  <script>
-  // Validação front‐end
-  function validate() {
-  const email = document.getElementById('email').value.trim();
-  const senha = document.getElementById('senha').value;
-  const conf  = document.getElementById('conf_senha').value;
-
-  const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,}$/;
-
-  let errs = [];
-  //if(!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email))
-  //  err.push('Use um e‑mail terminando em .ufopa.edu.br');
-  if (senha !== conf) {
-    errs.push('As senhas não coincidem.');
-  }
-  if (!senhaRegex.test(senha)) {
-    errs.push('Senha fraca (mín. 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).');
-  }
-
-  if (errs.length) {
-    alert(errs.join('\n'));
-    return false;
-  }
-  return true;
-}
-  function toggleFields(){
-    let t = document.getElementById('tipo').value;
-    if(t==='aluno'){
-      document.getElementById('alunoFields').style.display = 'block';
-      document.getElementById('CursoFields').style.display = 'block';
-      document.getElementById('SiapeFilds').style.display = 'none';
-    }else if(t === 'coordenador'){
-      document.getElementById('alunoFields').style.display = 'none';
-      document.getElementById('CursoFields').style.display = 'block';
-      document.getElementById('SiapeFilds').style.display = 'block';
-    }else{
-      document.getElementById('alunoFields').style.display = 'none';
-      document.getElementById('CursoFields').style.display = 'none';
-      document.getElementById('SiapeFilds').style.display = 'block';
-    }
-  }
-  </script>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
-<body onload="toggleFields()">
-  <h1>Cadastro</h1>
-  <?php if(!empty($errors)):?>
-    <ul style="color:red">
-      <?php foreach($errors as $e) echo "<li>".htmlspecialchars($e)."</li>";?>
-    </ul>
-  <?php endif;?>
-  <form method="post" onsubmit="return validate()">
-    <label>Nome: <input name="nome" required></label><br>
-    <label>E‑mail: <input id="email" name="email" required></label><br>
-    <label>Senha: <input type="password" id="senha" name="senha" required></label><br>
-    <label>Confirma Senha: <input type="password" id="conf_senha" name="conf_senha" required></label><br>
-    <label>Tipo:
-      <select id="tipo" name="tipo" onchange="toggleFields()" required>
-        <option value="aluno">Aluno</option>
-        <option value="coordenador">Coordenador</option>
-        <option value="orientador">Orientador</option>
-      </select>
-    </label><br>
-    <div id="alunoFields">
-      <label>Matrícula: <input name="matricula"></label><br>
+<body class="bg-pattern font-montserrat min-h-screen flex flex-col" >
+    <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="#" class="flex-shrink-0 flex items-center">
+                        <span class="text-2xl font-regular" style="color: #FFFFFF">SACC</span>
+                    </a>
+                </div> 
+            </div>
+        </div>
+    </nav>
+    <div class="flex-grow pt-24 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style="background-color: #0D1117">
+        <div class="max-w-md w-full space-y-8 bg-white/90 p-8 rounded-xl shadow-md backdrop-blur-sm form-container" style="background-color: #F6F8FA">
+            <div>
+                <h2 class="mt-6 text-center text-3xl font-extralight" style="color: #0969DA">
+                    Cadastro de Usuário
+                </h2>
+            </div>
+
+            <?php if(!empty($errors)): ?>
+                <div class="bg-red-50 p-4 rounded-md">
+                    <ul class="list-disc list-inside text-sm text-red-600">
+                        <?php foreach($errors as $e): ?>
+                            <li><?= htmlspecialchars($e) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
+            <form method="post" onsubmit="return validate()" class="mt-8 space-y-6">
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="nome" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Nome Completo</label>
+                        <input id="nome" name="nome" type="text" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]"
+                             >
+                    </div>
+
+                    <div>
+                        <label for="email" class="block text-sm font-regular text-gray-700" style="color: #0969DA">E-mail</label>
+                        <input id="email" name="email" type="email" required 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                    </div>
+
+                    <div>
+                        <label for="senha" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Senha</label>
+                        <input id="senha" name="senha" type="password" required 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                    </div>
+
+                    <div>
+                        <label for="conf_senha" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Confirmar Senha</label>
+                        <input id="conf_senha" name="conf_senha" type="password" required 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                    </div>
+
+                    <div>
+                        <label for="tipo" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Tipo de Usuário</label>
+                        <select id="tipo" name="tipo" onchange="toggleFields()" required 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                            <option value="aluno">Aluno</option>
+                            <option value="coordenador">Coordenador</option>
+                            <option value="orientador">Orientador</option>
+                        </select>
+                    </div>
+
+                    <div id="alunoFields">
+                        <label for="matricula" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Matrícula</label>
+                        <input id="matricula" name="matricula" type="text" 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                    </div>
+
+                    <div id="CursoFields">
+                        <label for="curso_id" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Curso</label>
+                        <select id="curso_id" name="curso_id" 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                            <option value="">-- Selecione um curso --</option>
+                            <?php foreach($cursos as $c): ?>
+                                <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['nome']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div id="SiapeFilds">
+                        <label for="siape" class="block text-sm font-regular text-gray-700" style="color: #0969DA">SIAPE</label>
+                        <input id="siape" name="siape" type="text" 
+                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit" 
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                        Cadastrar
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-    <div id="CursoFields">
-      <label>Curso:
-        <select name="curso_id">
-          <option value="">-- escolha --</option>
-          <?php foreach($cursos as $c):?>
-            <option value="<?=$c['id']?>"><?=htmlspecialchars($c['nome'])?></option>
-          <?php endforeach;?>
-        </select>
-      </label><br>
-    </div>
-    <div id="SiapeFilds">
-      <label>Siape: <input name="siape"></label><br>
-    </div>
-    <button type="submit">Cadastrar</button>
-  </form>
+    <footer class="w-full py-6" style="background-color: #151B23">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-col items-center justify-center space-y-4">
+                <div class="text-[#FFFFFF] text-sm">
+                    <p>Sistema de Acompanhamento e Controle de ACC</p>
+                </div>
+                <div class="text-[#FFFFFF] text-xs">
+                    <p>&copy; 2025 UFOPA</p>
+                </div>
+            </div>
+        </div>
+    </footer>
 </body>
 </html>
