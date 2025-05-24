@@ -1,7 +1,10 @@
 <?php
 session_start();
 require 'vendor/autoload.php'; // PHPMailer
-require 'config.php';          // $mysqli, DB connection
+require 'config.php'; // $mysqli, DB connection
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // 1) Buscar cursos para o combo
 $cursos = [];
@@ -22,8 +25,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
   $errors = [];
   // 3) Validações back‐end
-  //if(!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i',$email))
-  //  $errors[] = "Use um e‑mail terminando em .ufopa.edu.br";
+  if(!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i',$email)) {
+    $errors[] = "Use um e‑mail terminando em .ufopa.edu.br";
+  }
 
   if($senha !== $confSenha)
     $errors[] = "As senhas não coincidem.";
@@ -84,7 +88,39 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $stmt3->execute();
 
     // Envia e‑mail
-    // Fim envia e-mail
+    
+    // Configuração do PHPMailer para envio de e-mail
+    $mail = new PHPMailer(true); 
+    try {
+        // Configurações do servidor
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';         
+        $mail->SMTPAuth = true;
+        $mail->Username = 'sistemaacc2025@gmail.com'; 
+        $mail->Password = 'ehgg wzxq bsxt blab';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;                      
+        $mail->CharSet = 'UTF-8';      
+
+        // Configurações do e-mail
+        $mail->setFrom('sistemaacc2025@gmail.com', 'SACC UFOPA');
+        $mail->addAddress($email, $nome); 
+
+        // Conteúdo
+        $mail->isHTML(true);
+        $mail->Subject = 'Seu código de confirmação';
+        $mail->Body = "
+            <h2>Olá, {$nome}!</h2>
+            <p>Seu código de confirmação é: <strong>{$codigo}</strong></p>
+            <p>Este código expira em 24 horas.</p>
+        ";
+
+        $mail->send();
+        echo "E-mail enviado com sucesso!";
+        
+    } catch (Exception $e) {
+        echo "Erro no envio do e-mail: {$mail->ErrorInfo}";
+    }
 
     $_SESSION['uid_pending'] = $uid;
     header('Location: confirmacao.php');
@@ -109,8 +145,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,}$/;
 
     let errs = [];
-    //if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email))
-        //errs.push('Use um e‑mail terminando em .ufopa.edu.br');
+    if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email)) {
+        errs.push('Use um e‑mail terminando em .ufopa.edu.br');
+    }
     if (senha !== conf) {
         errs.push('As senhas não coincidem.');
     }
