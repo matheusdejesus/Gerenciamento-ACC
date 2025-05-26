@@ -1,30 +1,47 @@
 <?php
 session_start();
 require 'config.php';
-if($_SERVER['REQUEST_METHOD']==='POST'){
-  $email = $_POST['email'];
-  $senha = $_POST['senha'];
-  $stmt = $mysqli->prepare(
-    "SELECT id,senha,tipo,nome
-     FROM Usuario
-     WHERE email=?"
-  );
-  $stmt->bind_param("s",$email);
-  $stmt->execute();
-  $u = $stmt->get_result()->fetch_assoc();
-  if($u && password_verify($senha,$u['senha'])){
-    // Checa confirmação
-    $c = $mysqli->query("SELECT confirmado FROM EmailConfirm WHERE usuario_id={$u['id']} ORDER BY id DESC LIMIT 1")
-                 ->fetch_object()->confirmado;
-    if($c){
-      $_SESSION['user_id']=$u['id'];
-      $_SESSION['user_nome']=$u['nome'];
-      $_SESSION['user_tipo']=$u['tipo'];
-      // redireciona
-      header("Location: home_{$u['tipo']}.php");
-      exit;
-    } else $error="E‑mail não confirmado.";
-  } else $error="Usuário ou senha inválidos.";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = $_POST['email'];
+    $senha = $_POST['senha'];
+
+    //Busca o usuário pelo e-mail
+    $stmt = $mysqli->prepare(
+        "SELECT id, senha, tipo, nome
+         FROM Usuario
+         WHERE email = ?"
+    );
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $u = $result->fetch_assoc();
+    $stmt->close();
+
+    // Verifica se o usuário existe e a senha está correta
+    if ($u && password_verify($senha, $u['senha'])) {
+        $stmt2 = $mysqli->prepare(
+            "SELECT confirmado FROM EmailConfirm WHERE usuario_id = ? ORDER BY id DESC LIMIT 1"
+        );
+        $stmt2->bind_param("i", $u['id']);
+        $stmt2->execute();
+        $c = $stmt2->get_result()->fetch_assoc();
+        $stmt2->close();
+
+        // Faz login se o e-mail estiver confirmado
+        if ($c && $c['confirmado']) {
+            // Inicia a sessão e armazena os dados do usuário
+            $_SESSION['user_id']   = $u['id'];
+            $_SESSION['user_nome'] = $u['nome'];
+            $_SESSION['user_tipo'] = $u['tipo'];
+            header("Location: home_{$u['tipo']}.php");
+            exit;
+        } else {
+            $error = "E‑mail não confirmado.";
+        }
+    } else {
+        $error = "Usuário ou senha inválidos.";
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -56,7 +73,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 </h2>
             </div>
 
-            <?php if(!empty($error)): ?>
+            <?php if (!empty($error)): ?>
                 <div class="bg-red-50 p-4 rounded-md">
                     <p class="text-sm text-red-600"><?= htmlspecialchars($error) ?></p>
                 </div>
@@ -67,21 +84,33 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                     <div>
                         <label for="email" class="block text-sm font-regular text-gray-700" style="color: #0969DA">E-mail</label>
                         <input id="email" name="email" type="email" required 
-                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                               class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
                     </div>
 
                     <div>
-                        <label for="senha" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Senha</label>
+                        <label for="senha" class="block text-sm font-bold text-gray-700" style="color: #0969DA">Senha</label>
                         <input id="senha" name="senha" type="password" required 
-                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                               class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
                     </div>
+                </div>
+
+                <div class="flex items-center justify-end">
+                    <a href="recuperar_senha.php" class="text-sm hover:underline" style="color: #0969DA">
+                        Esqueceu sua senha?
+                    </a>
                 </div>
 
                 <div>
                     <button type="submit" 
-                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
                         Entrar
                     </button>
+                </div>
+
+                <div class="text-center">
+                    <a href="cadastro.php" class="text-sm hover:underline" style="color: #0969DA">
+                        Não tem conta? Crie!
+                    </a>
                 </div>
             </form>
         </div>
