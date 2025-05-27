@@ -1,6 +1,6 @@
 📋 Descrição do Projeto
 
-Este projeto implementa um sistema de cadastro, confirmação de e-mail e login para três tipos de usuário (aluno, coordenador e orientador), com controle de acesso a páginas específicas e gestão de sessão.
+Aplicação web em PHP e MySQL para gerenciamento de atividades de ACC para  a UFOPA, no sistema os usuários são autenticados e há um controle de acesso por perfis (Aluno, Coordenador e Orientador). Inclui cadastro com confirmação por e‑mail, login seguro com hashing de senhas, redirecionamento automático baseado no tipo de usuário e áreas dedicadas para cada perfil.
 
 ## Instalação e Setup
 
