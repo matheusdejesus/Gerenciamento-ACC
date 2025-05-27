@@ -2,6 +2,15 @@
 
 Este projeto implementa um sistema de cadastro, confirmação de e-mail e login para três tipos de usuário (aluno, coordenador e orientador), com controle de acesso a páginas específicas e gestão de sessão.
 
+Como rodar?
+
+1 - baixe o repositório
+2 - abra o xampp e bote para rodar o apache e o mysql
+3 - abra o http://localhost/phpmyadmin/
+    3.1 - copiei e cole o código sql no phpmyadmin para criar o banco
+4 - copie e cole o pasta "páginas" no htdocs do xampp
+5 - acesse http://localhost/páginas/
+
 🔐 Mecanismos de Segurança Implementados
 
 1. Gerenciamento de Sessão
