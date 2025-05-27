@@ -2,45 +2,93 @@
 session_start();
 require 'config.php';
 
+// Função para verificar tentativas de login
+function verificarTentativasLogin($mysqli, $email) {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $limite_tentativas = 5; // Número máximo de tentativas
+    $tempo_bloqueio = 15; // Tempo de bloqueio em minutos
+    
+    // Verifica tentativas recentes
+    $stmt = $mysqli->prepare(
+        "SELECT COUNT(*) as total 
+         FROM TentativasLogin 
+         WHERE (email = ? OR ip_address = ?) 
+         AND data_hora > DATE_SUB(NOW(), INTERVAL ? MINUTE)
+         AND sucesso = 0"
+    );
+    $stmt->bind_param("ssi", $email, $ip, $tempo_bloqueio);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $tentativas = $result->fetch_assoc()['total'];
+    $stmt->close();
+    
+    if ($tentativas >= $limite_tentativas) {
+        return false; // Bloqueado
+    }
+    return true; // Não bloqueado
+}
+
+// Função para registrar tentativa de login
+function registrarTentativaLogin($mysqli, $email, $sucesso) {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $stmt = $mysqli->prepare(
+        "INSERT INTO TentativasLogin (email, ip_address, sucesso) 
+         VALUES (?, ?, ?)"
+    );
+    $stmt->bind_param("ssi", $email, $ip, $sucesso);
+    $stmt->execute();
+    $stmt->close();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];
     $senha = $_POST['senha'];
 
-    //Busca o usuário pelo e-mail
-    $stmt = $mysqli->prepare(
-        "SELECT id, senha, tipo, nome
-         FROM Usuario
-         WHERE email = ?"
-    );
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $u = $result->fetch_assoc();
-    $stmt->close();
-
-    // Verifica se o usuário existe e a senha está correta
-    if ($u && password_verify($senha, $u['senha'])) {
-        $stmt2 = $mysqli->prepare(
-            "SELECT confirmado FROM EmailConfirm WHERE usuario_id = ? ORDER BY id DESC LIMIT 1"
-        );
-        $stmt2->bind_param("i", $u['id']);
-        $stmt2->execute();
-        $c = $stmt2->get_result()->fetch_assoc();
-        $stmt2->close();
-
-        // Faz login se o e-mail estiver confirmado
-        if ($c && $c['confirmado']) {
-            // Inicia a sessão e armazena os dados do usuário
-            $_SESSION['user_id']   = $u['id'];
-            $_SESSION['user_nome'] = $u['nome'];
-            $_SESSION['user_tipo'] = $u['tipo'];
-            header("Location: home_{$u['tipo']}.php");
-            exit;
-        } else {
-            $error = "E‑mail não confirmado.";
-        }
+    // Verifica se não está bloqueado
+    if (!verificarTentativasLogin($mysqli, $email)) {
+        $error = "Muitas tentativas de login. Tente novamente em 15 minutos.";
     } else {
-        $error = "Usuário ou senha inválidos.";
+        //Busca o usuário pelo e-mail
+        $stmt = $mysqli->prepare(
+            "SELECT id, senha, tipo, nome
+             FROM Usuario
+             WHERE email = ?"
+        );
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $u = $result->fetch_assoc();
+        $stmt->close();
+
+        // Verifica se o usuário existe e a senha está correta
+        if ($u && password_verify($senha, $u['senha'])) {
+            $stmt2 = $mysqli->prepare(
+                "SELECT confirmado FROM EmailConfirm WHERE usuario_id = ? ORDER BY id DESC LIMIT 1"
+            );
+            $stmt2->bind_param("i", $u['id']);
+            $stmt2->execute();
+            $c = $stmt2->get_result()->fetch_assoc();
+            $stmt2->close();
+
+            // Faz login se o e-mail estiver confirmado
+            if ($c && $c['confirmado']) {
+                // Registra tentativa bem-sucedida
+                registrarTentativaLogin($mysqli, $email, 1);
+                
+                // Inicia a sessão e armazena os dados do usuário
+                $_SESSION['user_id']   = $u['id'];
+                $_SESSION['user_nome'] = $u['nome'];
+                $_SESSION['user_tipo'] = $u['tipo'];
+                header("Location: home_{$u['tipo']}.php");
+                exit;
+            } else {
+                registrarTentativaLogin($mysqli, $email, 0);
+                $error = "E‑mail não confirmado.";
+            }
+        } else {
+            registrarTentativaLogin($mysqli, $email, 0);
+            $error = "Usuário ou senha inválidos.";
+        }
     }
 }
 ?>
