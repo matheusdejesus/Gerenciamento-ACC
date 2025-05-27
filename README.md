@@ -2,6 +2,41 @@
 
 Este projeto implementa um sistema de cadastro, confirmação de e-mail e login para três tipos de usuário (aluno, coordenador e orientador), com controle de acesso a páginas específicas e gestão de sessão.
 
+## Instalação e Setup
+
+Siga os passos abaixo para colocar o projeto em funcionamento na sua máquina local:
+
+1. **Baixar o repositório**  
+   ```bash
+   Baixe o repositório
+
+    Iniciar o XAMPP
+
+        Abra o painel de controle do XAMPP
+
+        Inicie os serviços Apache e MySQL
+
+    Criar o banco de dados
+
+        Acesse o phpMyAdmin em:
+
+    http://localhost/phpmyadmin/
+
+    No menu lateral, clique em Novo para criar um novo banco de dados.
+
+    Copie e cole o script SQL disponível em banco de dados.sql e execute-o para criar as tabelas e inserir dados iniciais.
+
+Instalar os arquivos do projeto
+
+    Copie a pasta páginas/ para dentro da pasta htdocs do XAMPP:
+
+    cp -r páginas/ /caminho/para/xampp/htdocs/
+
+Acessar a aplicação
+
+    No navegador, abra:
+    http://localhost/páginas/
+
 🔐 Mecanismos de Segurança Implementados
 
 1. Gerenciamento de Sessão
