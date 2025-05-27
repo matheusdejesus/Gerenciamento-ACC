@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user) {
             $token = generateToken();
 
-            // Armazena o token na tabela "recuperar_senha"
-            $stmtInsert = $mysqli->prepare("INSERT INTO recuperar_senha (usuario_id, token, criacao) VALUES (?, ?, NOW())");
+            // Armazena o token na tabela "recuperarsenha"
+            $stmtInsert = $mysqli->prepare("INSERT INTO recuperarsenha (usuario_id, token, criacao) VALUES (?, ?, NOW())");
             $stmtInsert->bind_param("is", $user['id'], $token);
             $stmtInsert->execute();
             $stmtInsert->close();
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form action="recuperar_senha.php" method="post" class="mt-8 space-y-6">
+                <form action="recuperarsenha.php" method="post" class="mt-8 space-y-6">
                     <div class="space-y-4">
                         <div>
                             <label for="email" class="block text-sm font-regular" style="color: #0969DA">Digite seu email:</label>
