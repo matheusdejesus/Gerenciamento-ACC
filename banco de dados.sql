@@ -114,7 +114,7 @@ CREATE TABLE RecuperarSenha (
     usuario_id INT NOT NULL,
     token VARCHAR(100) NOT NULL,
     criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES Usuario(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES Usuario(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO Instituto (id, nome, sigla) VALUES
