@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="flex items-center justify-end">
-                    <a href="recuperar_senha.php" class="text-sm hover:underline" style="color: #0969DA">
+                    <a href="recuperarsenha.php" class="text-sm hover:underline" style="color: #0969DA">
                         Esqueceu sua senha?
                     </a>
                 </div>
