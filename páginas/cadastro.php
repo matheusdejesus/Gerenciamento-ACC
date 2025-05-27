@@ -95,14 +95,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $mail->isSMTP();
         $mail->Host = 'smtp.gmail.com';         
         $mail->SMTPAuth = true;
-        $mail->Username = 'sistemaacc2025@gmail.com'; 
-        $mail->Password = 'ehgg wzxq bsxt blab';
+        $mail->Username = '@gmail.com'; 
+        $mail->Password = '';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = 587;                      
         $mail->CharSet = 'UTF-8';      
 
         // Configurações do e-mail
-        $mail->setFrom('sistemaacc2025@gmail.com', 'SACC UFOPA');
+        $mail->setFrom('@gmail.com', 'SACC UFOPA');
         $mail->addAddress($email, $nome); 
 
         // Conteúdo

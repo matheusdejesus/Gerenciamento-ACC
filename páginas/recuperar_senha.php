@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $token = generateToken();
 
             // Armazena o token na tabela "recuperar_senha"
-            $stmtInsert = $mysqli->prepare("INSERT INTO recuperarsenha (usuario_id, token, criacao) VALUES (?, ?, NOW())");
+            $stmtInsert = $mysqli->prepare("INSERT INTO recuperar_senha (usuario_id, token, criacao) VALUES (?, ?, NOW())");
             $stmtInsert->bind_param("is", $user['id'], $token);
             $stmtInsert->execute();
             $stmtInsert->close();
@@ -49,13 +49,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mail->isSMTP();
                 $mail->Host       = 'smtp.gmail.com';
                 $mail->SMTPAuth   = true;
-                $mail->Username   = 'sistemaacc2025@gmail.com';
-                $mail->Password   = 'ehgg wzxq bsxt blab';
+                $mail->Username   = '@gmail.com';
+                $mail->Password   = '';
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port       = 587;
 
                 // Remetente e destinatário
-                $mail->setFrom('sistemaacc@gmail.com', 'SACC UFOPA');
+                $mail->setFrom('@gmail.com', 'SACC UFOPA');
                 $mail->addAddress($email);
 
                 // Conteúdo do e-mail
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form action="recuperarsenha.php" method="post" class="mt-8 space-y-6">
+                <form action="recuperar_senha.php" method="post" class="mt-8 space-y-6">
                     <div class="space-y-4">
                         <div>
                             <label for="email" class="block text-sm font-regular" style="color: #0969DA">Digite seu email:</label>
