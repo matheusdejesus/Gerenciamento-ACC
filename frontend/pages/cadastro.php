@@ -1,14 +1,16 @@
 <?php
 session_start();
-require 'vendor/autoload.php'; // PHPMailer
-require 'config.php'; // $mysqli, DB connection
+require_once __DIR__ . '/../../backend/api/config/config.php';
+require_once __DIR__ . '/../../backend/api/config/database.php';
+require_once __DIR__ . '/vendor/autoload.php'; // PHPMailer
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 // 1) Buscar cursos para o combo
+$db = Database::getInstance();
 $cursos = [];
-$res = $mysqli->query("SELECT id,nome FROM Curso");
+$res = $db->query("SELECT id,nome FROM Curso");
 while($row = $res->fetch_assoc()) $cursos[] = $row;
 
 // 2) Processa submissão
@@ -42,10 +44,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if(!$siape) $errors[]="Informe siape.";
   }
 
-  // Se OK, insere usuário “pendente”
+  // Se OK, insere usuário "pendente"
   if(empty($errors)){
     $hash = password_hash($senha,PASSWORD_DEFAULT);
-    $stmt = $mysqli->prepare(
+    $stmt = $db->prepare(
       "INSERT INTO Usuario(nome,email,senha,tipo)
        VALUES(?,?,?,?)"
     );
@@ -55,21 +57,21 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
     // Insere dados específicos
     if($tipo==='aluno'){
-      $stmt2 = $mysqli->prepare(
+      $stmt2 = $db->prepare(
         "INSERT INTO Aluno(usuario_id,matricula,curso_id)
          VALUES(?,?,?)"
       );
       $stmt2->bind_param("isi",$uid,$matricula,$curso_id);
       $stmt2->execute();
     } elseif($tipo==='coordenador'){
-      $stmt2 = $mysqli->prepare(
+      $stmt2 = $db->prepare(
         "INSERT INTO Coordenador(usuario_id,siape,curso_id)
          VALUES(?,?,?)"
       );
       $stmt2->bind_param("isi",$uid,$siape,$curso_id);
       $stmt2->execute();
     } else { // orientador
-      $stmt2 = $mysqli->prepare(
+      $stmt2 = $db->prepare(
         "INSERT INTO Orientador(usuario_id,siape)
          VALUES(?,?)"
       );
@@ -80,7 +82,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     // Gera código e insere token
     $codigo = str_pad(random_int(0,999999),6,'0',STR_PAD_LEFT);
     $expira = date('Y-m-d H:i:s',strtotime('+1 day'));
-    $stmt3 = $mysqli->prepare(
+    $stmt3 = $db->prepare(
       "INSERT INTO EmailConfirm(usuario_id,codigo,expiracao)
        VALUES(?,?,?)"
     );
