@@ -1,11 +1,17 @@
 <?php
 session_start();
-require_once __DIR__ . '/../../backend/api/config/config.php';
-require_once __DIR__ . '/../../backend/api/config/database.php';
 
-// Se já estiver logado, redireciona para a página apropriada
+// Para limpar a sessão se necessário
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: login.php');
+    exit;
+}
+
+// Se já estiver logado, redireciona
 if (isset($_SESSION['usuario'])) {
     $tipo = $_SESSION['usuario']['tipo'];
+    
     switch ($tipo) {
         case 'aluno':
             header('Location: home_aluno.php');
@@ -24,83 +30,68 @@ if (isset($_SESSION['usuario'])) {
 
 $erro = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+    $email = trim($_POST['email']);
     $senha = $_POST['senha'];
 
     if (empty($email) || empty($senha)) {
         $erro = 'Por favor, preencha todos os campos.';
     } else {
-        $db = Database::getInstance();
-        
-        // Verificar tentativas de login
-        $ip = $_SERVER['REMOTE_ADDR'];
-        $sql = "SELECT COUNT(*) as tentativas FROM TentativasLogin 
-                WHERE email = ? AND ip_address = ? 
-                AND data_hora > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-                AND sucesso = 0";
-        
-        $stmt = $db->prepare($sql);
-        $stmt->bind_param('ss', $email, $ip);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $tentativas = $result->fetch_assoc()['tentativas'];
+        //Requisição para a API de login
+        $ch = curl_init('http://localhost/Gerenciamento-de-ACC/backend/api/routes/login.php');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+            'email' => $email,
+            'senha' => $senha
+        ]));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json'
+        ]);
 
-        if ($tentativas >= 5) {
-            $erro = 'Muitas tentativas de login. Tente novamente em 15 minutos.';
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        error_log("=== FRONTEND DEBUG ===");
+        error_log("HTTP Code: " . $httpCode);
+        error_log("Response: " . $response);
+        
+        if (empty($response)) {
+            $erro = 'Resposta vazia da API';
+        } else if (curl_errno($ch)) {
+            $erro = 'Erro de conexão com o servidor: ' . curl_error($ch);
         } else {
-            // Registrar tentativa de login
-            $sql = "INSERT INTO TentativasLogin (email, ip_address) VALUES (?, ?)";
-            $stmt = $db->prepare($sql);
-            $stmt->bind_param('ss', $email, $ip);
-            $stmt->execute();
-
-            // Fazer requisição para a API
-            $ch = curl_init('http://localhost/Gerenciamento-de-ACC/backend/api/usuarios/login');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-                'email' => $email,
-                'senha' => $senha
-            ]));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json'
-            ]);
-
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
             if ($httpCode === 200) {
                 $data = json_decode($response, true);
-                $_SESSION['usuario'] = $data['usuario'];
                 
-                // Registrar login bem-sucedido
-                $sql = "UPDATE TentativasLogin SET sucesso = 1 
-                        WHERE email = ? AND ip_address = ? 
-                        ORDER BY data_hora DESC LIMIT 1";
-                $stmt = $db->prepare($sql);
-                $stmt->bind_param('ss', $email, $ip);
-                $stmt->execute();
-
-                // Redirecionar para a página apropriada
-                switch ($data['usuario']['tipo']) {
-                    case 'aluno':
-                        header('Location: home_aluno.php');
-                        break;
-                    case 'coordenador':
-                        header('Location: home_coordenador.php');
-                        break;
-                    case 'orientador':
-                        header('Location: home_orientador.php');
-                        break;
-                    default:
-                        header('Location: index.php');
+                if ($data === null) {
+                    $erro = 'Erro ao decodificar JSON: ' . json_last_error_msg();
+                } else if (isset($data['success']) && $data['success'] === true) {
+                    $_SESSION['usuario'] = $data['usuario'];
+                    
+                    switch ($data['usuario']['tipo']) {
+                        case 'aluno':
+                            header('Location: home_aluno.php');
+                            break;
+                        case 'coordenador':
+                            header('Location: home_coordenador.php');
+                            break;
+                        case 'orientador':
+                            header('Location: home_orientador.php');
+                            break;
+                        default:
+                            header('Location: index.php');
+                    }
+                    exit;
+                } else {
+                    $erro = isset($data['error']) ? $data['error'] : 'Resposta inválida da API';
                 }
-                exit;
             } else {
-                $erro = 'Email ou senha inválidos.';
+                $responseData = json_decode($response, true);
+                $erro = isset($responseData['error']) ? $responseData['error'] : 'HTTP Error: ' . $httpCode;
             }
         }
+        
+        curl_close($ch);
     }
 }
 ?>
@@ -109,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Sistema de Gerenciamento de ACC</title>
+    <title>Login - SACC UFOPA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
@@ -130,43 +121,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="max-w-md w-full space-y-8 bg-white/90 p-8 rounded-xl shadow-md backdrop-blur-sm form-container" style="background-color: #F6F8FA">
             <div>
                 <h2 class="mt-6 text-center text-3xl font-extralight" style="color: #0969DA">
-                    Login
+                    Entrar
                 </h2>
             </div>
-
-            <?php if ($erro): ?>
+            <?php if (!empty($erro)): ?>
                 <div class="bg-red-50 p-4 rounded-md">
-                    <p class="text-sm text-red-600"><?php echo htmlspecialchars($erro); ?></p>
+                    <div class="text-sm text-red-600">
+                        <?php echo htmlspecialchars($erro); ?>
+                    </div>
                 </div>
             <?php endif; ?>
-
+            
             <form method="POST" action="" class="mt-8 space-y-6">
                 <div class="space-y-4">
                     <div>
                         <label for="email" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Email</label>
-                        <input type="email" name="email" id="email" required
-                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                        <input type="email" name="email" id="email" required 
+                               class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
                     </div>
-
                     <div>
                         <label for="senha" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Senha</label>
                         <input type="password" name="senha" id="senha" required
-                            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
+                               class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
                     </div>
                 </div>
 
                 <div class="space-y-2">
                     <div>
-                        <button type="submit" 
-                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" 
-                            style="background-color: #1A7F37">
+                        <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                             Entrar
                         </button>
-                    </div>
-                    
-                    <div class="text-center space-x-4">
-                        <a href="cadastro.php" class="text-sm" style="color: #0969DA">Criar conta</a>
-                        <a href="recuperarsenha.php" class="text-sm" style="color: #0969DA">Esqueceu sua senha?</a>
                     </div>
                 </div>
             </form>

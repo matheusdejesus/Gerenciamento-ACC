@@ -6,9 +6,10 @@ define('JWT_EXPIRATION', 3600); // 1 hora em segundos
 
 // Configurações do Banco de Dados
 define('DB_HOST', 'localhost');
+define('DB_NAME', 'acc');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'acc');
+define('DB_CHARSET', 'utf8');
 
 // Configurações de CORS
 header('Access-Control-Allow-Origin: *');
@@ -23,25 +24,10 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Função para retornar resposta JSON
-function jsonResponse($data, $status = 200) {
-    http_response_code($status);
+function jsonResponse($data, $statusCode = 200) {
+    http_response_code($statusCode);
     header('Content-Type: application/json');
     echo json_encode($data);
     exit;
 }
-
-// Função para validar token JWT
-function validateToken() {
-    $headers = getallheaders();
-    if (!isset($headers['Authorization'])) {
-        jsonResponse(['error' => 'Token não fornecido'], 401);
-    }
-
-    $token = str_replace('Bearer ', '', $headers['Authorization']);
-    try {
-        // Aqui você implementará a validação do token JWT
-        return true;
-    } catch (Exception $e) {
-        jsonResponse(['error' => 'Token inválido'], 401);
-    }
-} 
+?>

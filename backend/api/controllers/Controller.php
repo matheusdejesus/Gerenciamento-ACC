@@ -1,68 +1,28 @@
 <?php
-require_once __DIR__ . '/../config/config.php';
+namespace backend\api\controllers;
 
-abstract class Controller {
-    protected $model;
-
-    public function __construct($model) {
-        $this->model = $model;
-    }
-
+class Controller {
+    
     protected function getRequestData() {
-        $data = json_decode(file_get_contents('php://input'), true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            jsonResponse(['error' => 'JSON inválido'], 400);
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        
+        if (strpos($contentType, 'application/json') !== false) {
+            // Se for JSON, decodifica o JSON
+            $input = file_get_contents('php://input');
+            $data = json_decode($input, true);
+            return $data ?: [];
+        } else {
+            // Se for form-data, usa $_POST
+            return $_POST;
         }
-        return $data;
     }
+}
 
-    protected function validateRequiredFields($data, $requiredFields) {
-        $missing = [];
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field]) || empty($data[$field])) {
-                $missing[] = $field;
-            }
-        }
-        if (!empty($missing)) {
-            jsonResponse(['error' => 'Campos obrigatórios faltando: ' . implode(', ', $missing)], 400);
-        }
-        return true;
-    }
-
-    public function index() {
-        $result = $this->model->findAll();
-        jsonResponse($result);
-    }
-
-    public function show($id) {
-        $result = $this->model->findById($id);
-        if (!$result) {
-            jsonResponse(['error' => 'Registro não encontrado'], 404);
-        }
-        jsonResponse($result);
-    }
-
-    public function store() {
-        $data = $this->getRequestData();
-        $id = $this->model->create($data);
-        if ($id) {
-            jsonResponse(['id' => $id, 'message' => 'Registro criado com sucesso'], 201);
-        }
-        jsonResponse(['error' => 'Erro ao criar registro'], 500);
-    }
-
-    public function update($id) {
-        $data = $this->getRequestData();
-        if ($this->model->update($id, $data)) {
-            jsonResponse(['message' => 'Registro atualizado com sucesso']);
-        }
-        jsonResponse(['error' => 'Erro ao atualizar registro'], 500);
-    }
-
-    public function delete($id) {
-        if ($this->model->delete($id)) {
-            jsonResponse(['message' => 'Registro excluído com sucesso']);
-        }
-        jsonResponse(['error' => 'Erro ao excluir registro'], 500);
-    }
-} 
+// Função global para resposta JSON
+function jsonResponse($data, $statusCode = 200) {
+    http_response_code($statusCode);
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
+?>

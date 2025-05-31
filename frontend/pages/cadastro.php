@@ -1,132 +1,94 @@
 <?php
 session_start();
+
 require_once __DIR__ . '/../../backend/api/config/config.php';
 require_once __DIR__ . '/../../backend/api/config/database.php';
-require_once __DIR__ . '/vendor/autoload.php'; // PHPMailer
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+}
 
-// 1) Buscar cursos para o combo
-$db = Database::getInstance();
-$cursos = [];
-$res = $db->query("SELECT id,nome FROM Curso");
-while($row = $res->fetch_assoc()) $cursos[] = $row;
+use backend\api\config\Database;
 
-// 2) Processa submissão
+// Buscar cursos
+try {
+    $db = Database::getInstance();
+    $cursos = [];
+    $res = $db->query("SELECT id,nome FROM Curso");
+    if ($res) {
+        while($row = $res->fetch_assoc()) {
+            $cursos[] = $row;
+        }
+    }
+} catch (Exception $e) {
+    $cursos = [];
+}
+
 if($_SERVER['REQUEST_METHOD']==='POST'){
-  // Sanitização
-  $nome      = trim($_POST['nome']);
-  $email     = trim($_POST['email']);
-  $senha     = $_POST['senha'];
-  $confSenha = $_POST['conf_senha'];
-  $tipo      = $_POST['tipo'];
-  $matricula = $_POST['matricula'] ?? null;
-  $curso_id  = $_POST['curso_id']  ?? null;
-  $siape     = $_POST['siape']     ?? null;
+    $nome      = trim($_POST['nome']);
+    $email     = trim($_POST['email']);
+    $senha     = $_POST['senha'];
+    $confSenha = $_POST['conf_senha'];
+    $tipo      = $_POST['tipo'];
+    $matricula = $_POST['matricula'] ?? null;
+    $curso_id  = $_POST['curso_id']  ?? null;
+    $siape     = $_POST['siape']     ?? null;
 
-  $errors = [];
-  // 3) Validações back‐end
-  if(!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i',$email)) {
-    $errors[] = "Use um e‑mail terminando em .ufopa.edu.br";
-  }
+    $errors = [];
+    
+    // Validações Backend
+    if(!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i',$email)) {
+        $errors[] = "Use um e‑mail terminando em .ufopa.edu.br";
+    }
 
-  if($senha !== $confSenha)
-    $errors[] = "As senhas não coincidem.";
+    if($senha !== $confSenha)
+        $errors[] = "As senhas não coincidem.";
 
-  if(!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{8,}$/',$senha))
-    $errors[] = "Senha fraca (mínimo 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).";
+    if(!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{8,}$/',$senha))
+        $errors[] = "Senha fraca (mínimo 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).";
 
-  // Verifica campos por tipo
-  if($tipo==='aluno'){
-    if(!$matricula||!$curso_id) $errors[]="Informe matrícula e curso.";
-  } else {
-    if(!$siape) $errors[]="Informe siape.";
-  }
-
-  // Se OK, insere usuário "pendente"
-  if(empty($errors)){
-    $hash = password_hash($senha,PASSWORD_DEFAULT);
-    $stmt = $db->prepare(
-      "INSERT INTO Usuario(nome,email,senha,tipo)
-       VALUES(?,?,?,?)"
-    );
-    $stmt->bind_param("ssss",$nome,$email,$hash,$tipo);
-    $stmt->execute();
-    $uid = $stmt->insert_id;
-
-    // Insere dados específicos
     if($tipo==='aluno'){
-      $stmt2 = $db->prepare(
-        "INSERT INTO Aluno(usuario_id,matricula,curso_id)
-         VALUES(?,?,?)"
-      );
-      $stmt2->bind_param("isi",$uid,$matricula,$curso_id);
-      $stmt2->execute();
-    } elseif($tipo==='coordenador'){
-      $stmt2 = $db->prepare(
-        "INSERT INTO Coordenador(usuario_id,siape,curso_id)
-         VALUES(?,?,?)"
-      );
-      $stmt2->bind_param("isi",$uid,$siape,$curso_id);
-      $stmt2->execute();
-    } else { // orientador
-      $stmt2 = $db->prepare(
-        "INSERT INTO Orientador(usuario_id,siape)
-         VALUES(?,?)"
-      );
-      $stmt2->bind_param("is",$uid,$siape);
-      $stmt2->execute();
+        if(!$matricula||!$curso_id) $errors[]="Informe matrícula e curso.";
+    } else {
+        if(!$siape) $errors[]="Informe siape.";
     }
 
-    // Gera código e insere token
-    $codigo = str_pad(random_int(0,999999),6,'0',STR_PAD_LEFT);
-    $expira = date('Y-m-d H:i:s',strtotime('+1 day'));
-    $stmt3 = $db->prepare(
-      "INSERT INTO EmailConfirm(usuario_id,codigo,expiracao)
-       VALUES(?,?,?)"
-    );
-    $stmt3->bind_param("iss",$uid,$codigo,$expira);
-    $stmt3->execute();
+    if(empty($errors)){
+        $data = [
+            'nome' => $nome,
+            'email' => $email,
+            'senha' => $senha,
+            'conf_senha' => $confSenha,
+            'tipo' => $tipo,
+            'matricula' => $matricula,
+            'curso_id' => $curso_id ? (int)$curso_id : null,
+            'siape' => $siape
+        ];
 
-    // Envia e‑mail
-    // Configuração do PHPMailer para envio de e-mail
-    $mail = new PHPMailer(true); 
-    try {
-        // Configurações do servidor
-        $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';         
-        $mail->SMTPAuth = true;
-        $mail->Username = 'sistemaacc2025@gmail.com'; 
-        $mail->Password = 'ehgg wzxq bsxt blab';
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;                      
-        $mail->CharSet = 'UTF-8';      
+        $ch = curl_init("http://localhost/Gerenciamento-de-ACC/backend/api/routes/cadastro.php");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-        // Configurações do e-mail
-        $mail->setFrom('sistemaacc2025@gmail.com', 'SACC UFOPA');
-        $mail->addAddress($email, $nome); 
+        $responseData = json_decode($response, true);
 
-        // Conteúdo
-        $mail->isHTML(true);
-        $mail->Subject = 'Seu código de confirmação';
-        $mail->Body = "
-            <h2>Olá, {$nome}!</h2>
-            <p>Seu código de confirmação é: <strong>{$codigo}</strong></p>
-            <p>Este código expira em 24 horas.</p>
-        ";
-
-        $mail->send();
-        echo "E-mail enviado com sucesso!";
-        
-    } catch (Exception $e) {
-        echo "Erro no envio do e-mail: {$mail->ErrorInfo}";
+        if($status === 200 && $responseData !== null && isset($responseData['success']) && $responseData['success']){
+            $_SESSION['cadastro_temp'] = [
+                'dados' => $data,
+                'codigo' => $responseData['codigo'],
+                'expiracao' => time() + 600
+            ];
+            
+            header("Location: confirmacao.php?email=" . urlencode($responseData['email']));
+            exit;
+        } else {
+            $errors[] = "Erro ao realizar o cadastro.";
+        }
     }
-
-    $_SESSION['uid_pending'] = $uid;
-    header('Location: confirmacao.php');
-    exit;
-  }
 }
 ?>
 <!DOCTYPE html>
@@ -137,48 +99,48 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <script>
-    // Validação front‐end
     function validate() {
-    const email = document.getElementById('email').value.trim();
-    const senha = document.getElementById('senha').value;
-    const conf  = document.getElementById('conf_senha').value;
+        const email = document.getElementById('email').value.trim();
+        const senha = document.getElementById('senha').value;
+        const conf  = document.getElementById('conf_senha').value;
 
-    const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,}$/;
+        const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,}$/;
 
-    let errs = [];
-    if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email)) {
-        errs.push('Use um e‑mail terminando em .ufopa.edu.br');
-    }
-    if (senha !== conf) {
-        errs.push('As senhas não coincidem.');
-    }
-    if (!senhaRegex.test(senha)) {
-        errs.push('Senha fraca (mín. 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).');
-    }
+        let errs = [];
+        if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email)) {
+            errs.push('Use um e‑mail terminando em .ufopa.edu.br');
+        }
+        if (senha !== conf) {
+            errs.push('As senhas não coincidem.');
+        }
+        if (!senhaRegex.test(senha)) {
+            errs.push('Senha fraca (mín. 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).');
+        }
 
-    if (errs.length) {
-        alert(errs.join('\n'));
-        return false;
+        if (errs.length) {
+            alert(errs.join('\n'));
+            return false;
+        }
+        return true;
     }
-    return true;
-    }
+    
     function toggleFields(){
         let t = document.getElementById('tipo').value;
         if(t==='aluno'){
-        document.getElementById('alunoFields').style.display = 'block';
-        document.getElementById('CursoFields').style.display = 'block';
-        document.getElementById('SiapeFilds').style.display = 'none';
+            document.getElementById('alunoFields').style.display = 'block';
+            document.getElementById('CursoFields').style.display = 'block';
+            document.getElementById('SiapeFilds').style.display = 'none';
         }else if(t === 'coordenador'){
-        document.getElementById('alunoFields').style.display = 'none';
-        document.getElementById('CursoFields').style.display = 'block';
-        document.getElementById('SiapeFilds').style.display = 'block';
+            document.getElementById('alunoFields').style.display = 'none';
+            document.getElementById('CursoFields').style.display = 'block';
+            document.getElementById('SiapeFilds').style.display = 'block';
         }else{
-        document.getElementById('alunoFields').style.display = 'none';
-        document.getElementById('CursoFields').style.display = 'none';
-        document.getElementById('SiapeFilds').style.display = 'block';
+            document.getElementById('alunoFields').style.display = 'none';
+            document.getElementById('CursoFields').style.display = 'none';
+            document.getElementById('SiapeFilds').style.display = 'block';
         }
     }
-  </script>
+    </script>
 </head>
 <body class="bg-pattern font-montserrat min-h-screen flex flex-col" onload="toggleFields()">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
@@ -211,12 +173,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             <?php endif; ?>
 
             <form method="post" onsubmit="return validate()" class="mt-8 space-y-6">
-
                 <div class="space-y-4">
                     <div>
                         <label for="nome" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Nome Completo</label>
-                        <input id="nome" name="nome" type="text" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]"
-                             >
+                        <input id="nome" name="nome" type="text" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53]">
                     </div>
 
                     <div>
