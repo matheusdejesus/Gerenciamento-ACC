@@ -50,11 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        
+
         error_log("=== FRONTEND DEBUG ===");
         error_log("HTTP Code: " . $httpCode);
-        error_log("Response: " . $response);
-        
+        error_log("Raw Response: " . $response);
+        error_log("Response Length: " . strlen($response));
+
         if (empty($response)) {
             $erro = 'Resposta vazia da API';
         } else if (curl_errno($ch)) {
@@ -64,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = json_decode($response, true);
                 
                 if ($data === null) {
-                    $erro = 'Erro ao decodificar JSON: ' . json_last_error_msg();
+                    $erro = 'Erro ao decodificar JSON: ' . json_last_error_msg() . ' | Raw: ' . substr($response, 0, 500);
                 } else if (isset($data['success']) && $data['success'] === true) {
                     $_SESSION['usuario'] = $data['usuario'];
                     
@@ -151,6 +152,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                             Entrar
                         </button>
+                    </div>
+                    <div class="flex justify-center space-x-4">
+                        <a href="cadastro.php" class="text-sm text-indigo-600 hover:text-indigo-500 hover:underline">
+                            Criar conta
+                        </a>
+                        <a href="recuperar_senha.php" class="text-sm text-indigo-600 hover:text-indigo-500 hover:underline">
+                            Esqueceu a senha?
+                        </a>
                     </div>
                 </div>
             </form>

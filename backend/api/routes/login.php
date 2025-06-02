@@ -5,32 +5,24 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Função local para resposta JSON
+require_once __DIR__ . '/../config/Database.php';
+
+use backend\api\config\Database;
+
 function sendJsonResponse($data, $status = 200) {
     http_response_code($status);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// Classe Database
-class Database {
-    private $host = "localhost";
-    private $db_name = "acc";
-    private $username = "root";
-    private $password = "";
-    public $conn;
-
-    public function getConnection() {
-        $this->conn = null;
-
-        try {
-            $this->conn = new PDO("mysql:host=" . $this->host . ";dbname=" . $this->db_name . ";charset=utf8", $this->username, $this->password);
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch(PDOException $exception) {
-            return null;
-        }
-
-        return $this->conn;
+function registrarTentativaLogin($email, $sucesso, $db) {
+    $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    try {
+        $stmt = $db->prepare("INSERT INTO TentativasLogin (email, ip_address, sucesso) VALUES (?, ?, ?)");
+        $stmt->bind_param("ssi", $email, $ip_address, $sucesso);
+        $stmt->execute();
+    } catch (Exception $e) {
+        error_log("Erro ao registrar tentativa de login: " . $e->getMessage());
     }
 }
 
@@ -39,46 +31,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         
+        $db = Database::getInstance()->getConnection();
+        
         if (!$data || !isset($data['email']) || !isset($data['senha'])) {
+            // Registrar tentativa de erro - dados obrigatórios não preenchidos
+            $email = isset($data['email']) ? trim($data['email']) : 'unknown';
+            registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email e senha são obrigatórios'], 400);
         }
         
         $email = trim($data['email']);
         $senha = $data['senha'];
         
+        // Validar campos vazios
         if (empty($email) || empty($senha)) {
+            registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email e senha não podem estar vazios'], 400);
         }
         
-        // Conectar ao banco
-        $database = new Database();
-        $db = $database->getConnection();
-        
-        if (!$db) {
-            sendJsonResponse(['error' => 'Erro de conexão com o banco de dados'], 500);
-        }
-        
-        // Buscar usuário no banco
-        $query = "SELECT id, nome, email, senha, tipo FROM usuario WHERE email = ?";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(1, $email);
+        // Buscar usuário
+        $stmt = $db->prepare("SELECT id, nome, email, senha, tipo FROM Usuario WHERE email = ?");
+        $stmt->bind_param("s", $email);
         $stmt->execute();
+        $result = $stmt->get_result();
         
-        $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$usuario) {
+        if ($result->num_rows === 0) {
+            // Registrar tentativa de erro - usuário não encontrado
+            registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
         }
+        
+        $usuario = $result->fetch_assoc();
         
         // Verificar senha
         if (!password_verify($senha, $usuario['senha'])) {
+            // Registrar tentativa de erro - senha incorreta
+            registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
         }
         
-        // Remover senha do retorno
+        // Login bem-sucedido
+        registrarTentativaLogin($email, 1, $db);
+        
         unset($usuario['senha']);
         
-        // Retornar dados do usuário
+        // Retornar sucesso
         sendJsonResponse([
             'success' => true,
             'message' => 'Login realizado com sucesso',
@@ -86,6 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         
     } catch (Exception $e) {
+        // Registrar tentativa de erro - erro interno
+        if (isset($email)) {
+            registrarTentativaLogin($email, 0, $db);
+        }
         sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
     }
 } else {

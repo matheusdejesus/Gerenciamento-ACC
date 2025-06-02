@@ -76,11 +76,9 @@ class CadastroController extends Controller {
             $mail->Port = 587;
             $mail->CharSet = 'UTF-8';
             
-            // Destinatário
             $mail->setFrom('sistemaacc2025@gmail.com', 'SACC UFOPA');
             $mail->addAddress($email);
             
-            // Conteúdo
             $mail->isHTML(true);
             $mail->Subject = 'Código de Confirmação - SACC UFOPA';
             $mail->Body = "

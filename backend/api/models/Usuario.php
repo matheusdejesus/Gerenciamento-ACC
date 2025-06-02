@@ -177,19 +177,47 @@ class Usuario {
                 }
             }
             
-            // Confirmar transação
             $db->commit();
             $db->autocommit(true);
             
             return $usuario_id;
             
         } catch (Exception $e) {
-            // Desfazer transação em caso de erro
+            
             if (isset($db)) {
                 $db->rollback();
                 $db->autocommit(true);
             }
             return false;
+        }
+    }
+
+    public static function findByEmailForLogin($email) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT id, nome, email, senha, tipo FROM Usuario WHERE email = ?");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                return $result->fetch_assoc();
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    public static function registrarTentativaLogin($email, $sucesso, $db) {
+        $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        try {
+            $stmt = $db->prepare("INSERT INTO TentativasLogin (email, ip_address, sucesso) VALUES (?, ?, ?)");
+            $stmt->bind_param("ssi", $email, $ip_address, $sucesso);
+            $stmt->execute();
+        } catch (Exception $e) {
+            error_log("Erro ao registrar tentativa de login: " . $e->getMessage());
         }
     }
 }

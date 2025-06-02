@@ -12,9 +12,9 @@ use backend\api\config\Database;
 
 // Buscar cursos
 try {
-    $db = Database::getInstance();
+    $db = Database::getInstance()->getConnection();
     $cursos = [];
-    $res = $db->query("SELECT id,nome FROM Curso");
+    $res = $db->query("SELECT id, nome FROM Curso");
     if ($res) {
         while($row = $res->fetch_assoc()) {
             $cursos[] = $row;
@@ -37,56 +37,139 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $errors = [];
     
     // Validações Backend
-    if(!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i',$email)) {
+    if (empty($nome)) {
+        $errors[] = "Nome é obrigatório.";
+    }
+    
+    if (empty($email)) {
+        $errors[] = "E-mail é obrigatório.";
+    } elseif (!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i', $email)) {
         $errors[] = "Use um e‑mail terminando em .ufopa.edu.br";
     }
 
-    if($senha !== $confSenha)
+    if (empty($senha)) {
+        $errors[] = "Senha é obrigatória.";
+    } elseif ($senha !== $confSenha) {
         $errors[] = "As senhas não coincidem.";
-
-    if(!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{8,}$/',$senha))
+    } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{8,}$/', $senha)) {
         $errors[] = "Senha fraca (mínimo 8 chars, 1 upper, 1 lower, 1 dígito e 1 símbolo).";
+    }
 
-    if($tipo==='aluno'){
-        if(!$matricula||!$curso_id) $errors[]="Informe matrícula e curso.";
-    } else {
-        if(!$siape) $errors[]="Informe siape.";
+    if (empty($tipo) || !in_array($tipo, ['aluno', 'coordenador', 'orientador'])) {
+        $errors[] = "Tipo de usuário inválido.";
+    }
+
+    if ($tipo === 'aluno') {
+        if (empty($matricula)) {
+            $errors[] = "Matrícula é obrigatória para alunos.";
+        }
+        if (empty($curso_id)) {
+            $errors[] = "Curso é obrigatório para alunos.";
+        }
+    } elseif ($tipo === 'coordenador') {
+        if (empty($siape)) {
+            $errors[] = "SIAPE é obrigatório para coordenadores.";
+        }
+        if (empty($curso_id)) {
+            $errors[] = "Curso é obrigatório para coordenadores.";
+        }
+    } elseif ($tipo === 'orientador') {
+        if (empty($siape)) {
+            $errors[] = "SIAPE é obrigatório para orientadores.";
+        }
     }
 
     if(empty($errors)){
-        $data = [
-            'nome' => $nome,
-            'email' => $email,
-            'senha' => $senha,
-            'conf_senha' => $confSenha,
-            'tipo' => $tipo,
-            'matricula' => $matricula,
-            'curso_id' => $curso_id ? (int)$curso_id : null,
-            'siape' => $siape
-        ];
-
-        $ch = curl_init("http://localhost/Gerenciamento-de-ACC/backend/api/routes/cadastro.php");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        $response = curl_exec($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        $responseData = json_decode($response, true);
-
-        if($status === 200 && $responseData !== null && isset($responseData['success']) && $responseData['success']){
-            $_SESSION['cadastro_temp'] = [
-                'dados' => $data,
-                'codigo' => $responseData['codigo'],
-                'expiracao' => time() + 600
-            ];
-            
-            header("Location: confirmacao.php?email=" . urlencode($responseData['email']));
-            exit;
+        // Verificar se o arquivo da API existe
+        $api_file = __DIR__ . '/../../backend/api/routes/cadastro.php';
+        if (!file_exists($api_file)) {
+            $errors[] = "API de cadastro não encontrada. Contate o administrador.";
         } else {
-            $errors[] = "Erro ao realizar o cadastro.";
+            $data = [
+                'nome' => $nome,
+                'email' => $email,
+                'senha' => $senha,
+                'conf_senha' => $confSenha,
+                'tipo' => $tipo,
+                'matricula' => $matricula,
+                'curso_id' => $curso_id ? (int)$curso_id : null,
+                'siape' => $siape
+            ];
+
+            // Verificar se cURL está habilitado
+            if (!function_exists('curl_init')) {
+                $errors[] = "cURL não está habilitado no servidor.";
+            } else {
+                $ch = curl_init("http://localhost/Gerenciamento-de-ACC/backend/api/routes/cadastro.php");
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                
+                $response = curl_exec($ch);
+                $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curl_error = curl_error($ch);
+                curl_close($ch);
+
+                if ($curl_error) {
+                    $errors[] = "Erro de conexão: " . $curl_error;
+                } elseif ($response === false) {
+                    $errors[] = "Falha na requisição para a API.";
+                } else {
+                    $responseData = json_decode($response, true);
+                    
+                    // Verificar se a resposta é válida
+                    if ($responseData === null) {
+                        $errors[] = "Resposta inválida da API. Formato JSON incorreto.";
+                    } elseif ($status === 200) {
+                        if (isset($responseData['success']) && $responseData['success'] === true) {
+                            $_SESSION['cadastro_temp'] = [
+                                'dados' => $data,
+                                'codigo' => $responseData['codigo'] ?? null,
+                                'expiracao' => time() + 600
+                            ];
+                            
+                            $email = $responseData['email'] ?? $data['email'];
+                            header("Location: confirmacao.php?email=" . urlencode($email));
+                            exit;
+                            
+                        } elseif (isset($responseData['codigo']) && isset($responseData['message'])) {
+                            $_SESSION['cadastro_temp'] = [
+                                'dados' => $data,
+                                'codigo' => $responseData['codigo'],
+                                'expiracao' => time() + 600
+                            ];
+                            
+                            $email = $responseData['email'] ?? $data['email'];
+                            header("Location: confirmacao.php?email=" . urlencode($email));
+                            exit;
+                            
+                        } else {
+                            // Tratar casos de erro
+                            if (isset($responseData['error'])) {
+                                $errors[] = "Erro: " . $responseData['error'];
+                            } elseif (isset($responseData['message']) && !isset($responseData['codigo'])) {
+                                $errors[] = "Erro: " . $responseData['message'];
+                            } else {
+                                $errors[] = "Erro desconhecido na API.";
+                            }
+                        }
+                    } else {
+                        // Status HTTP diferente de 200
+                        if (isset($responseData['error'])) {
+                            $errors[] = "Erro HTTP " . $status . ": " . $responseData['error'];
+                        } elseif (isset($responseData['message'])) {
+                            $errors[] = "Erro HTTP " . $status . ": " . $responseData['message'];
+                        } else {
+                            $errors[] = "Erro HTTP " . $status . ": Falha na comunicação.";
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -104,7 +187,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         const senha = document.getElementById('senha').value;
         const conf  = document.getElementById('conf_senha').value;
 
-        const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,}$/;
+        const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W]).{8,}$/;
 
         let errs = [];
         if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email)) {
@@ -126,18 +209,37 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     
     function toggleFields(){
         let t = document.getElementById('tipo').value;
-        if(t==='aluno'){
-            document.getElementById('alunoFields').style.display = 'block';
-            document.getElementById('CursoFields').style.display = 'block';
-            document.getElementById('SiapeFilds').style.display = 'none';
-        }else if(t === 'coordenador'){
-            document.getElementById('alunoFields').style.display = 'none';
-            document.getElementById('CursoFields').style.display = 'block';
-            document.getElementById('SiapeFilds').style.display = 'block';
-        }else{
-            document.getElementById('alunoFields').style.display = 'none';
-            document.getElementById('CursoFields').style.display = 'none';
-            document.getElementById('SiapeFilds').style.display = 'block';
+        let matriculaField = document.getElementById('alunoFields');
+        let cursoField = document.getElementById('CursoFields');
+        let siapeField = document.getElementById('SiapeFilds');
+        
+        if(t === 'aluno'){
+            matriculaField.style.display = 'block';
+            cursoField.style.display = 'block';
+            siapeField.style.display = 'none';
+            
+            // Tornar campos obrigatórios
+            document.getElementById('matricula').required = true;
+            document.getElementById('curso_id').required = true;
+            document.getElementById('siape').required = false;
+        } else if(t === 'coordenador'){
+            matriculaField.style.display = 'none';
+            cursoField.style.display = 'block';
+            siapeField.style.display = 'block';
+            
+            // Tornar campos obrigatórios
+            document.getElementById('matricula').required = false;
+            document.getElementById('curso_id').required = true;
+            document.getElementById('siape').required = true;
+        } else {
+            matriculaField.style.display = 'none';
+            cursoField.style.display = 'none';
+            siapeField.style.display = 'block';
+            
+            // Tornar campos obrigatórios
+            document.getElementById('matricula').required = false;
+            document.getElementById('curso_id').required = false;
+            document.getElementById('siape').required = true;
         }
     }
     </script>

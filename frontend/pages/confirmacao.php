@@ -72,68 +72,97 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>Confirmação de E-mail</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-    <div class="bg-white p-8 rounded-lg shadow-md w-96">
-        <?php if ($success): ?>
-            <div class="text-center">
-                <h2 class="text-2xl font-bold mb-6 text-green-600">Cadastro Realizado!</h2>
-                <p class="mb-4">Seu cadastro foi realizado com sucesso!</p>
-                <div class="space-y-2">
-                    <?php 
-                    $tipo = $_SESSION['usuario']['tipo'];
-                    if($tipo === 'aluno'): ?>
-                        <a href="home_aluno.php" class="block w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-200">
-                            Ir para Dashboard
-                        </a>
-                    <?php elseif($tipo === 'coordenador'): ?>
-                        <a href="home_coordenador.php" class="block w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-200">
-                            Ir para Dashboard
-                        </a>
-                    <?php else: ?>
-                        <a href="home_orientador.php" class="block w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-200">
-                            Ir para Dashboard
-                        </a>
-                    <?php endif; ?>
-                </div>
+<body class="bg-pattern font-montserrat min-h-screen flex flex-col">
+    <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="#" class="flex-shrink-0 flex items-center">
+                        <span class="text-2xl font-regular" style="color: #FFFFFF">SACC</span>
+                    </a>
+                </div> 
             </div>
-        <?php else: ?>
-            <h2 class="text-2xl font-bold mb-6 text-center">Confirmação de E-mail</h2>
-            <p class="mb-4 text-gray-600">Digite o código de 6 dígitos enviado para:</p>
-            <p class="mb-6 font-semibold text-blue-600"><?= htmlspecialchars($email) ?></p>
+        </div>
+    </nav>
+    <div class="flex-grow pt-24 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style="background-color: #0D1117">
+        <div class="max-w-md w-full space-y-8 bg-white/90 p-8 rounded-xl shadow-md backdrop-blur-sm form-container" style="background-color: #F6F8FA">
             
-            <?php if($error): ?>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    <?= htmlspecialchars($error) ?>
+            <?php if (!$success): ?>
+                <div>
+                    <h2 class="mt-6 text-center text-3xl font-extralight" style="color: #0969DA">
+                        Confirmação de E-mail
+                    </h2>
+                    <p class="mt-4 text-center text-gray-600">Digite o código de 6 dígitos enviado para:</p>
+                    <p class="mt-2 text-center font-semibold" style="color: #0969DA"><?= htmlspecialchars($email) ?></p>
+                </div>
+                
+                <?php if($error): ?>
+                    <div class="bg-red-50 p-4 rounded-md">
+                        <p class="text-sm text-red-600"><?= htmlspecialchars($error) ?></p>
+                    </div>
+                <?php endif; ?>
+                
+                <form method="POST" class="mt-8 space-y-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="codigo" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Código de Verificação</label>
+                            <input id="codigo" 
+                                   name="codigo" 
+                                   type="text"
+                                   maxlength="6" 
+                                   required
+                                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53] text-center text-lg font-mono tracking-widest">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" 
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                            Confirmar Código
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="text-center">
+                    <a href="cadastro.php" class="text-sm" style="color: #0969DA">
+                        Voltar ao cadastro
+                    </a>
+                </div>
+            <?php else: ?>
+                <div class="text-center">
+                    <h2 class="mt-6 text-center text-3xl font-extralight" style="color: #1A7F37">
+                        Cadastro Realizado!
+                    </h2>
+                    <p class="mt-4 text-gray-600">Seu cadastro foi realizado com sucesso!</p>
+                    <div class="mt-6">
+                        <?php 
+                        $tipo = $_SESSION['usuario']['tipo'];
+                        if($tipo === 'aluno'): ?>
+                            <a href="home_aluno.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                                Ir para Dashboard
+                            </a>
+                        <?php elseif($tipo === 'coordenador'): ?>
+                            <a href="home_coordenador.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                                Ir para Dashboard
+                            </a>
+                        <?php else: ?>
+                            <a href="home_orientador.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                                Ir para Dashboard
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endif; ?>
             
-            <form method="POST">
-                <div class="mb-4">
-                    <input type="text" 
-                           name="codigo" 
-                           placeholder="Código de 6 dígitos" 
-                           maxlength="6" 
-                           required
-                           class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500">
-                </div>
-                <button type="submit" 
-                        class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-200">
-                    Confirmar
-                </button>
-            </form>
-            
-            <div class="mt-4 text-center">
-                <a href="cadastro.php" class="text-blue-500 hover:underline">Voltar ao cadastro</a>
-            </div>
-        <?php endif; ?>
+        </div>
     </div>
 </body>
 </html>

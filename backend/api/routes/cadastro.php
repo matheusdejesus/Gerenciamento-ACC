@@ -48,11 +48,11 @@ try {
     }
 
     // Conectar ao banco
-    $db = Database::getInstance();
+    $db = Database::getInstance()->getConnection();
     
     // Função para verificar se email existe em uma tabela
-    function verificarEmailTabela($db, $tabela, $email) {
-        $result = $db->query("DESCRIBE $tabela");
+    function verificarEmailTabela($dbConnection, $tabela, $email) {
+        $result = $dbConnection->query("DESCRIBE $tabela");
         $colunas = [];
         
         while ($row = $result->fetch_assoc()) {
@@ -69,7 +69,7 @@ try {
         
         // Verificar cada coluna de email
         foreach ($colunasEmail as $colunaEmail) {
-            $stmt = $db->prepare("SELECT * FROM $tabela WHERE $colunaEmail = ? LIMIT 1");
+            $stmt = $dbConnection->prepare("SELECT * FROM $tabela WHERE $colunaEmail = ? LIMIT 1");
             if ($stmt) {
                 $stmt->bind_param("s", $email);
                 if ($stmt->execute()) {
@@ -151,7 +151,7 @@ try {
         }
     }
 
-    // Resposta de sucesso
+    // Resposta
     echo json_encode([
         'success' => true,
         'message' => 'Cadastro iniciado com sucesso',

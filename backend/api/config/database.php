@@ -30,13 +30,5 @@ class Database {
     public function getConnection() {
         return $this->connection;
     }
-    
-    public function query($sql) {
-        return $this->connection->query($sql);
-    }
-    
-    public function prepare($sql) {
-        return $this->connection->prepare($sql);
-    }
 }
 ?>
