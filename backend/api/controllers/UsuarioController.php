@@ -46,6 +46,17 @@ class UsuarioController {
                 $this->sendJsonResponse(['error' => 'Email e senha não podem estar vazios'], 400);
             }
             
+            // Verificar se o usuário está bloqueado
+            if (Usuario::verificarBloqueio($email)) {
+                $tempoRestante = Usuario::obterTempoRestanteBloqueio($email);
+                $minutosRestantes = ceil($tempoRestante / 60);
+                $this->sendJsonResponse([
+                    'error' => "Muitas tentativas de login falhadas. Tente novamente em $minutosRestantes minuto(s).",
+                    'bloqueado' => true,
+                    'tempo_restante' => $tempoRestante
+                ], 429);
+            }
+            
             // Buscar usuário usando o model
             $usuario = Usuario::findByEmailForLogin($email);
             
@@ -60,8 +71,9 @@ class UsuarioController {
                 $this->sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
             }
             
-            // Login bem-sucedido - registrar sucesso
+            // Login bem-sucedido - registrar sucesso e limpar tentativas antigas
             Usuario::registrarTentativaLogin($email, 1, $db);
+            Usuario::limparTentativasAntigas($email);
             
             // Remover senha do retorno
             unset($usuario['senha']);

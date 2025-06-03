@@ -220,5 +220,93 @@ class Usuario {
             error_log("Erro ao registrar tentativa de login: " . $e->getMessage());
         }
     }
+
+    public static function verificarBloqueio($email) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Verificar tentativas dos últimos 5 minutos
+            $stmt = $db->prepare("
+                SELECT COUNT(*) as tentativas_falhadas 
+                FROM TentativasLogin 
+                WHERE email = ? 
+                AND sucesso = 0 
+                AND data_hora >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+            ");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            
+            return $row['tentativas_falhadas'] >= 3;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao verificar bloqueio: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public static function obterTempoRestanteBloqueio($email) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Buscar a última tentativa falhada dentro dos últimos 5 minutos
+            $stmt = $db->prepare("
+                SELECT TIMESTAMPDIFF(SECOND, data_hora, DATE_ADD(data_hora, INTERVAL 5 MINUTE)) as segundos_restantes
+                FROM TentativasLogin 
+                WHERE email = ? 
+                AND sucesso = 0 
+                AND data_hora >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                ORDER BY data_hora DESC 
+                LIMIT 1
+            ");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                return max(0, $row['segundos_restantes']);
+            }
+            
+            return 0;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao obter tempo restante: " . $e->getMessage());
+            return 0;
+        }
+    }
+    
+    public static function limparTentativasAntigas($email) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Limpar tentativas antigas (mais de 5 minutos) em caso de login bem-sucedido
+            $stmt = $db->prepare("
+                DELETE FROM TentativasLogin 
+                WHERE email = ? 
+                AND data_hora < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+            ");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            
+        } catch (Exception $e) {
+            error_log("Erro ao limpar tentativas antigas: " . $e->getMessage());
+        }
+    }
+
+    public function buscarPorEmail($email) {
+        $stmt = $this->db->prepare("SELECT id, nome, email FROM Usuario WHERE email = ? LIMIT 1");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_assoc();
+    }
+
+    public function atualizarSenha($id, $senha_hash) {
+        $stmt = $this->db->prepare("UPDATE Usuario SET senha = ? WHERE id = ?");
+        $stmt->bind_param("si", $senha_hash, $id);
+        return $stmt->execute();
+    }
 }
 ?>

@@ -46,14 +46,6 @@ $atividades_disponiveis = [
         'descricao' => 'Atividades práticas supervisionadas em empresas ou instituições',
         'tipo' => 'Participação'
     ],
-    [
-        'id' => 6,
-        'nome' => 'Eventos',
-        'categoria' => 'Extensão',
-        'horas_max' => 40,
-        'descricao' => 'Participação em congressos, seminários e workshops',
-        'tipo' => 'Participação'
-    ],
 ];
 
 $atividades_filtradas = $atividades_disponiveis;
@@ -224,9 +216,8 @@ $atividades_filtradas = $atividades_disponiveis;
             const atividade = atividades.find(a => a.id === id);
             if (!atividade) return;
             
-            if (confirm(`Deseja se cadastrar na atividade "${atividade.nome}"?`)) {
-                alert(`Redirecionando para cadastro na atividade: ${atividade.nome}`);
-            }
+            // Redirecionar diretamente para a página de cadastro
+            window.location.href = `cadastrar_atividade.php?id=${id}`;
             
             fecharModal();
         }

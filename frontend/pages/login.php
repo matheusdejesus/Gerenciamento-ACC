@@ -86,6 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $erro = isset($data['error']) ? $data['error'] : 'Resposta inválida da API';
                 }
+            } else if ($httpCode === 429) {
+                $responseData = json_decode($response, true);
+                if (isset($responseData['error'])) {
+                    $erro = $responseData['error'];
+                } else {
+                    $erro = 'Muitas tentativas de login. Tente novamente em alguns minutos.';
+                }
             } else {
                 $responseData = json_decode($response, true);
                 $erro = isset($responseData['error']) ? $responseData['error'] : 'HTTP Error: ' . $httpCode;
@@ -129,6 +136,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="bg-red-50 p-4 rounded-md">
                     <div class="text-sm text-red-600">
                         <?php echo htmlspecialchars($erro); ?>
+                        <?php if (strpos($erro, 'Tente novamente em') !== false): ?>
+                            <div id="countdown" class="mt-2 font-mono text-red-700"></div>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>
@@ -178,5 +188,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </footer>
+    <script>
+        const errorMessage = <?php echo json_encode($erro ?? ''); ?>;
+        if (errorMessage.includes('Tente novamente em') && errorMessage.includes('minuto')) {
+            const match = errorMessage.match(/(\d+) minuto/);
+            if (match) {
+                let minutosRestantes = parseInt(match[1]);
+                let segundosRestantes = minutosRestantes * 60;
+                
+                const countdownElement = document.getElementById('countdown');
+                if (countdownElement) {
+                    const timer = setInterval(() => {
+                        const minutos = Math.floor(segundosRestantes / 60);
+                        const segundos = segundosRestantes % 60;
+                        
+                        countdownElement.textContent = `Tempo restante: ${minutos}:${segundos.toString().padStart(2, '0')}`;
+                        
+                        if (segundosRestantes <= 0) {
+                            clearInterval(timer);
+                            countdownElement.textContent = 'Você pode tentar fazer login novamente.';
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        }
+                        
+                        segundosRestantes--;
+                    }, 1000);
+                }
+            }
+        }
+    </script>
 </body>
 </html>
