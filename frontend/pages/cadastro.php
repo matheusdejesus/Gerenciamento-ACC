@@ -43,8 +43,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     
     if (empty($email)) {
         $errors[] = "E-mail é obrigatório.";
-    } elseif (!preg_match('/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i', $email)) {
-        $errors[] = "Use um e‑mail terminando em .ufopa.edu.br";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Formato de e-mail inválido.";
     }
 
     if (empty($senha)) {
@@ -190,8 +190,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         const senhaRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W]).{8,}$/;
 
         let errs = [];
-        if (!/^[^@\s]+@[^@\s]+\.ufopa\.edu\.br$/i.test(email)) {
-            errs.push('Use um e‑mail terminando em .ufopa.edu.br');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errs.push('Formato de e-mail inválido.');
         }
         if (senha !== conf) {
             errs.push('As senhas não coincidem.');
