@@ -1,17 +1,11 @@
 <?php
+
 session_start();
 if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
     header('Location: login.php');
     exit;
 }
 
-// Simular dados do aluno
-$aluno = [
-    'nome' => $_SESSION['usuario']['nome'] ?? '',
-    'curso' => $_SESSION['usuario']['curso'] ?? '',
-    'matricula' => $_SESSION['usuario']['matricula'] ?? '',
-    'email' => $_SESSION['usuario']['email'] ?? ''
-];
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -80,13 +74,13 @@ $aluno = [
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">Nome Completo</label>
-                                    <input type="text" value="<?= htmlspecialchars($aluno['nome']) ?>" 
+                                    <input type="text" 
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
 
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">Matrícula</label>
-                                    <input type="text" value="<?= htmlspecialchars($aluno['matricula']) ?>" 
+                                    <input type="text" 
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" 
                                            disabled>
                                     <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
@@ -94,12 +88,12 @@ $aluno = [
 
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">E-mail</label>
-                                    <input type="email" value="<?= htmlspecialchars($aluno['email']) ?>" 
+                                    <input type="email" 
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">Curso</label>
-                                    <input type="text" value="<?= htmlspecialchars($aluno['curso']) ?>" 
+                                    <input type="text" 
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" 
                                            disabled>
                                     <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
@@ -175,14 +169,24 @@ $aluno = [
         </div>
     </footer>
 
+    <script src="../assets/js/auth.js"></script>
     <script>
+        // Verificar autenticação JWT
+        if (!AuthClient.isLoggedIn()) {
+            window.location.href = 'login.php';
+        }
+        
+        const user = AuthClient.getUser();
+        if (user.tipo !== 'aluno') { // ou 'coordenador' ou 'orientador'
+            AuthClient.logout();
+        }
+
         function mostrarAba(abaId) {
             // Esconder todas as abas
             document.querySelectorAll('.aba-conteudo').forEach(aba => {
                 aba.classList.add('hidden');
             });
             
-            // Remover classe active de todos os botões
             document.querySelectorAll('.aba-btn').forEach(btn => {
                 btn.classList.remove('active');
                 btn.style.borderColor = 'transparent';
@@ -200,7 +204,6 @@ $aluno = [
         }
 
         function salvarDadosPessoais() {
-            // Simular salvamento
             alert('✅ Dados pessoais atualizados com sucesso!');
         }
 
@@ -224,7 +227,6 @@ $aluno = [
                 return;
             }
 
-            // Simular alteração
             alert('✅ Senha alterada com sucesso!');
             
             // Limpar campos
@@ -233,7 +235,6 @@ $aluno = [
             document.getElementById('confirmarSenha').value = '';
         }
 
-        // Inicializar primeira aba
         mostrarAba('dados-pessoais');
     </script>
 </body>

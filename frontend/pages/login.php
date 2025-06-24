@@ -1,106 +1,9 @@
 <?php
-session_start();
-
-// Para limpar a sessão se necessário
 if (isset($_GET['logout'])) {
+    session_start();
     session_destroy();
     header('Location: login.php');
     exit;
-}
-
-// Se já estiver logado, redireciona
-if (isset($_SESSION['usuario'])) {
-    $tipo = $_SESSION['usuario']['tipo'];
-    
-    switch ($tipo) {
-        case 'aluno':
-            header('Location: home_aluno.php');
-            break;
-        case 'coordenador':
-            header('Location: home_coordenador.php');
-            break;
-        case 'orientador':
-            header('Location: home_orientador.php');
-            break;
-        default:
-            header('Location: index.php');
-    }
-    exit;
-}
-
-$erro = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email']);
-    $senha = $_POST['senha'];
-
-    if (empty($email) || empty($senha)) {
-        $erro = 'Por favor, preencha todos os campos.';
-    } else {
-        //Requisição para a API de login
-        $ch = curl_init('http://localhost/Gerenciamento-de-ACC/backend/api/routes/login.php');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-            'email' => $email,
-            'senha' => $senha
-        ]));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json'
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        error_log("=== FRONTEND DEBUG ===");
-        error_log("HTTP Code: " . $httpCode);
-        error_log("Raw Response: " . $response);
-        error_log("Response Length: " . strlen($response));
-
-        if (empty($response)) {
-            $erro = 'Resposta vazia da API';
-        } else if (curl_errno($ch)) {
-            $erro = 'Erro de conexão com o servidor: ' . curl_error($ch);
-        } else {
-            if ($httpCode === 200) {
-                $data = json_decode($response, true);
-                
-                if ($data === null) {
-                    $erro = 'Erro ao decodificar JSON: ' . json_last_error_msg() . ' | Raw: ' . substr($response, 0, 500);
-                } else if (isset($data['success']) && $data['success'] === true) {
-                    $_SESSION['usuario'] = $data['usuario'];
-                    
-                    switch ($data['usuario']['tipo']) {
-                        case 'aluno':
-                            header('Location: home_aluno.php');
-                            break;
-                        case 'coordenador':
-                            header('Location: home_coordenador.php');
-                            break;
-                        case 'orientador':
-                            header('Location: home_orientador.php');
-                            break;
-                        default:
-                            header('Location: index.php');
-                    }
-                    exit;
-                } else {
-                    $erro = isset($data['error']) ? $data['error'] : 'Resposta inválida da API';
-                }
-            } else if ($httpCode === 429) {
-                $responseData = json_decode($response, true);
-                if (isset($responseData['error'])) {
-                    $erro = $responseData['error'];
-                } else {
-                    $erro = 'Muitas tentativas de login. Tente novamente em alguns minutos.';
-                }
-            } else {
-                $responseData = json_decode($response, true);
-                $erro = isset($responseData['error']) ? $responseData['error'] : 'HTTP Error: ' . $httpCode;
-            }
-        }
-        
-        curl_close($ch);
-    }
 }
 ?>
 <!DOCTYPE html>
@@ -132,18 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Entrar
                 </h2>
             </div>
-            <?php if (!empty($erro)): ?>
-                <div class="bg-red-50 p-4 rounded-md">
-                    <div class="text-sm text-red-600">
-                        <?php echo htmlspecialchars($erro); ?>
-                        <?php if (strpos($erro, 'Tente novamente em') !== false): ?>
-                            <div id="countdown" class="mt-2 font-mono text-red-700"></div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
+            <div id="errorDiv" class="bg-red-50 p-4 rounded-md hidden">
+                <div class="text-sm text-red-600" id="errorMessage"></div>
+            </div>
             
-            <form method="POST" action="" class="mt-8 space-y-6">
+            <form class="mt-8 space-y-6" id="loginForm">
                 <div class="space-y-4">
                     <div>
                         <label for="email" class="block text-sm font-regular text-gray-700" style="color: #0969DA">Email</label>
@@ -159,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="space-y-2">
                     <div>
-                        <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" id="submitBtn">
                             Entrar
                         </button>
                     </div>
@@ -188,35 +84,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </footer>
+
+    <script src="../assets/js/auth.js"></script>
     <script>
-        const errorMessage = <?php echo json_encode($erro ?? ''); ?>;
-        if (errorMessage.includes('Tente novamente em') && errorMessage.includes('minuto')) {
-            const match = errorMessage.match(/(\d+) minuto/);
-            if (match) {
-                let minutosRestantes = parseInt(match[1]);
-                let segundosRestantes = minutosRestantes * 60;
-                
-                const countdownElement = document.getElementById('countdown');
-                if (countdownElement) {
-                    const timer = setInterval(() => {
-                        const minutos = Math.floor(segundosRestantes / 60);
-                        const segundos = segundosRestantes % 60;
-                        
-                        countdownElement.textContent = `Tempo restante: ${minutos}:${segundos.toString().padStart(2, '0')}`;
-                        
-                        if (segundosRestantes <= 0) {
-                            clearInterval(timer);
-                            countdownElement.textContent = 'Você pode tentar fazer login novamente.';
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 2000);
-                        }
-                        
-                        segundosRestantes--;
-                    }, 1000);
-                }
+        // Verificar se já está logado via JWT
+        if (AuthClient.isLoggedIn()) {
+            const user = AuthClient.getUser();
+            console.log('Usuário já logado:', user);
+            
+            switch (user.tipo) {
+                case 'aluno':
+                    window.location.href = 'home_aluno.php';
+                    break;
+                case 'coordenador':
+                    window.location.href = 'home_coordenador.php';
+                    break;
+                case 'orientador':
+                    window.location.href = 'home_orientador.php';
+                    break;
+                default:
+                    console.error('Tipo de usuário desconhecido:', user.tipo);
             }
         }
+        // Handler do formulário de login
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const errorDiv = document.getElementById('errorDiv');
+            const errorMessage = document.getElementById('errorMessage');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Limpar erro anterior
+            errorDiv.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Entrando...';
+            
+            console.log('Tentando fazer login com:', email);
+            
+            try {
+                const result = await AuthClient.login(email, senha);
+                console.log('Login bem-sucedido:', result);
+                
+                // Redirecionar baseado no tipo de usuário
+                switch (result.usuario.tipo) {
+                    case 'aluno':
+                        console.log('Redirecionando para home_aluno.php');
+                        window.location.href = 'home_aluno.php';
+                        break;
+                    case 'coordenador':
+                        console.log('Redirecionando para home_coordenador.php');
+                        window.location.href = 'home_coordenador.php';
+                        break;
+                    case 'orientador':
+                        console.log('Redirecionando para home_orientador.php');
+                        window.location.href = 'home_orientador.php';
+                        break;
+                    default:
+                        console.error('Tipo de usuário não reconhecido:', result.usuario.tipo);
+                        throw new Error('Tipo de usuário não reconhecido');
+                }
+            } catch (error) {
+                console.error('Erro no login:', error);
+                errorMessage.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Entrar';
+            }
+        });
+    </script>
+    <script>
+        // Debug temporário
+        console.log('=== DEBUG LOGIN ===');
+        console.log('AuthClient existe?', typeof AuthClient !== 'undefined');
+        console.log('Token atual:', AuthClient ? AuthClient.getToken() : 'N/A');
+        console.log('Usuário atual:', AuthClient ? AuthClient.getUser() : 'N/A');
+        console.log('Está logado?', AuthClient ? AuthClient.isLoggedIn() : 'N/A');
     </script>
 </body>
 </html>

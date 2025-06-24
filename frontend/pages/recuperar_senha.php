@@ -1,75 +1,78 @@
 <?php
 session_start();
-require_once __DIR__ . '/config.php';
-require 'vendor/autoload.php';
-
-ini_set('SMTP', 'smtp.gmail.com');
-ini_set('smtp_port', '587');
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
-function generateToken($length = 25) {
-    return bin2hex(random_bytes($length));
-}
 
 $message = '';
+$messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
 
     if (!$email) {
         $message = 'Por favor, informe um email válido.';
+        $messageType = 'error';
     } else {
-        // Verifica se o email cadastrado existe na tabela "usuario"
-        $stmt = $mysqli->prepare("SELECT id FROM usuario WHERE email = ? LIMIT 1");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-        $stmt->close();
+        // Fazer requisição para a API de recuperação de senha
+        $data = ['email' => $email];
+        
+        $ch = curl_init('http://localhost/Gerenciamento-de-ACC/backend/api/routes/recuperar_senha.php');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-        if ($user) {
-            $token = generateToken();
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
 
-            // Armazena o token na tabela "recuperar_senha"
-            $stmtInsert = $mysqli->prepare("INSERT INTO recuperarsenha (usuario_id, token, criacao) VALUES (?, ?, NOW())");
-            $stmtInsert->bind_param("is", $user['id'], $token);
-            $stmtInsert->execute();
-            $stmtInsert->close();
+        // Debug: Log da requisição
+        error_log("=== RECUPERAR SENHA DEBUG ===");
+        error_log("HTTP Code: " . $httpCode);
+        error_log("cURL Error: " . $curl_error);
+        error_log("Raw Response: " . $response);
+        error_log("Response Length: " . strlen($response));
 
-            // Cria o link de recuperação.
-            $recoveryLink = "http://" . $_SERVER['HTTP_HOST'] . "/Gerenciamento-de-ACC/frontend/pages/alterar_senha.php?token=" . $token;
-            $subject = "Recuperação de Senha";
-            $body = "Olá,\n\nClique no link abaixo para recuperar sua senha:\n$recoveryLink\n\nSe você não solicitou a recuperação, ignore este email.";
-
-            $mail = new PHPMailer(true);
-            try {
-                // Configurações do servidor SMTP
-                $mail->isSMTP();
-                $mail->Host       = 'smtp.gmail.com';
-                $mail->SMTPAuth   = true;
-                $mail->Username   = 'sistemaacc2025@gmail.com';
-                $mail->Password   = 'ehgg wzxq bsxt blab';
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port       = 587;
-
-                // Remetente e destinatário
-                $mail->setFrom('sistemaacc2025@gmail.com', 'SACC UFOPA');
-                $mail->addAddress($email);
-
-                // Conteúdo do e-mail
-                $mail->isHTML(false);
-                $mail->Subject = $subject;
-                $mail->Body    = $body;
-
-                $mail->send();
-                $message = "Email enviado com sucesso. Verifique sua caixa de entrada.";
-            } catch (Exception $e) {
-                $message = "Falha ao enviar o email. Erro: " . $mail->ErrorInfo;
-            }
+        if ($curl_error) {
+            $message = "Erro de conexão: " . $curl_error;
+            $messageType = 'error';
+        } elseif ($response === false) {
+            $message = "Falha na requisição para a API.";
+            $messageType = 'error';
         } else {
-            $message = "Esse email não está cadastrado.";
+            $responseData = json_decode($response, true);
+            
+            if ($responseData === null) {
+                // Mostrar mais detalhes do erro JSON
+                $json_error = json_last_error_msg();
+                $message = "Resposta inválida da API. Erro JSON: " . $json_error . ". Resposta: " . substr($response, 0, 200);
+                $messageType = 'error';
+                error_log("JSON Error: " . $json_error);
+            } elseif ($httpCode === 200) {
+                if (isset($responseData['success']) && $responseData['success'] === true) {
+                    $message = $responseData['message'] ?? "Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.";
+                    $messageType = 'success';
+                } else {
+                    $message = $responseData['error'] ?? "Erro desconhecido.";
+                    $messageType = 'error';
+                }
+            } elseif ($httpCode === 404) {
+                $message = "Este email não está cadastrado.";
+                $messageType = 'error';
+            } elseif ($httpCode === 400) {
+                $message = $responseData['error'] ?? "Dados inválidos.";
+                $messageType = 'error';
+            } elseif ($httpCode === 500) {
+                $message = "Erro interno do servidor. Tente novamente mais tarde.";
+                $messageType = 'error';
+            } else {
+                $message = $responseData['error'] ?? "Erro HTTP: " . $httpCode;
+                $messageType = 'error';
+            }
         }
     }
 }
@@ -97,15 +100,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="flex-grow pt-24 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style="background-color: #0D1117">
         <div class="max-w-md w-full space-y-8 bg-white/90 p-8 rounded-xl shadow-md backdrop-blur-sm form-container" style="background-color: #F6F8FA">
-            <?php if ($message === "Email enviado com sucesso. Verifique sua caixa de entrada."): ?>
-                <div class="bg-blue-50 p-4 rounded-md">
-                    <p class="text-sm text-blue-600"><?php echo htmlspecialchars($message); ?></p>
+            <?php if ($messageType === 'success'): ?>
+                <div class="bg-green-50 p-4 rounded-md">
+                    <p class="text-sm text-green-600"><?php echo htmlspecialchars($message); ?></p>
                 </div>
                 <div class="mt-6">
                     <a href="login.php" 
                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" 
                        style="background-color: #0969DA">
-                        Voltar
+                        Voltar ao Login
                     </a>
                 </div>
             <?php else: ?>
@@ -115,9 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </h2>
                 </div>
 
-                <?php if ($message): ?>
-                    <div class="bg-blue-50 p-4 rounded-md">
-                        <p class="text-sm text-blue-600"><?php echo htmlspecialchars($message); ?></p>
+                <?php if ($message && $messageType === 'error'): ?>
+                    <div class="bg-red-50 p-4 rounded-md">
+                        <p class="text-sm text-red-600"><?php echo htmlspecialchars($message); ?></p>
                     </div>
                 <?php endif; ?>
 

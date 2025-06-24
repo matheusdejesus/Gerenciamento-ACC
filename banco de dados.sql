@@ -63,6 +63,15 @@ CREATE TABLE CategoriaAtividade (
   observacoes TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+create table AtividadesDisponiveis(
+    id int auto_increment primary key,
+    categoria_id INT NOT NULL,
+    titulo varchar(255) not null,
+    descricao text,
+    carga_horaria int,
+    FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 8. Tabela AtividadeComplementar
 CREATE TABLE AtividadeComplementar (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -80,7 +89,8 @@ CREATE TABLE AtividadeComplementar (
   orientador_id INT NULL,
   avaliador_id INT NULL,
   observacoes_Analise TEXT,
-  certificado_blob BLOB,
+  declaracao BLOB,
+  certificado BLOB,
   FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
   FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT,
   FOREIGN KEY (orientador_id) REFERENCES Orientador(usuario_id) ON DELETE SET NULL,
@@ -178,3 +188,19 @@ INSERT INTO Curso (id, nome, codigo, instituto_id, campus) VALUES
   (30, 'Bacharelado em Farmácia',                                               'FAR',      6, 'Santarém'),  -- :contentReference[oaicite:37]{index=37}
   (31, 'Bacharelado Interdisciplinar em Saúde',                                  'BIS',      6, 'Santarém'),  -- :contentReference[oaicite:38]{index=38}
   (32, 'Bacharelado Profissional em Farmácia',                                   'PFAR',     6, 'Santarém');  -- :contentReference[oaicite:39]{index=39}
+
+-- Inserindo dados na tabela CategoriaAtividade
+INSERT INTO categoriaatividade (id, descricao, carga_horaria_maxima, observacoes) VALUES
+(1, 'Ensino', 80, 'Atividades relacionadas ao ensino e educação'),
+(2, 'Pesquisa', 60, 'Atividades de pesquisa científica e acadêmica'),
+(3, 'Extensão', 60, 'Atividades de extensão universitária e comunitária'),
+(4, 'Estágio', 100, 'Atividades de estágio supervisionado');
+
+
+-- Inserindo atividades na tabela AtividadesDisponiveis
+INSERT INTO atividadesdisponiveis (titulo, descricao, categoria_id, carga_horaria) VALUES
+('Monitoria em Disciplinas', 'Atividade de monitoria em disciplinas', 1, 60),
+('Monitoria em Laboratórios', 'Atividade de monitoria em laboratórios', 1, 60),
+('Iniciação Científica', 'Participação em projetos de iniciação científica', 2, 100),
+('Projetos Sociais', 'Participação em projetos de responsabilidade social', 3, 80),
+('Estágio', 'Estágio extracurricular', 4, 100);

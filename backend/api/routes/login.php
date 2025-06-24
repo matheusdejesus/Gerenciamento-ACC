@@ -1,13 +1,16 @@
 <?php
-// Configurar headers CORS e JSON
+
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: http://localhost');
 header('Access-Control-Allow-Methods: POST');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Credentials: true');
 
 require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../services/JWTService.php';
 
 use backend\api\config\Database;
+use backend\api\services\JWTService;
 
 function sendJsonResponse($data, $status = 200) {
     http_response_code($status);
@@ -102,7 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db = Database::getInstance()->getConnection();
         
         if (!$data || !isset($data['email']) || !isset($data['senha'])) {
-            // Registrar tentativa de erro - dados obrigatórios não preenchidos
             $email = isset($data['email']) ? trim($data['email']) : 'unknown';
             registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email e senha são obrigatórios'], 400);
@@ -111,13 +113,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($data['email']);
         $senha = $data['senha'];
         
-        // Validar campos vazios
         if (empty($email) || empty($senha)) {
             registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email e senha não podem estar vazios'], 400);
         }
         
-        // Verificar se o usuário está bloqueado
+        // Verificar bloqueio
         if (verificarBloqueio($email, $db)) {
             $tempoRestante = obterTempoRestanteBloqueio($email, $db);
             $minutosRestantes = ceil($tempoRestante / 60);
@@ -135,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = $stmt->get_result();
         
         if ($result->num_rows === 0) {
-            // Registrar tentativa de erro - usuário não encontrado
             registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
         }
@@ -144,7 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Verificar senha
         if (!password_verify($senha, $usuario['senha'])) {
-            // Registrar tentativa de erro - senha incorreta
             registrarTentativaLogin($email, 0, $db);
             sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
         }
@@ -153,17 +152,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         registrarTentativaLogin($email, 1, $db);
         limparTentativasAntigas($email, $db);
         
+        // Gerar JWT Token
+        $tokenPayload = [
+            'id' => $usuario['id'],
+            'email' => $usuario['email'],
+            'nome' => $usuario['nome'],
+            'tipo' => $usuario['tipo']
+        ];
+        
+        $jwt = JWTService::encode($tokenPayload);
+        
+        // Remover senha do retorno
         unset($usuario['senha']);
         
-        // Retornar sucesso
+        // Retornar sucesso com JWT
         sendJsonResponse([
             'success' => true,
             'message' => 'Login realizado com sucesso',
+            'token' => $jwt,
             'usuario' => $usuario
         ]);
         
     } catch (Exception $e) {
-        // Registrar tentativa de erro - erro interno
         if (isset($email)) {
             registrarTentativaLogin($email, 0, $db);
         }

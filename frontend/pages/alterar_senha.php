@@ -288,7 +288,6 @@ $token = $_GET['token'] ?? '';
             const data = await response.json();
             
             if (data.success) {
-                // Mostrar mensagem de sucesso
                 document.getElementById('form-container').classList.add('hidden');
                 document.getElementById('success-message').classList.remove('hidden');
             } else {

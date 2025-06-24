@@ -1,50 +1,4 @@
 <?php
-session_start();
-if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador') {
-    header('Location: login.php');
-    exit;
-}
-
-// Dados simulados para demonstração
-$atividades_pendentes = [
-    [
-        'id' => 1,
-        'aluno' => 'João Silva',
-        'atividade' => 'Monitoria Acadêmica',
-        'horas_solicitadas' => 40,
-        'data_submissao' => '2025-05-28',
-        'status' => 'Pendente'
-    ],
-    [
-        'id' => 2,
-        'aluno' => 'Maria Santos',
-        'atividade' => 'Iniciação Científica',
-        'horas_solicitadas' => 80,
-        'data_submissao' => '2025-05-25',
-        'status' => 'Pendente'
-    ]
-];
-
-$atividades_avaliadas = [
-    [
-        'id' => 3,
-        'aluno' => 'Pedro Costa',
-        'atividade' => 'Projeto de Extensão',
-        'horas_solicitadas' => 60,
-        'horas_aprovadas' => 50,
-        'data_avaliacao' => '2025-05-20',
-        'status' => 'Aprovada'
-    ],
-    [
-        'id' => 4,
-        'aluno' => 'Ana Lima',
-        'atividade' => 'Monitoria em Laboratório',
-        'horas_solicitadas' => 30,
-        'horas_aprovadas' => 0,
-        'data_avaliacao' => '2025-05-18',
-        'status' => 'Rejeitada'
-    ]
-];
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -69,8 +23,8 @@ $atividades_avaliadas = [
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="text-white mr-4 font-extralight mb-0"><?= htmlspecialchars($_SESSION['usuario']['nome']) ?></span>
-                    <a href="login.php?logout=1" class="text-white hover:text-gray-200">Logout</a>
+                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
+                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
                 </div>
             </div>
         </div>
@@ -92,32 +46,26 @@ $atividades_avaliadas = [
             <main class="lg:w-3/4 p-6 rounded-lg" style="background-color: #F6F8FA">
                 <div class="mb-8">
                     <h2 class="text-3xl font-extralight mb-2" style="color: #0969DA">
-                        Olá, <?= htmlspecialchars($_SESSION['usuario']['nome']) ?>
+                        Olá, <span id="nomeUsuarioMain">Carregando...</span>
                     </h2>
                     <p class="text-gray-600">Gerencie as solicitações de ACC dos seus orientandos.</p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
                         <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Pendentes</h3>
-                        <p class="text-3xl font-bold" style="color: #B45309"><?= count($atividades_pendentes) ?></p>
+                        <p class="text-3xl font-bold" style="color: #B45309" id="countPendentes">0</p>
                     </div>
                     <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
                         <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Aprovadas</h3>
-                        <p class="text-3xl font-bold" style="color: #1A7F37">
-                            <?= count(array_filter($atividades_avaliadas, fn($a) => $a['status'] === 'Aprovada')) ?>
-                        </p>
+                        <p class="text-3xl font-bold" style="color: #1A7F37" id="countAprovadas">0</p>
                     </div>
                     <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
                         <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Rejeitadas</h3>
-                        <p class="text-3xl font-bold" style="color: #DA1A3A">
-                            <?= count(array_filter($atividades_avaliadas, fn($a) => $a['status'] === 'Rejeitada')) ?>
-                        </p>
+                        <p class="text-3xl font-bold" style="color: #DA1A3A" id="countRejeitadas">0</p>
                     </div>
                     <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
                         <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Total de Horas Aprovadas</h3>
-                        <p class="text-3xl font-bold" style="color: #1A7F37">
-                            <?= array_sum(array_column($atividades_avaliadas, 'horas_aprovadas')) ?>
-                        </p>
+                        <p class="text-3xl font-bold" style="color: #1A7F37" id="totalHorasAprovadas">0</p>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
@@ -125,52 +73,22 @@ $atividades_avaliadas = [
                         <h3 class="text-xl font-bold text-white">Atividades Pendentes de Avaliação</h3>
                     </div>
                     <div class="overflow-x-auto">
-                        <?php if (empty($atividades_pendentes)): ?>
-                            <div class="p-8 text-center text-gray-500">
-                                <p>Não há atividades pendentes no momento.</p>
-                            </div>
-                        <?php else: ?>
-                            <table class="w-full">
-                                <thead style="background-color: #F6F8FA">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Aluno</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Atividade</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Data</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    <?php foreach ($atividades_pendentes as $atividade): ?>
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= htmlspecialchars($atividade['aluno']) ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= htmlspecialchars($atividade['atividade']) ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= $atividade['horas_solicitadas'] ?>h
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= date('d/m/Y', strtotime($atividade['data_submissao'])) ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button onclick="avaliarAtividade(<?= $atividade['id'] ?>)" 
-                                                    class="text-white px-3 py-1 rounded mr-2 hover:opacity-80" 
-                                                    style="background-color: #0969DA">
-                                                Avaliar
-                                            </button>
-                                            <button onclick="verDetalhes(<?= $atividade['id'] ?>)" 
-                                                    class="text-[#0969DA] hover:text-[#061B53]">
-                                                Ver Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
+                        <table class="w-full" id="tabelaAtividadesPendentes">
+                            <thead style="background-color: #F6F8FA">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Aluno</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Atividade</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Data</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                        <div id="mensagemVaziaPendentes" class="p-8 text-center text-gray-500 hidden">
+                            <p class="text-lg">Não há atividades pendentes no momento.</p>
+                        </div>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -178,98 +96,26 @@ $atividades_avaliadas = [
                         <h3 class="text-xl font-bold text-white">Atividades Avaliadas Recentemente</h3>
                     </div>
                     <div class="overflow-x-auto">
-                        <?php if (empty($atividades_avaliadas)): ?>
-                            <div class="p-8 text-center text-gray-500">
-                                <p>Nenhuma atividade avaliada ainda.</p>
-                            </div>
-                        <?php else: ?>
-                            <table class="w-full">
-                                <thead style="background-color: #F6F8FA">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Aluno</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Atividade</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas Sol./Apr.</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Data Avaliação</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    <?php foreach ($atividades_avaliadas as $atividade): ?>
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= htmlspecialchars($atividade['aluno']) ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= htmlspecialchars($atividade['atividade']) ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= $atividade['horas_solicitadas'] ?>h / <?= $atividade['horas_aprovadas'] ?>h
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                <?= $atividade['status'] === 'Aprovada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' ?>">
-                                                <?= $atividade['status'] ?>
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?= date('d/m/Y', strtotime($atividade['data_avaliacao'])) ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button onclick="verDetalhes(<?= $atividade['id'] ?>)" 
-                                                    class="text-[#0969DA] hover:text-[#061B53]">
-                                                Ver Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
+                        <table class="w-full" id="tabelaAtividadesAvaliadas">
+                            <thead style="background-color: #F6F8FA">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Aluno</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Atividade</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas Sol./Apr.</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Data Avaliação</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                        <div id="mensagemVaziaAvaliadas" class="p-8 text-center text-gray-500 hidden">
+                            <p class="text-lg">Nenhuma atividade avaliada ainda.</p>
+                        </div>
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
-    <div id="modalAvaliacao" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
-            <div class="p-4" style="background-color: #151B23">
-                <h3 class="text-xl font-bold text-white">Avaliar Atividade</h3>
-            </div>
-            <div class="p-6">
-                <form id="formAvaliacao">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2" style="color: #0969DA">Horas Aprovadas</label>
-                        <input type="number" id="horasAprovadas" min="0" max="200" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-gray-500 mt-1">Informe quantas horas serão aprovadas para esta atividade</p>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2" style="color: #0969DA">Parecer</label>
-                        <textarea id="parecer" rows="4" 
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="Descreva seu parecer sobre a atividade..."></textarea>
-                    </div>
-                    
-                    <div class="flex justify-end gap-2">
-                        <button type="button" onclick="fecharModalAvaliacao()" 
-                                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                            Cancelar
-                        </button>
-                        <button type="button" onclick="rejeitarAtividade()" 
-                                class="px-4 py-2 text-white rounded-lg hover:opacity-90" 
-                                style="background-color: #DA1A3A">
-                            Rejeitar
-                        </button>
-                        <button type="button" onclick="aprovarAtividade()" 
-                                class="px-4 py-2 text-white rounded-lg hover:opacity-90" 
-                                style="background-color: #1A7F37">
-                            Aprovar
-                        </button>
-                    </div>
-                </form>
-            </div>
         </div>
     </div>
     <div id="modalDetalhes" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
@@ -321,6 +167,14 @@ $atividades_avaliadas = [
                                     <span id="detalhesTipo" class="ml-2"></span>
                                 </div>
                                 <div>
+                                    <span class="font-medium text-gray-700">Data de Início:</span>
+                                    <span id="detalhesDataInicio" class="ml-2"></span>
+                                </div>
+                                <div>
+                                    <span class="font-medium text-gray-700">Data de Término:</span>
+                                    <span id="detalhesDataTermino" class="ml-2"></span>
+                                </div>
+                                <div>
                                     <span class="font-medium text-gray-700">Data de Submissão:</span>
                                     <span id="detalhesDataSubmissao" class="ml-2"></span>
                                 </div>
@@ -342,7 +196,6 @@ $atividades_avaliadas = [
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -361,188 +214,510 @@ $atividades_avaliadas = [
         </div>
     </footer>
 
+    <script src="../assets/js/auth.js"></script>
     <script>
-        // Dados simulados das atividades para demonstração
-        const atividadesPendentes = [
-            {
-                id: 1,
-                estudante: {
-                    nome: "Maria Silva Santos",
-                    matricula: "202012345",
-                    email: "maria.santos@discente.ufopa.edu.br",
-                    curso: "Bacharelado em Ciência da Computação"
-                },
-                titulo: "Participação em Congresso de Tecnologia",
-                tipo: "Evento Científico",
-                descricao: "Participação como ouvinte no XXV Congresso Brasileiro de Engenharia de Software, realizado de 20 a 24 de setembro de 2024, na cidade de São Paulo/SP. O evento contou com palestras, minicursos e apresentações de trabalhos científicos na área de engenharia de software e tecnologias relacionadas.",
-                dataSubmissao: "15/10/2024",
-                horasSolicitadas: 20,
-                documentos: [
-                    { nome: "certificado_congresso.pdf", tipo: "Certificado", tamanho: "2.3 MB" },
-                    { nome: "programacao_evento.pdf", tipo: "Programação", tamanho: "1.8 MB" }
-                ]
-            },
-            {
-                id: 2,
-                estudante: {
-                    nome: "João Pedro Lima",
-                    matricula: "202098765",
-                    email: "joao.lima@discente.ufopa.edu.br",
-                    curso: "Bacharelado em Sistemas de Informação"
-                },
-                titulo: "Curso Online de Python Avançado",
-                tipo: "Curso",
-                descricao: "Curso online de Python Avançado oferecido pela plataforma Coursera, com duração de 40 horas, abordando tópicos como programação orientada a objetos, estruturas de dados avançadas, e desenvolvimento web com Django.",
-                dataSubmissao: "12/10/2024",
-                horasSolicitadas: 40,
-                documentos: [
-                    { nome: "certificado_python.pdf", tipo: "Certificado", tamanho: "1.5 MB" }
-                ]
-            },
-            {
-                id: 3,
-                estudante: {
-                    nome: "Ana Carolina Ferreira",
-                    matricula: "202087654",
-                    email: "ana.ferreira@discente.ufopa.edu.br",
-                    curso: "Bacharelado em Engenharia de Software"
-                },
-                titulo: "Monitoria de Algoritmos e Programação",
-                tipo: "Monitoria",
-                descricao: "Atividade de monitoria na disciplina de Algoritmos e Programação I, auxiliando estudantes em exercícios práticos, esclarecimento de dúvidas e preparação para avaliações, durante o semestre 2024.1.",
-                dataSubmissao: "10/10/2024",
-                horasSolicitadas: 60,
-                documentos: [
-                    { nome: "declaracao_monitoria.pdf", tipo: "Declaração", tamanho: "800 KB" },
-                    { nome: "relatorio_atividades.pdf", tipo: "Relatório", tamanho: "1.2 MB" }
-                ]
+        // Verificar autenticação JWT
+        if (!AuthClient.isLoggedIn()) {
+            window.location.href = 'login.php';
+        }
+        
+        const user = AuthClient.getUser();
+        if (user.tipo !== 'orientador') {
+            AuthClient.logout();
+        }
+        
+        // Atualizar nome do usuário na interface
+        if (user && user.nome) {
+            document.getElementById('nomeUsuario').textContent = user.nome;
+            document.getElementById('nomeUsuarioMain').textContent = user.nome;
+        }
+
+        let atividadesPendentes = [];
+        let atividadesAvaliadas = [];
+
+        // Carregar atividades pendentes usando JWT
+        async function carregarAtividadesPendentes() {
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/atividades_pendentes.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    atividadesPendentes = (data.data || []).map(atividade => ({
+                        id: atividade.id,
+                        estudante: {
+                            nome: atividade.nome_aluno || atividade.aluno_nome,
+                            matricula: atividade.matricula || 'N/A',
+                            email: atividade.email || 'N/A',
+                            curso: atividade.curso_nome || 'N/A'
+                        },
+                        titulo: atividade.titulo_atividade || atividade.titulo,
+                        descricao: atividade.descricao || '',
+                        dataInicio: atividade.data_inicio ? new Date(atividade.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A',
+                        dataTermino: atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A',
+                        dataSubmissao: new Date(atividade.data_submissao).toLocaleDateString('pt-BR'),
+                        horasSolicitadas: atividade.carga_horaria_solicitada,
+                        tipo: 'Atividade Complementar',
+                        declaracao: atividade.declaracao,
+                        temDeclaracao: atividade.declaracao ? true : false
+                    }));
+                    
+                    atualizarTabelaAtividades();
+                    atualizarEstatisticas();
+                } else {
+                    console.error('Erro ao carregar atividades:', data.error);
+                    exibirMensagemVazia('pendentes', 'Erro ao carregar atividades pendentes');
+                }
+            } catch (error) {
+                console.error('Erro na requisição:', error);
+                exibirMensagemVazia('pendentes', 'Erro de conexão ao carregar atividades');
             }
-        ];
+        }
 
-        let atividadeAtual = null;
+        // Carregar atividades avaliadas usando JWT
+        async function carregarAtividadesAvaliadas() {
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    atividadesAvaliadas = (data.data || []).map(atividade => ({
+                        id: atividade.id,
+                        estudante: {
+                            nome: atividade.aluno_nome,
+                            matricula: atividade.aluno_matricula || 'N/A',
+                            curso: atividade.curso_nome || 'N/A',
+                            email: atividade.aluno_email || 'N/A'
+                        },
+                        titulo: atividade.titulo,
+                        descricao: atividade.descricao || '',
+                        dataInicio: atividade.data_inicio ? new Date(atividade.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A',
+                        dataTermino: atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A',
+                        dataSubmissao: new Date(atividade.data_submissao).toLocaleDateString('pt-BR'),
+                        dataAvaliacao: atividade.data_avaliacao ? new Date(atividade.data_avaliacao).toLocaleDateString('pt-BR') : 'Não avaliado',
+                        horasSolicitadas: atividade.carga_horaria_solicitada,
+                        horasAprovadas: atividade.carga_horaria_aprovada,
+                        status: atividade.status,
+                        parecer: atividade.observacoes_Analise,
+                        tipo: 'Atividade Complementar',
+                        declaracao: atividade.declaracao,
+                        temDeclaracao: atividade.declaracao ? true : false
+                    }));
+                    
+                    atualizarTabelaAtividadesAvaliadas();
+                    atualizarEstatisticas();
+                } else {
+                    console.error('Erro ao carregar atividades avaliadas:', data.error);
+                    exibirMensagemVazia('avaliadas', 'Erro ao carregar atividades avaliadas');
+                }
+            } catch (error) {
+                console.error('Erro na requisição de atividades avaliadas:', error);
+                exibirMensagemVazia('avaliadas', 'Erro de conexão ao carregar atividades');
+            }
+        }
 
+        // Atualizar tabela de atividades pendentes
+        function atualizarTabelaAtividades() {
+            const tbody = document.querySelector('#tabelaAtividadesPendentes tbody');
+            const mensagemVazia = document.getElementById('mensagemVaziaPendentes');
+            
+            if (!tbody) {
+                console.error('Tabela de atividades pendentes não encontrada');
+                return;
+            }
+            
+            if (atividadesPendentes.length === 0) {
+                tbody.innerHTML = '';
+                mensagemVazia.classList.remove('hidden');
+                return;
+            }
+            
+            mensagemVazia.classList.add('hidden');
+            tbody.innerHTML = '';
+            
+            atividadesPendentes.forEach(atividade => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${atividade.estudante.nome}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${atividade.titulo}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${atividade.horasSolicitadas}h
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${atividade.dataSubmissao}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="avaliarAtividade(${atividade.id})" 
+                                class="text-white px-3 py-1 rounded mr-2 hover:opacity-80" 
+                                style="background-color: #0969DA">
+                            Avaliar
+                        </button>
+                        <button onclick="verDetalhes(${atividade.id})" 
+                                class="text-[#0969DA] hover:text-[#061B53]">
+                            Ver Detalhes
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Atualizar tabela de atividades avaliadas
+        function atualizarTabelaAtividadesAvaliadas() {
+            const tbody = document.querySelector('#tabelaAtividadesAvaliadas tbody');
+            const mensagemVazia = document.getElementById('mensagemVaziaAvaliadas');
+            
+            if (!tbody) {
+                console.error('Tabela de atividades avaliadas não encontrada');
+                return;
+            }
+            
+            if (atividadesAvaliadas.length === 0) {
+                tbody.innerHTML = '';
+                mensagemVazia.classList.remove('hidden');
+                return;
+            }
+            
+            mensagemVazia.classList.add('hidden');
+            tbody.innerHTML = '';
+            
+            atividadesAvaliadas.forEach(atividade => {
+                const statusClass = atividade.status === 'Aprovada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${atividade.estudante.nome}</div>
+                        <div class="text-sm text-gray-500">${atividade.estudante.matricula}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">${atividade.titulo}</div>
+                        <div class="text-sm text-gray-500">${atividade.tipo}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${atividade.horasSolicitadas}h / ${atividade.horasAprovadas || 0}h
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                            ${atividade.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${atividade.dataAvaliacao}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="verDetalhes(${atividade.id})" class="text-blue-600 hover:text-blue-900">
+                            Ver Detalhes
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Exibir mensagem vazia
+        function exibirMensagemVazia(tipo, mensagem) {
+            const tbody = document.querySelector(`#tabelaAtividades${tipo === 'pendentes' ? 'Pendentes' : 'Avaliadas'} tbody`);
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-red-600">
+                            <div class="flex flex-col items-center">
+                                <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <p>${mensagem}</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        //Atualizar estatísticas
+        function atualizarEstatisticas() {
+            document.getElementById('countPendentes').textContent = atividadesPendentes.length;
+            
+            const aprovadas = atividadesAvaliadas.filter(a => a.status === 'Aprovada');
+            const rejeitadas = atividadesAvaliadas.filter(a => a.status === 'Rejeitada');
+            const totalHoras = aprovadas.reduce((total, a) => total + (a.horasAprovadas || 0), 0);
+            
+            document.getElementById('countAprovadas').textContent = aprovadas.length;
+            document.getElementById('countRejeitadas').textContent = rejeitadas.length;
+            document.getElementById('totalHorasAprovadas').textContent = totalHoras;
+        }
+
+        // Carregar todos os dados
+        async function carregarTodosOsDados() {
+            console.log('Carregando todos os dados...');
+            try {
+                await Promise.all([
+                    carregarAtividadesPendentes(),
+                    carregarAtividadesAvaliadas()
+                ]);
+                console.log('Dados carregados com sucesso');
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+            }
+        }
+
+        // Avaliar atividade (abrir modal)
         function avaliarAtividade(id) {
-            atividadeAtual = id;
-            document.getElementById('horasAprovadas').value = '';
-            document.getElementById('parecer').value = '';
-            document.getElementById('modalAvaliacao').classList.remove('hidden');
-            document.getElementById('modalAvaliacao').classList.add('flex');
+            console.log('Avaliar atividade ID:', id);
+            const atividade = atividadesPendentes.find(a => a.id === id);
+            if (!atividade) {
+                alert('Atividade não encontrada');
+                return;
+            }
+
+            // Remover qualquer modal existente
+            const modalExistente = document.querySelector('.modal-avaliacao');
+            if (modalExistente) {
+                modalExistente.remove();
+            }
+
+            // Criar modal de avaliação
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-avaliacao';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold" style="color: #0969DA">Avaliar Atividade</h3>
+                        <button onclick="fecharModalAvaliacao()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4 bg-gray-50 p-4 rounded-lg">
+                        <p><strong>Estudante:</strong> ${atividade.estudante.nome}</p>
+                        <p><strong>Atividade:</strong> ${atividade.titulo}</p>
+                        <p><strong>Horas Solicitadas:</strong> ${atividade.horasSolicitadas}h</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Horas Aprovadas</label>
+                        <input type="number" id="horasAprovadasModal" min="0" max="${atividade.horasSolicitadas}" 
+                               value="${atividade.horasSolicitadas}" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Parecer/Observações *</label>
+                        <textarea id="parecerModal" rows="4" required
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Digite seu parecer sobre a atividade..."></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3">
+                        <button onclick="fecharModalAvaliacao()" 
+                                class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">
+                            Cancelar
+                        </button>
+                        <button onclick="rejeitarAtividadeModal(${id})" 
+                                class="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700">
+                            Rejeitar
+                        </button>
+                        <button onclick="aprovarAtividadeModal(${id})" 
+                                class="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700">
+                            Aprovar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
         }
 
+        //Fechar modal de avaliação
         function fecharModalAvaliacao() {
-            document.getElementById('modalAvaliacao').classList.add('hidden');
-            document.getElementById('modalAvaliacao').classList.remove('flex');
-            atividadeAtual = null;
-        }
-
-        function aprovarAtividade() {
-            const horas = document.getElementById('horasAprovadas').value;
-            const parecer = document.getElementById('parecer').value;
-
-            if (!horas || parseInt(horas) <= 0) {
-                alert('Por favor, informe um número válido de horas aprovadas.');
-                return;
-            }
-
-            if (!parecer.trim()) {
-                alert('Por favor, adicione um parecer sobre a atividade.');
-                return;
-            }
-
-            if (confirm(`Confirma a aprovação de ${horas} horas para esta atividade?`)) {
-                alert('✅ Atividade aprovada com sucesso!');
-                fecharModalAvaliacao();
-                // Recarregar a página para atualizar os dados
-                window.location.reload();
+            const modal = document.querySelector('.modal-avaliacao');
+            if (modal) {
+                modal.remove();
             }
         }
 
-        function rejeitarAtividade() {
-            const parecer = document.getElementById('parecer').value;
+        //Aprovar atividade
+        async function aprovarAtividadeModal(id) {
+            const modal = document.querySelector('.modal-avaliacao');
+            if (!modal) return;
 
-            if (!parecer.trim()) {
-                alert('Por favor, adicione um parecer explicando o motivo da rejeição.');
+            const horas = parseInt(modal.querySelector('#horasAprovadasModal').value);
+            const parecer = modal.querySelector('#parecerModal').value.trim();
+            
+            if (!parecer) {
+                alert('Por favor, digite um parecer para a atividade.');
                 return;
             }
 
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        atividade_id: id,
+                        status: 'Aprovada',
+                        carga_horaria_aprovada: horas,
+                        observacoes_analise: parecer
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ Atividade aprovada com sucesso! ${horas} horas aprovadas.`);
+                    fecharModalAvaliacao();
+                    await carregarTodosOsDados();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Erro desconhecido'));
+                }
+                
+            } catch (error) {
+                console.error('Erro ao aprovar atividade:', error);
+                alert('❌ Erro ao avaliar atividade. Tente novamente.');
+            }
+        }
+
+        //Rejeitar atividade
+        async function rejeitarAtividadeModal(id) {
+            const modal = document.querySelector('.modal-avaliacao');
+            if (!modal) return;
+
+            const parecer = modal.querySelector('#parecerModal').value.trim();
+            
+            if (!parecer) {
+                alert('Por favor, digite um parecer explicando o motivo da rejeição.');
+                return;
+            }
+            
             if (confirm('Confirma a rejeição desta atividade?')) {
-                alert('❌ Atividade rejeitada.');
-                fecharModalAvaliacao();
-                // Recarregar a página para atualizar os dados
-                window.location.reload();
+                try {
+                    const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            atividade_id: id,
+                            status: 'Rejeitada',
+                            carga_horaria_aprovada: 0,
+                            observacoes_analise: parecer
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('❌ Atividade rejeitada.');
+                        fecharModalAvaliacao();
+                        await carregarTodosOsDados();
+                    } else {
+                        alert('❌ Erro: ' + (data.error || 'Erro desconhecido'));
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao rejeitar atividade:', error);
+                    alert('❌ Erro ao avaliar atividade. Tente novamente.');
+                }
             }
         }
 
+        //Ver detalhes
         function verDetalhes(id) {
-            // Encontrar a atividade pelo ID
-            atividadeAtual = atividadesPendentes.find(atividade => atividade.id === id);
+            let atividade = atividadesPendentes.find(a => a.id === id);
+            if (!atividade) {
+                atividade = atividadesAvaliadas.find(a => a.id === id);
+            }
             
-            if (!atividadeAtual) {
-                alert('Atividade não encontrada!');
+            if (!atividade) {
+                alert('Atividade não encontrada');
                 return;
             }
             
-            // Preencher os dados no modal
-            document.getElementById('detalhesNomeEstudante').textContent = atividadeAtual.estudante.nome;
-            document.getElementById('detalhesMatricula').textContent = atividadeAtual.estudante.matricula;
-            document.getElementById('detalhesEmailEstudante').textContent = atividadeAtual.estudante.email;
-            document.getElementById('detalhesCurso').textContent = atividadeAtual.estudante.curso;
-            
-            document.getElementById('detalhesTitulo').textContent = atividadeAtual.titulo;
-            document.getElementById('detalhesTipo').textContent = atividadeAtual.tipo;
-            document.getElementById('detalhesDataSubmissao').textContent = atividadeAtual.dataSubmissao;
-            document.getElementById('detalhesHoras').textContent = atividadeAtual.horasSolicitadas + ' horas';
-            document.getElementById('detalhesDescricao').textContent = atividadeAtual.descricao;
+            // Preencher modal de detalhes
+            document.getElementById('detalhesNomeEstudante').textContent = atividade.estudante.nome;
+            document.getElementById('detalhesMatricula').textContent = atividade.estudante.matricula || 'N/A';
+            document.getElementById('detalhesEmailEstudante').textContent = atividade.estudante.email || 'N/A';
+            document.getElementById('detalhesCurso').textContent = atividade.estudante.curso || 'N/A';
+            document.getElementById('detalhesTitulo').textContent = atividade.titulo;
+            document.getElementById('detalhesTipo').textContent = atividade.tipo;
+            document.getElementById('detalhesDataInicio').textContent = atividade.dataInicio;
+            document.getElementById('detalhesDataTermino').textContent = atividade.dataTermino;
+            document.getElementById('detalhesDataSubmissao').textContent = atividade.dataSubmissao;
+            document.getElementById('detalhesHoras').textContent = atividade.horasSolicitadas + 'h';
+            document.getElementById('detalhesDescricao').textContent = atividade.descricao || 'Nenhuma descrição fornecida';
             
             // Preencher documentos
             const containerDocumentos = document.getElementById('detalhesDocumentos');
             containerDocumentos.innerHTML = '';
             
-            atividadeAtual.documentos.forEach(doc => {
-                const docElement = document.createElement('div');
-                docElement.className = 'flex items-center justify-between p-3 bg-white rounded border';
-                docElement.innerHTML = `
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"></path>
-                        </svg>
-                        <div>
-                            <p class="font-medium text-gray-900">${doc.nome}</p>
-                            <p class="text-sm text-gray-500">${doc.tipo} • ${doc.tamanho}</p>
+            if (atividade.temDeclaracao) {
+                containerDocumentos.innerHTML = `
+                    <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+                        <div class="flex items-center">
+                            <svg class="w-8 h-8 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
+                                <p class="text-sm text-gray-500">Documento PDF</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="visualizarDeclaracao(${id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                Visualizar
+                            </button>
+                            <button onclick="baixarDeclaracao(${id})" class="text-green-600 hover:text-green-800 text-sm font-medium">
+                                Baixar
+                            </button>
                         </div>
                     </div>
-                    <button onclick="visualizarDocumento('${doc.nome}')" 
-                            class="text-blue-600 hover:text-blue-800 font-medium">
-                        Visualizar
-                    </button>
                 `;
-                containerDocumentos.appendChild(docElement);
-            });
+            } else {
+                containerDocumentos.innerHTML = `
+                    <div class="text-center py-4 text-gray-500">
+                        <p>Nenhum documento anexado</p>
+                    </div>
+                `;
+            }
             
-            // Mostrar modal
             document.getElementById('modalDetalhes').classList.remove('hidden');
         }
 
+        //Fechar modal de detalhes
         function fecharModal() {
             document.getElementById('modalDetalhes').classList.add('hidden');
-            atividadeAtual = null;
         }
 
-        function visualizarDocumento(nomeDocumento) {
-            // Simular visualização de documento
-            alert(`Abrindo documento: ${nomeDocumento}\n\n(Em um sistema real, isso abriria o documento em uma nova aba)`);
+        //Visualizar/baixar declaração
+        function visualizarDeclaracao(id) {
+            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
-        document.getElementById('modalAvaliacao').addEventListener('click', function(e) {
-            if (e.target === this) {
-                fecharModalAvaliacao();
-            }
+
+        function baixarDeclaracao(id) {
+            const link = document.createElement('a');
+            link.href = `/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`;
+            link.download = `declaracao_atividade_${id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // INICIALIZAR quando a página carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado, iniciando carregamento de dados...');
+            carregarTodosOsDados();
         });
 
-        document.getElementById('modalDetalhes').addEventListener('click', function(e) {
-            if (e.target === this) {
-                fecharModal();
-            }
-        });
     </script>
 </body>
 </html>

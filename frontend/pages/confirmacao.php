@@ -1,74 +1,81 @@
 <?php
 session_start();
-
-// Carregar configurações
 require_once __DIR__ . '/../../backend/api/config/config.php';
 require_once __DIR__ . '/../../backend/api/config/database.php';
-require_once __DIR__ . '/../../backend/api/models/Cadastro.php';
 
 use backend\api\config\Database;
-use backend\api\models\Cadastro;
 
 $email = $_GET['email'] ?? '';
-error_log("=== PÁGINA DE CONFIRMAÇÃO ===");
-error_log("Email da URL: " . $email);
-
-// Verificar se existem dados temporários na sessão
-if (!isset($_SESSION['cadastro_temp'])) {
-    error_log("ERRO: Dados temporários não encontrados na sessão");
-    header('Location: cadastro.php');
-    exit;
-}
-
-$dadosTemp = $_SESSION['cadastro_temp'];
-error_log("Dados temporários da sessão: " . json_encode($dadosTemp));
-
-// Verificar se não expirou
-if (time() > $dadosTemp['expiracao']) {
-    error_log("ERRO: Sessão de cadastro expirada");
-    unset($_SESSION['cadastro_temp']);
-    header('Location: cadastro.php?erro=expirado');
-    exit;
-}
-
 $error = '';
 $success = false;
 
-if($_SERVER['REQUEST_METHOD']==='POST'){
-    $codigo = $_POST['codigo'];
-    error_log("Código digitado: " . $codigo);
-    error_log("Código esperado: " . $dadosTemp['codigo']);
-    
-    if($codigo == $dadosTemp['codigo']){
-        error_log("CÓDIGO VÁLIDO! Criando usuário...");
-        
-        // Criar o usuário no banco
-        $cadastro = new Cadastro();
-        $result = $cadastro->create($dadosTemp['dados']);
-        
-        if ($result) {
-            error_log("USUÁRIO CRIADO COM SUCESSO! ID: " . $result);
-            
-            // Limpar dados temporários da sessão
-            unset($_SESSION['cadastro_temp']);
-            
-            // Criar sessão de usuário logado
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $codigo = $_POST['codigo'] ?? '';
+    $cadastro_temp = $_SESSION['cadastro_temp'] ?? null;
+
+    if (!$cadastro_temp || $cadastro_temp['expiracao'] < time()) {
+        $error = "Sessão expirada. Faça o cadastro novamente.";
+    } elseif ($cadastro_temp['codigo'] !== $codigo) {
+        $error = "Código incorreto.";
+    } else {
+        $dados = $cadastro_temp['dados'];
+        try {
+            $db = Database::getInstance()->getConnection();
+            $db->autocommit(false);
+
+            // 1. Criar usuário na tabela Usuario
+            $stmt = $db->prepare("INSERT INTO Usuario (nome, email, senha, tipo) VALUES (?, ?, ?, ?)");
+            $senha_hash = password_hash($dados['senha'], PASSWORD_BCRYPT);
+            $stmt->bind_param("ssss", $dados['nome'], $dados['email'], $senha_hash, $dados['tipo']);
+            $stmt->execute();
+            $usuario_id = $db->insert_id;
+            $stmt->close();
+
+            // 2. Inserir na tabela EmailConfirm
+            $stmt = $db->prepare("INSERT INTO EmailConfirm (usuario_id, codigo, expiracao, confirmado) VALUES (?, ?, NOW() + INTERVAL 1 HOUR, 1)");
+            $stmt->bind_param("is", $usuario_id, $codigo);
+            $stmt->execute();
+            $stmt->close();
+
+            // 3. Criar registro específico
+            if ($dados['tipo'] === 'aluno') {
+                $stmt = $db->prepare("INSERT INTO Aluno (usuario_id, matricula, curso_id) VALUES (?, ?, ?)");
+                $stmt->bind_param("isi", $usuario_id, $dados['matricula'], $dados['curso_id']);
+                $stmt->execute();
+                $stmt->close();
+            } elseif ($dados['tipo'] === 'coordenador') {
+                $stmt = $db->prepare("INSERT INTO Coordenador (usuario_id, siape, curso_id) VALUES (?, ?, ?)");
+                $stmt->bind_param("isi", $usuario_id, $dados['siape'], $dados['curso_id']);
+                $stmt->execute();
+                $stmt->close();
+            } elseif ($dados['tipo'] === 'orientador') {
+                $stmt = $db->prepare("INSERT INTO Orientador (usuario_id, siape) VALUES (?, ?)");
+                $stmt->bind_param("is", $usuario_id, $dados['siape']);
+                $stmt->execute();
+                $stmt->close();
+            }
+
+            $db->commit();
+            $db->autocommit(true);
+
+            // 4. Criar sessão de usuário logado
             $_SESSION['usuario'] = [
-                'id' => $result,
-                'nome' => $dadosTemp['dados']['nome'],
-                'email' => $dadosTemp['dados']['email'],
-                'tipo' => $dadosTemp['dados']['tipo']
+                'id' => $usuario_id,
+                'nome' => $dados['nome'],
+                'email' => $dados['email'],
+                'tipo' => $dados['tipo']
             ];
+
+            // 5. Limpar dados temporários
+            unset($_SESSION['cadastro_temp']);
             
             $success = true;
             
-        } else {
-            error_log("ERRO ao criar usuário");
-            $error = "Erro ao criar usuário no banco de dados. Verifique os logs do servidor.";
+        } catch (Exception $e) {
+            $db->rollback();
+            $db->autocommit(true);
+            $error = "Erro ao cadastrar: " . $e->getMessage();
         }
-    } else {
-        error_log("CÓDIGO INVÁLIDO");
-        $error = "Código incorreto.";
     }
 }
 ?>
@@ -92,6 +99,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             </div>
         </div>
     </nav>
+    
     <div class="flex-grow pt-24 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style="background-color: #0D1117">
         <div class="max-w-md w-full space-y-8 bg-white/90 p-8 rounded-xl shadow-md backdrop-blur-sm form-container" style="background-color: #F6F8FA">
             
@@ -119,7 +127,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                                    type="text"
                                    maxlength="6" 
                                    required
-                                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53] text-center text-lg font-mono tracking-widest">
+                                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:border-[#061B53] text-center text-lg font-mono tracking-widest"
+                                   placeholder="000000">
                         </div>
                     </div>
                     
@@ -136,12 +145,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                         Voltar ao cadastro
                     </a>
                 </div>
+                
             <?php else: ?>
                 <div class="text-center">
+                    <div class="mb-4">
+                        <svg class="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
                     <h2 class="mt-6 text-center text-3xl font-extralight" style="color: #1A7F37">
                         Cadastro Realizado!
                     </h2>
                     <p class="mt-4 text-gray-600">Seu cadastro foi realizado com sucesso!</p>
+                    
                     <div class="mt-6">
                         <?php 
                         $tipo = $_SESSION['usuario']['tipo'];
@@ -153,15 +169,18 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                             <a href="home_coordenador.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
                                 Ir para Dashboard
                             </a>
-                        <?php else: ?>
+                        <?php elseif($tipo === 'orientador'): ?>
                             <a href="home_orientador.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
                                 Ir para Dashboard
+                            </a>
+                        <?php else: ?>
+                            <a href="login.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
+                                Fazer Login
                             </a>
                         <?php endif; ?>
                     </div>
                 </div>
-            <?php endif; ?>
-            
+            <?php endif; ?>  
         </div>
     </div>
 </body>
