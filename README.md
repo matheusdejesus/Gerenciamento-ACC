@@ -46,14 +46,6 @@ Siga os passos abaixo para colocar o projeto em funcionamento na sua máquina lo
 - O frontend consome a API, armazena o token JWT de forma segura (em localStorage) e o envia em cada requisição autenticada.
 - O middleware da API valida o JWT antes de permitir acesso a recursos protegidos.
 
-## 🛠️ Tecnologias Utilizadas
-
-- **Backend:** PHP (com suporte a API RESTful)
-- **Banco de Dados:** MySQL
-- **Frontend:** HTML, CSS, JavaScript
-- **Autenticação:** JWT (JSON Web Token)
-- **Servidor Local:** XAMPP (Apache + MySQL)
-- **Gerenciamento de Dependências:** Composer (para bibliotecas PHP, se aplicável)
 
 ## 🛠️ Tecnologias Utilizadas
 
