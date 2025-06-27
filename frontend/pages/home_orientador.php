@@ -480,7 +480,7 @@
             }
         }
 
-        // Avaliar atividade (abrir modal)
+        // Avaliar atividade
         function avaliarAtividade(id) {
             console.log('Avaliar atividade ID:', id);
             const atividade = atividadesPendentes.find(a => a.id === id);

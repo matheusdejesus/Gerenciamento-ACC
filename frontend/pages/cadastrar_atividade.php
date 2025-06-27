@@ -448,19 +448,5 @@ if (!isset($atividade['requisitos'])) {
             dataFimInput.max = dataMaxima.toISOString().split('T')[0];
         });
     </script>
-    <script>
-// Debug específico desta página
-console.log('=== DEBUG CADASTRAR ATIVIDADE ===');
-console.log('Página carregada:', window.location.href);
-console.log('AuthClient definido:', typeof AuthClient !== 'undefined');
-
-if (typeof AuthClient !== 'undefined') {
-    console.log('Token existe:', !!AuthClient.getToken());
-    console.log('Usuário logado:', AuthClient.isLoggedIn());
-    console.log('Dados do usuário:', AuthClient.getUser());
-} else {
-    console.error('AuthClient não foi carregado!');
-}
-</script>
 </body>
 </html>

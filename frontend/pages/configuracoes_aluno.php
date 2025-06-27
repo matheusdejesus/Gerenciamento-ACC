@@ -220,12 +220,10 @@
             }
         }
 
-        // Função para mostrar modal de informações
         function mostrarModalInfo() {
             document.getElementById('modalInfo').classList.remove('hidden');
         }
 
-        // Função para fechar modal de informações
         function fecharModalInfo() {
             document.getElementById('modalInfo').classList.add('hidden');
         }

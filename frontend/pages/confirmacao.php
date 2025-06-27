@@ -58,18 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->commit();
             $db->autocommit(true);
 
-            // 4. Criar sessão de usuário logado
-            $_SESSION['usuario'] = [
-                'id' => $usuario_id,
-                'nome' => $dados['nome'],
-                'email' => $dados['email'],
-                'tipo' => $dados['tipo']
-            ];
 
             // 5. Limpar dados temporários
             unset($_SESSION['cadastro_temp']);
             
             $success = true;
+            
+            // Redirecionamento para login
+            $redirect_url = 'login.php';
+            
             
         } catch (Exception $e) {
             $db->rollback();
@@ -160,24 +157,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     <div class="mt-6">
                         <?php 
-                        $tipo = $_SESSION['usuario']['tipo'];
-                        if($tipo === 'aluno'): ?>
-                            <a href="home_aluno.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
-                                Ir para Dashboard
-                            </a>
-                        <?php elseif($tipo === 'coordenador'): ?>
-                            <a href="home_coordenador.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
-                                Ir para Dashboard
-                            </a>
-                        <?php elseif($tipo === 'orientador'): ?>
-                            <a href="home_orientador.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
-                                Ir para Dashboard
-                            </a>
-                        <?php else: ?>
-                            <a href="login.php" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #1A7F37">
-                                Fazer Login
-                            </a>
-                        <?php endif; ?>
+                        $redirect_url = 'login.php';
+                        ?>
+                        
+                        <button onclick="window.location.href='<?= $redirect_url ?>'" 
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white" 
+                                style="background-color: #1A7F37">
+                            Fazer Login
+                        </button>
                     </div>
                 </div>
             <?php endif; ?>  
