@@ -140,7 +140,7 @@ $token = $_GET['token'] ?? '';
     async function validateToken() {
         console.log('Validando token...');
         try {
-            const url = `/Gerenciamento-de-ACC/backend/api/routes/alterar_senha.php?token=${token}`;
+            const url = `/Gerenciamento-ACC/backend/api/routes/alterar_senha.php?token=${token}`;
             console.log('URL:', url);
             
             const response = await fetch(url);
@@ -273,7 +273,7 @@ $token = $_GET['token'] ?? '';
         loading.classList.remove('hidden');
         
         try {
-            const response = await fetch('/Gerenciamento-de-ACC/backend/api/routes/alterar_senha.php', {
+            const response = await fetch('/Gerenciamento-ACC/backend/api/routes/alterar_senha.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

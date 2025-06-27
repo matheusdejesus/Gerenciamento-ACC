@@ -238,7 +238,7 @@
         // Carregar atividades pendentes usando JWT
         async function carregarAtividadesPendentes() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/atividades_pendentes.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/atividades_pendentes.php');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -276,7 +276,7 @@
         // Carregar atividades avaliadas usando JWT
         async function carregarAtividadesAvaliadas() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -571,7 +571,7 @@
             }
 
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php', {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -614,7 +614,7 @@
             
             if (confirm('Confirma a rejeição desta atividade?')) {
                 try {
-                    const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php', {
+                    const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -713,12 +713,12 @@
 
         //Visualizar/baixar declaração
         function visualizarDeclaracao(id) {
-            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
         function baixarDeclaracao(id) {
             const link = document.createElement('a');
-            link.href = `/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`;
+            link.href = `/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`;
             link.download = `declaracao_atividade_${id}.pdf`;
             document.body.appendChild(link);
             link.click();

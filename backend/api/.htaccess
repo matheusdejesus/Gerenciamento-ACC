@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /Gerenciamento-de-ACC/backend/api/
+RewriteBase /Gerenciamento-ACC/backend/api/
 
 # Se o arquivo ou diretório não existe, redireciona para api.php
 RewriteCond %{REQUEST_FILENAME} !-f

@@ -210,7 +210,7 @@
         // Função para carregar atividades usando JWT
         async function carregarMinhasAtividades() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/minhas_atividades.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
                 const data = await response.json();
                 
                 if (data.success) {

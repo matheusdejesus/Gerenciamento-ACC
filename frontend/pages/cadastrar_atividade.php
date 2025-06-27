@@ -4,7 +4,7 @@ $atividade_id = $_GET['id'] ?? 1;
 
 // Função para buscar atividade específica da API
 function buscarAtividade($id) {
-    $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php';
+    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/listar_atividades.php';
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -39,7 +39,7 @@ function buscarAtividade($id) {
 
 // Função para buscar orientadores
 function buscarOrientadores() {
-    $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
+    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -374,7 +374,7 @@ if (!isset($atividade['requisitos'])) {
                 }
                 
                 // Usar AuthClient.fetch com JWT
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
                     method: 'POST',
                     body: formData,
                     headers: {

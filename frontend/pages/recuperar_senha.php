@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Fazer requisição para a API de recuperação de senha
         $data = ['email' => $email];
         
-        $ch = curl_init('http://localhost/Gerenciamento-de-ACC/backend/api/routes/recuperar_senha.php');
+        $ch = curl_init('http://localhost/Gerenciamento-ACC/backend/api/routes/recuperar_senha.php');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));

@@ -233,7 +233,7 @@
             
             try {
                 console.log('Fazendo requisição para a API...');
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/configuracoes_usuarios.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php');
                 
                 console.log('Response status:', response.status);
                 
@@ -316,7 +316,7 @@
             }
 
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -392,7 +392,7 @@
 
         async function alterarSenhaAPI(senhaAtual, novaSenha) {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

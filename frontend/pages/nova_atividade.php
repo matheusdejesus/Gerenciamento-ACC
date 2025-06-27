@@ -1,6 +1,6 @@
 <?php
 function buscarAtividades() {
-    $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php';
+    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/listar_atividades.php';
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
