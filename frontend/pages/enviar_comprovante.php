@@ -1,13 +1,4 @@
 <?php
-session_start();
-
-// Verificar se o usuário está logado e é aluno
-if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
-    header('Location: login.php');
-    exit;
-}
-
-$usuario = $_SESSION['usuario'];
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

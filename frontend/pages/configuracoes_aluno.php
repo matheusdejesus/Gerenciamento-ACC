@@ -1,11 +1,4 @@
 <?php
-
-session_start();
-if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
-    header('Location: login.php');
-    exit;
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -24,7 +17,8 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <a href="home_aluno.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
+                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
+                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
                 </div>
             </div>
         </div>
@@ -74,34 +68,35 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">Nome Completo</label>
-                                    <input type="text" 
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="text" id="nomeCompleto"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" 
+                                           disabled>
                                 </div>
-
+                                
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">Matrícula</label>
-                                    <input type="text" 
+                                    <input type="text" id="matricula"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" 
                                            disabled>
-                                    <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
                                 </div>
-
+                                
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">E-mail</label>
-                                    <input type="email" 
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="email" id="email"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Digite seu novo email">
                                 </div>
+                                
                                 <div>
                                     <label class="block text-sm font-medium mb-2" style="color: #0969DA">Curso</label>
-                                    <input type="text" 
+                                    <input type="text" id="curso"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" 
                                            disabled>
-                                    <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
                                 </div>
                             </div>
 
-                            <div class="flex justify-end">
-                                <button type="button" onclick="salvarDadosPessoais()" 
+                            <div class="flex justify-end space-x-4">
+                                <button type="button" onclick="salvarAlteracoes()" 
                                         class="px-6 py-2 text-white rounded-lg hover:opacity-90 transition duration-200"
                                         style="background-color: #1A7F37">
                                     Salvar Alterações
@@ -156,6 +151,30 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
             </main>
         </div>
     </div>
+
+    <!-- Modal de Informações -->
+    <div id="modalInfo" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Informações sobre Edição de Dados</h3>
+            <div class="space-y-3 text-sm text-gray-700">
+                <p><strong>Dados não editáveis:</strong></p>
+                <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li>Nome Completo</li>
+                    <li>Matrícula</li>
+                    <li>Curso</li>
+                </ul>
+                <p><strong>Email:</strong> Clique no campo do email para fazer login novamente e atualizar sua sessão.</p>
+                <p class="text-xs text-gray-500 mt-4">Para alterar dados pessoais, entre em contato com a coordenação do seu curso.</p>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button onclick="fecharModalInfo()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <footer class="w-full py-6" style="background-color: #151B23">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex flex-col items-center justify-center space-y-4">
@@ -177,8 +196,154 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
         }
         
         const user = AuthClient.getUser();
-        if (user.tipo !== 'aluno') { // ou 'coordenador' ou 'orientador'
+        if (user.tipo !== 'aluno') {
             AuthClient.logout();
+        }
+
+        // Atualizar nome do usuário na interface
+        if (user && user.nome) {
+            document.getElementById('nomeUsuario').textContent = user.nome;
+        }
+
+        // Carregar dados do usuário nos campos
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarDadosUsuario();
+        });
+
+        // Função para redirecionar para o login
+        function redirecionarParaLogin() {
+            const confirmar = confirm('🔄 Você será redirecionado para a tela de login para atualizar sua sessão. Deseja continuar?');
+            if (confirmar) {
+                // Fazer logout e redirecionar
+                AuthClient.logout();
+                window.location.href = 'login.php';
+            }
+        }
+
+        // Função para mostrar modal de informações
+        function mostrarModalInfo() {
+            document.getElementById('modalInfo').classList.remove('hidden');
+        }
+
+        // Função para fechar modal de informações
+        function fecharModalInfo() {
+            document.getElementById('modalInfo').classList.add('hidden');
+        }
+
+        async function carregarDadosUsuario() {
+            console.log('Carregando dados do usuário:', user);
+            
+            try {
+                console.log('Fazendo requisição para a API...');
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/configuracoes_usuarios.php');
+                
+                console.log('Response status:', response.status);
+                
+                // Verificar se a resposta é válida
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Verificar se há conteúdo na resposta
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                if (!responseText.trim()) {
+                    throw new Error('Resposta vazia da API');
+                }
+                
+                // Tentar fazer parse do JSON
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Erro ao fazer parse do JSON:', parseError);
+                    console.error('Texto da resposta:', responseText);
+                    throw new Error('Resposta inválida da API: ' + responseText.substring(0, 100));
+                }
+                
+                console.log('=== RESPOSTA DA API ===');
+                console.log(result);
+                
+                if (result.success) {
+                    const dados = result.data;
+                    console.log('=== DADOS RECEBIDOS ===');
+                    console.log(dados);
+                    
+                    // Preencher campos com dados completos do banco
+                    document.getElementById('nomeCompleto').value = dados.nome || 'Nome não informado';
+                    document.getElementById('matricula').value = dados.matricula || 'Matrícula não informada';
+                    document.getElementById('email').value = dados.email || '';
+                    document.getElementById('curso').value = dados.curso_nome || 'Curso não informado';
+                } else {
+                    console.error('Erro ao carregar dados:', result.error);
+                    alert('❌ Erro ao carregar dados: ' + result.error);
+                    // Fallback para dados do JWT (limitados)
+                    document.getElementById('nomeCompleto').value = user.nome || 'Nome não informado';
+                    document.getElementById('matricula').value = 'Erro: ' + result.error;
+                    document.getElementById('email').value = user.email || '';
+                    document.getElementById('curso').value = 'Erro: ' + result.error;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados do aluno:', error);
+                alert('❌ Erro ao carregar dados: ' + error.message);
+                // Fallback para dados do JWT (limitados)
+                document.getElementById('nomeCompleto').value = user.nome || 'Nome não informado';
+                document.getElementById('matricula').value = 'Erro de conexão';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('curso').value = 'Erro de conexão';
+            }
+        }
+
+        // Função para salvar alterações
+        async function salvarAlteracoes() {
+            const novoEmail = document.getElementById('email').value;
+            
+            if (!novoEmail || !novoEmail.trim()) {
+                alert('❌ Email é obrigatório');
+                return;
+            }
+
+            // Validar formato do email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(novoEmail)) {
+                alert('❌ Formato de email inválido');
+                return;
+            }
+
+            // Confirmar a alteração
+            const confirmarAlteracao = confirm('🔄 Após alterar o email, você precisará fazer login novamente. Deseja continuar?');
+            if (!confirmarAlteracao) {
+                return;
+            }
+
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: novoEmail.trim()
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Email atualizado com sucesso! Redirecionando para o login...');
+                    
+                    // Redirecionar imediatamente após o usuário clicar OK
+                    AuthClient.logout();
+                    window.location.href = 'login.php';
+                    
+                } else {
+                    alert('❌ Erro ao atualizar email: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Erro ao salvar alterações:', error);
+                alert('❌ Erro ao salvar alterações: ' + error.message);
+            }
         }
 
         function mostrarAba(abaId) {
@@ -203,10 +368,6 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
             btnAtivo.style.color = '#0969DA';
         }
 
-        function salvarDadosPessoais() {
-            alert('✅ Dados pessoais atualizados com sucesso!');
-        }
-
         function alterarSenha() {
             const senhaAtual = document.getElementById('senhaAtual').value;
             const novaSenha = document.getElementById('novaSenha').value;
@@ -227,15 +388,66 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
                 return;
             }
 
-            alert('✅ Senha alterada com sucesso!');
-            
-            // Limpar campos
-            document.getElementById('senhaAtual').value = '';
-            document.getElementById('novaSenha').value = '';
-            document.getElementById('confirmarSenha').value = '';
+            // Implementar alteração de senha via API
+            alterarSenhaAPI(senhaAtual, novaSenha);
         }
 
+        async function alterarSenhaAPI(senhaAtual, novaSenha) {
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        acao: 'alterar_senha',
+                        senha_atual: senhaAtual,
+                        nova_senha: novaSenha
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Senha alterada com sucesso!');
+                    // Limpar campos
+                    document.getElementById('senhaAtual').value = '';
+                    document.getElementById('novaSenha').value = '';
+                    document.getElementById('confirmarSenha').value = '';
+                } else {
+                    alert('❌ Erro ao alterar senha: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Erro ao alterar senha:', error);
+                alert('❌ Erro ao alterar senha: ' + error.message);
+            }
+        }
+
+        // Inicializar com aba de dados pessoais
         mostrarAba('dados-pessoais');
+
+        // Fechar modal ao clicar fora dele
+        document.getElementById('modalInfo').addEventListener('click', function(e) {
+            if (e.target === this) {
+                fecharModalInfo();
+            }
+        });
     </script>
+
+    <style>
+        .aba-btn.active {
+            border-color: #0969DA !important;
+            color: #0969DA !important;
+        }
+        
+        #email {
+            transition: all 0.2s ease;
+        }
+        
+        #email:focus {
+            background-color: #FFFFFF !important;
+            border-color: #0969DA !important;
+        }
+    </style>
 </body>
 </html>

@@ -388,6 +388,16 @@
             atividadesAvaliadas.forEach(atividade => {
                 const statusClass = atividade.status === 'Aprovada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 
+                // Opção de enviar certificado apenas para atividades aprovadas
+                const opcaoCertificado = atividade.status === 'Aprovada' ? `
+                    <button onclick="enviarCertificado(${atividade.id})" 
+                            class="text-purple-600 hover:text-purple-900 disabled:opacity-50 disabled:cursor-not-allowed" 
+                            disabled
+                            title="Funcionalidade em desenvolvimento">
+                        Enviar Certificado
+                    </button>
+                ` : '';
+                
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
                 row.innerHTML = `
@@ -410,10 +420,13 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         ${atividade.dataAvaliacao}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onclick="verDetalhes(${atividade.id})" class="text-blue-600 hover:text-blue-900">
-                            Ver Detalhes
-                        </button>
+                    <td class="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
+                        <div class="flex flex-col items-start space-y-2">
+                            <button onclick="verDetalhes(${atividade.id})" class="text-blue-600 hover:text-blue-900">
+                                Ver Detalhes
+                            </button>
+                            ${opcaoCertificado}
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(row);

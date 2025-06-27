@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/../models/Usuario.php';
 require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../services/JWTService.php';
 
 use backend\api\config\Database;
+use backend\api\services\JWTService;
 
 class UsuarioController {
     
@@ -11,92 +13,160 @@ class UsuarioController {
         return json_decode($input, true);
     }
     
-    protected function validateRequired($data, $fields) {
-        foreach ($fields as $field) {
-            if (!isset($data[$field]) || empty($data[$field])) {
-                return false;
-            }
-        }
-        return true;
+    protected function sendJsonResponse($data, $statusCode = 200) {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($data);
     }
     
     public function login() {
         try {
-            $input = file_get_contents('php://input');
-            $data = json_decode($input, true);
+            $data = $this->getRequestData();
             
-            // Conectar ao banco
-            $database = new Database();
-            $db = $database->getConnection();
-            
-            if (!$db) {
-                $this->sendJsonResponse(['error' => 'Erro de conexão com o banco de dados'], 500);
-            }
-            
+            // Validação básica de entrada
             if (!$data || !isset($data['email']) || !isset($data['senha'])) {
-                Usuario::registrarTentativaLogin(isset($data['email']) ? $data['email'] : 'unknown', 0, $db);
                 $this->sendJsonResponse(['error' => 'Email e senha são obrigatórios'], 400);
+                return;
             }
             
-            $email = trim($data['email']);
-            $senha = $data['senha'];
+            // Delegar toda lógica de autenticação para o Model
+            $resultado = Usuario::autenticar($data['email'], $data['senha']);
             
-            if (empty($email) || empty($senha)) {
-                Usuario::registrarTentativaLogin($email, 0, $db);
-                $this->sendJsonResponse(['error' => 'Email e senha não podem estar vazios'], 400);
+            if (!$resultado['success']) {
+                $statusCode = $resultado['status_code'] ?? 401;
+                $response = ['error' => $resultado['error']];
+                
+                // Adicionar informações extras se for bloqueio
+                if (isset($resultado['bloqueado'])) {
+                    $response['bloqueado'] = $resultado['bloqueado'];
+                    $response['tempo_restante'] = $resultado['tempo_restante'];
+                }
+                
+                $this->sendJsonResponse($response, $statusCode);
+                return;
             }
             
-            // Verificar se o usuário está bloqueado
-            if (Usuario::verificarBloqueio($email)) {
-                $tempoRestante = Usuario::obterTempoRestanteBloqueio($email);
-                $minutosRestantes = ceil($tempoRestante / 60);
-                $this->sendJsonResponse([
-                    'error' => "Muitas tentativas de login falhadas. Tente novamente em $minutosRestantes minuto(s).",
-                    'bloqueado' => true,
-                    'tempo_restante' => $tempoRestante
-                ], 429);
-            }
+            // Gerar JWT Token (responsabilidade do Controller/Service)
+            $tokenPayload = [
+                'id' => $resultado['usuario']['id'],
+                'email' => $resultado['usuario']['email'],
+                'nome' => $resultado['usuario']['nome'],
+                'tipo' => $resultado['usuario']['tipo']
+            ];
             
-            // Buscar usuário usando o model
-            $usuario = Usuario::findByEmailForLogin($email);
+            $jwt = JWTService::encode($tokenPayload);
             
-            if (!$usuario) {
-                Usuario::registrarTentativaLogin($email, 0, $db);
-                $this->sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
-            }
-            
-            // Verificar senha
-            if (!password_verify($senha, $usuario['senha'])) {
-                Usuario::registrarTentativaLogin($email, 0, $db);
-                $this->sendJsonResponse(['error' => 'Email ou senha inválidos'], 401);
-            }
-            
-            // Login bem-sucedido - registrar sucesso e limpar tentativas antigas
-            Usuario::registrarTentativaLogin($email, 1, $db);
-            Usuario::limparTentativasAntigas($email);
-            
-            // Remover senha do retorno
-            unset($usuario['senha']);
-            
-            // Retornar dados do usuário
+            // Resposta de sucesso
             $this->sendJsonResponse([
                 'success' => true,
                 'message' => 'Login realizado com sucesso',
-                'usuario' => $usuario
+                'token' => $jwt,
+                'usuario' => $resultado['usuario']
             ]);
             
         } catch (Exception $e) {
-            if (isset($email)) {
-                Usuario::registrarTentativaLogin($email, 0, $db);
-            }
+            error_log("Erro em UsuarioController::login: " . $e->getMessage());
             $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
         }
     }
 
-    private function sendJsonResponse($data, $status = 200) {
-        http_response_code($status);
-        echo json_encode($data, JSON_UNESCAPED_UNICODE);
-        exit;
+    /**
+     * Buscar dados de configuração do usuário
+     */
+    public function buscarDadosConfiguracao($userId, $userType) {
+        try {
+            // Delegar para o model
+            $resultado = Usuario::buscarDadosConfiguracao($userId, $userType);
+            
+            $statusCode = $resultado['status_code'] ?? 200;
+            
+            if ($resultado['success']) {
+                $response = [
+                    'success' => true,
+                    'data' => $resultado['data']
+                ];
+            } else {
+                $response = [
+                    'success' => false,
+                    'error' => $resultado['error']
+                ];
+            }
+            
+            $this->sendJsonResponse($response, $statusCode);
+            
+        } catch (Exception $e) {
+            error_log("Erro em UsuarioController::buscarDadosConfiguracao: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro interno do servidor'
+            ], 500);
+        }
+    }
+
+    /**
+     * Atualizar dados pessoais do usuário
+     */
+    public function atualizarDadosPessoais($userId, $dados) {
+        try {
+            // Delegar para o model
+            $resultado = Usuario::atualizarDadosPessoaisCompleto($userId, $dados);
+            
+            $statusCode = $resultado['status_code'] ?? 200;
+            
+            if ($resultado['success']) {
+                $response = [
+                    'success' => true,
+                    'message' => $resultado['message']
+                ];
+            } else {
+                $response = [
+                    'success' => false,
+                    'error' => $resultado['error']
+                ];
+            }
+            
+            $this->sendJsonResponse($response, $statusCode);
+            
+        } catch (Exception $e) {
+            error_log("Erro em UsuarioController::atualizarDadosPessoais: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro interno do servidor'
+            ], 500);
+        }
+    }
+
+    /**
+     * Alterar senha do usuário
+     */
+    public function alterarSenha($userId, $senhaAtual, $novaSenha) {
+        try {
+            // Delegar para o model
+            $resultado = Usuario::alterarSenhaCompleta($userId, $senhaAtual, $novaSenha);
+            
+            $statusCode = $resultado['status_code'] ?? 200;
+            
+            if ($resultado['success']) {
+                $response = [
+                    'success' => true,
+                    'message' => $resultado['message']
+                ];
+            } else {
+                $response = [
+                    'success' => false,
+                    'error' => $resultado['error']
+                ];
+            }
+            
+            $this->sendJsonResponse($response, $statusCode);
+            
+        } catch (Exception $e) {
+            error_log("Erro em UsuarioController::alterarSenha: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro interno do servidor'
+            ], 500);
+        }
     }
 }
 ?>

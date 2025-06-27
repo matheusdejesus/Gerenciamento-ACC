@@ -9,39 +9,50 @@ use Exception;
 class AuthMiddleware {
     
     public static function validateToken() {
-        $headers = getallheaders();
-        
-        if (!$headers) {
-            self::sendError('Headers não encontrados', 401);
-        }
-        
-        // Verificar header Authorization
-        $authHeader = null;
-        foreach ($headers as $key => $value) {
-            if (strtolower($key) === 'authorization') {
-                $authHeader = $value;
-                break;
+        try {
+            $headers = getallheaders();
+            
+            if (!$headers) {
+                error_log("Headers não encontrados");
+                return null;
             }
+            
+            // Verificar header Authorization
+            $authHeader = null;
+            foreach ($headers as $key => $value) {
+                if (strtolower($key) === 'authorization') {
+                    $authHeader = $value;
+                    break;
+                }
+            }
+            
+            if (!$authHeader) {
+                error_log("Header Authorization não encontrado");
+                return null;
+            }
+            
+            // Verificar formato Bearer
+            if (!preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+                error_log("Formato de token inválido: " . $authHeader);
+                return null;
+            }
+            
+            $token = $matches[1];
+            
+            // Validar token
+            $payload = JWTService::validate($token);
+            if (!$payload) {
+                error_log("Token inválido ou expirado");
+                return null;
+            }
+            
+            error_log("Token validado com sucesso: " . json_encode($payload));
+            return $payload;
+            
+        } catch (Exception $e) {
+            error_log("Erro em validateToken: " . $e->getMessage());
+            return null;
         }
-        
-        if (!$authHeader) {
-            self::sendError('Token de acesso obrigatório', 401);
-        }
-        
-        // Verificar formato Bearer
-        if (!preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-            self::sendError('Formato de token inválido. Use: Bearer <token>', 401);
-        }
-        
-        $token = $matches[1];
-        
-        // Validar token
-        $payload = JWTService::validate($token);
-        if (!$payload) {
-            self::sendError('Token inválido ou expirado', 401);
-        }
-        
-        return $payload;
     }
     
     public static function requireRole($allowedRoles) {
@@ -55,7 +66,15 @@ class AuthMiddleware {
     }
     
     public static function requireAluno() {
-        return self::requireRole(['aluno']);
+        $user = self::validateToken();
+        
+        if ($user['tipo'] !== 'aluno') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado - apenas alunos']);
+            exit;
+        }
+        
+        return $user;
     }
     
     public static function requireOrientador() {

@@ -12,9 +12,10 @@ class JWTService {
     public static function encode($payload) {
         self::init();
         
-        $header = json_encode(['typ' => 'JWT', 'alg' => self::$algorithm]);
         $payload['iat'] = time();
-        $payload['exp'] = time() + (60 * 60 * 24);
+        $payload['exp'] = time() + 3600; // ← 1 hora fixa (3600 segundos)
+    
+        $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
         $payload = json_encode($payload);
         
         $base64Header = self::base64UrlEncode($header);
