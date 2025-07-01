@@ -8,6 +8,15 @@ require_once __DIR__ . '/../controllers/AtividadesDisponiveisController.php';
 
 use backend\api\controllers\AtividadesDisponiveisController;
 
+
+ $controller = new AtividadesDisponiveisController();
+
+    if (isset($_GET['id'])) {
+        $controller->buscarPorId();
+    } else {
+        $controller->listar();
+    }
+    
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         http_response_code(405);
@@ -15,15 +24,6 @@ try {
         exit;
     }
     
-    $controller = new AtividadesDisponiveisController();
-    // Verificar se é uma busca específica
-    if (isset($_GET['id'])) {
-        $controller->buscarPorId();
-    } elseif (isset($_GET['categoria'])) {
-        $controller->buscarPorCategoria();
-    } else {
-        $controller->listar();
-    }
     
 } catch (Exception $e) {
     http_response_code(500);

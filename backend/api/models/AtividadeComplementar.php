@@ -6,15 +6,14 @@ require_once __DIR__ . '/../config/database.php';
 use backend\api\config\Database;
 use Exception;
 
+
 class AtividadeComplementar {
-    
     public static function create($dados) {
         try {
             $db = Database::getInstance()->getConnection();
-            
             $db->autocommit(false);
             $db->begin_transaction();
-            
+
             $sql = "INSERT INTO AtividadeComplementar (
                         aluno_id, 
                         categoria_id, 
@@ -24,12 +23,15 @@ class AtividadeComplementar {
                         data_fim, 
                         carga_horaria_solicitada, 
                         declaracao,
+                        declaracao_mime,
                         orientador_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
             $stmt = $db->prepare($sql);
+
+            $null = NULL;
             $stmt->bind_param(
-                "iissssisi",
+                "iissssibsi",
                 $dados['aluno_id'],
                 $dados['categoria_id'],
                 $dados['titulo'],
@@ -37,30 +39,31 @@ class AtividadeComplementar {
                 $dados['data_inicio'],
                 $dados['data_fim'],
                 $dados['carga_horaria_solicitada'],
-                $dados['declaracao'],
+                $null, // declaracao (BLOB)
+                $dados['declaracao_mime'],
                 $dados['orientador_id']
             );
-            
+            $stmt->send_long_data(7, $dados['declaracao']);
+
             if (!$stmt->execute()) {
                 throw new Exception("Erro ao executar query: " . $stmt->error);
             }
-            
+
             $atividade_id = $db->insert_id;
-            
+
             $db->commit();
             $db->autocommit(true);
-            
+
             error_log("Atividade complementar criada: ID={$atividade_id}, Aluno={$dados['aluno_id']}");
-            
+
             return $atividade_id;
-            
+
         } catch (Exception $e) {
             if (isset($db)) {
                 $db->rollback();
-                $db->autocommit(true);
             }
-            error_log("Erro em AtividadeComplementar::create: " . $e->getMessage());
-            throw $e;
+            error_log("Erro ao criar atividade complementar: " . $e->getMessage());
+            return false;
         }
     }
     
@@ -111,7 +114,7 @@ class AtividadeComplementar {
                     'observacoes_Analise' => $row['observacoes_Analise'],
                     'categoria_nome' => $row['categoria_nome'],
                     'orientador_nome' => $row['orientador_nome'],
-                    'declaracao' => $row['declaracao'] ? base64_encode($row['declaracao']) : null
+                    'tem_declaracao' => !empty($row['declaracao'])
                 ];
             }
             
@@ -237,7 +240,6 @@ class AtividadeComplementar {
     public static function buscarPendentesOrientador($orientador_id) {
         try {
             $db = Database::getInstance()->getConnection();
-            
             $sql = "SELECT 
                         ac.id,
                         ac.titulo,
@@ -259,15 +261,13 @@ class AtividadeComplementar {
                     WHERE ac.orientador_id = ? 
                     AND ac.status = 'Pendente'
                     ORDER BY ac.data_submissao DESC";
-            
             $stmt = $db->prepare($sql);
             $stmt->bind_param("i", $orientador_id);
             $stmt->execute();
-            
             $result = $stmt->get_result();
             $atividades = [];
-            
             while ($row = $result->fetch_assoc()) {
+                $temDeclaracao = ($row['declaracao'] !== null && strlen($row['declaracao']) > 0);
                 $atividades[] = [
                     'id' => (int)$row['id'],
                     'titulo' => $row['titulo'],
@@ -281,12 +281,10 @@ class AtividadeComplementar {
                     'curso_nome' => $row['curso_nome'],
                     'aluno_matricula' => $row['aluno_matricula'],
                     'aluno_email' => $row['aluno_email'],
-                    'declaracao' => $row['declaracao'] ? base64_encode($row['declaracao']) : null
+                    'tem_declaracao' => $temDeclaracao
                 ];
             }
-            
             return $atividades;
-            
         } catch (\Exception $e) {
             error_log("Erro em AtividadeComplementar::buscarPendentesOrientador: " . $e->getMessage());
             throw $e;
@@ -352,7 +350,6 @@ class AtividadeComplementar {
     public static function buscarAvaliadasOrientador($orientador_id, $limite = 10) {
         try {
             $db = Database::getInstance()->getConnection();
-            
             $sql = "SELECT 
                         ac.id,
                         ac.titulo,
@@ -378,15 +375,13 @@ class AtividadeComplementar {
                     AND ac.status IN ('Aprovada', 'Rejeitada')
                     ORDER BY ac.data_avaliacao DESC
                     LIMIT ?";
-            
             $stmt = $db->prepare($sql);
             $stmt->bind_param("ii", $orientador_id, $limite);
             $stmt->execute();
-            
             $result = $stmt->get_result();
             $atividades = [];
-            
             while ($row = $result->fetch_assoc()) {
+                $temDeclaracao = ($row['declaracao'] !== null && strlen($row['declaracao']) > 0);
                 $atividades[] = [
                     'id' => (int)$row['id'],
                     'titulo' => $row['titulo'],
@@ -403,12 +398,10 @@ class AtividadeComplementar {
                     'curso_nome' => $row['curso_nome'],
                     'aluno_matricula' => $row['aluno_matricula'],
                     'aluno_email' => $row['aluno_email'],
-                    'declaracao' => $row['declaracao'] ? base64_encode($row['declaracao']) : null
+                    'tem_declaracao' => $temDeclaracao
                 ];
             }
-            
             return $atividades;
-            
         } catch (\Exception $e) {
             error_log("Erro em AtividadeComplementar::buscarAvaliadasOrientador: " . $e->getMessage());
             throw $e;

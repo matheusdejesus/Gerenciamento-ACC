@@ -6,10 +6,8 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'coordenador
 }
 // Dados simulados do coordenador
 $coordenador = [
-    'id' => 1,
     'nome' => $_SESSION['usuario']['nome'] ?? 'Nome não informado',
     'email' => $_SESSION['usuario']['email'] ?? 'email@exemplo.com',
-    'senha' => $_SESSION['usuario']['senha'] ?? '',
     'siape' => $_SESSION['usuario']['siape'] ?? 'SIAPE não informado',
     'curso_coordenado' => $_SESSION['usuario']['curso_coordenado'] ?? 'Curso não informado',
     'departamento' => $_SESSION['usuario']['departamento'] ?? 'Departamento não informado',

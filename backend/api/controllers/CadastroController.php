@@ -52,7 +52,6 @@ class CadastroController extends Controller {
             $this->sendJsonResponse([
                 'success' => true,
                 'message' => 'Código enviado para o email',
-                'codigo' => $codigo, // Remover em produção
                 'email' => $data['email'],
                 'email_enviado' => $emailEnviado
             ]);
@@ -89,11 +88,9 @@ class CadastroController extends Controller {
                 return;
             }
             
-            // Criar usuário usando o Model
             $usuarioId = Cadastro::create($cadastroTemp['dados']);
             
             if ($usuarioId) {
-                // Limpar dados temporários
                 unset($_SESSION['cadastro_temp']);
                 
                 // Criar sessão do usuário

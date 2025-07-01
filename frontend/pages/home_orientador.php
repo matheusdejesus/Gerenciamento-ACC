@@ -246,8 +246,8 @@
                         id: atividade.id,
                         estudante: {
                             nome: atividade.nome_aluno || atividade.aluno_nome,
-                            matricula: atividade.matricula || 'N/A',
-                            email: atividade.email || 'N/A',
+                            matricula: atividade.aluno_matricula || atividade.matricula || 'N/A',
+                            email: atividade.aluno_email || atividade.email || 'N/A',
                             curso: atividade.curso_nome || 'N/A'
                         },
                         titulo: atividade.titulo_atividade || atividade.titulo,
@@ -257,8 +257,7 @@
                         dataSubmissao: new Date(atividade.data_submissao).toLocaleDateString('pt-BR'),
                         horasSolicitadas: atividade.carga_horaria_solicitada,
                         tipo: 'Atividade Complementar',
-                        declaracao: atividade.declaracao,
-                        temDeclaracao: atividade.declaracao ? true : false
+                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1 || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 'true'
                     }));
                     
                     atualizarTabelaAtividades();
@@ -299,8 +298,7 @@
                         status: atividade.status,
                         parecer: atividade.observacoes_Analise,
                         tipo: 'Atividade Complementar',
-                        declaracao: atividade.declaracao,
-                        temDeclaracao: atividade.declaracao ? true : false
+                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1 || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 'true'
                     }));
                     
                     atualizarTabelaAtividadesAvaliadas();
@@ -672,7 +670,7 @@
             // Preencher documentos
             const containerDocumentos = document.getElementById('detalhesDocumentos');
             containerDocumentos.innerHTML = '';
-            
+
             if (atividade.temDeclaracao) {
                 containerDocumentos.innerHTML = `
                     <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
@@ -682,10 +680,10 @@
                             </svg>
                             <div>
                                 <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
-                                <p class="text-sm text-gray-500">Documento PDF</p>
+                                <p class="text-sm text-gray-500">Documento enviado pelo aluno</p>
                             </div>
                         </div>
-                        <div class="flex space-x-2">
+                        <div class="flex gap-2">
                             <button onclick="visualizarDeclaracao(${id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 Visualizar
                             </button>
@@ -711,26 +709,20 @@
             document.getElementById('modalDetalhes').classList.add('hidden');
         }
 
-        //Visualizar/baixar declaração
+        //Visualizar declaração em nova aba
         function visualizarDeclaracao(id) {
             window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
+        //Visualizar/baixar declaração
         function baixarDeclaracao(id) {
-            const link = document.createElement('a');
-            link.href = `/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`;
-            link.download = `declaracao_atividade_${id}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
-        // INICIALIZAR quando a página carregar
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM carregado, iniciando carregamento de dados...');
             carregarTodosOsDados();
         });
-
     </script>
 </body>
 </html>

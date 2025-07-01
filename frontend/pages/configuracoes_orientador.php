@@ -5,12 +5,6 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
     exit;
 }
 
-// Dados simulados do orientador para demonstração
-$orientador = [
-    'nome' => $_SESSION['usuario']['nome'],
-    'email' => $_SESSION['usuario']['email'] ?? '',
-    'siape' => '1234567',
-];
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

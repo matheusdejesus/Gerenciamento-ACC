@@ -72,7 +72,8 @@ class AuthClient {
             ...options,
             headers: {
                 ...defaultOptions.headers,
-                ...options.headers
+                // Só adiciona headers customizados se NÃO for FormData
+                ...(options.body instanceof FormData ? {} : options.headers)
             }
         };
 
@@ -142,25 +143,3 @@ setInterval(() => {
         AuthClient.logout();
     }
 }, 30000);
-
-console.log('AuthClient carregado com sucesso');
-
-// Debug completo
-console.log('=== DEBUG COMPLETO ===');
-console.log('1. AuthClient existe?', typeof AuthClient !== 'undefined');
-console.log('2. Caminho do script:', document.querySelector('script[src*="auth.js"]')?.src);
-
-// Teste de conectividade com API
-fetch('/Gerenciamento-de-ACC/backend/api/routes/login.php', {
-    method: 'OPTIONS'
-}).then(response => {
-    console.log('3. API acessível:', response.status);
-}).catch(error => {
-    console.error('3. Erro ao acessar API:', error);
-});
-
-if (typeof AuthClient !== 'undefined') {
-    console.log('4. Token atual:', AuthClient.getToken());
-    console.log('5. Usuário atual:', AuthClient.getUser());
-    console.log('6. Está logado?', AuthClient.isLoggedIn());
-}

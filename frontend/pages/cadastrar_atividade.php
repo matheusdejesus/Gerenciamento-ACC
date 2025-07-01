@@ -2,10 +2,8 @@
 
 $atividade_id = $_GET['id'] ?? 1;
 
-// Função para buscar atividade específica da API
 function buscarAtividade($id) {
     $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php';
-    
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
@@ -78,17 +76,6 @@ $atividade = buscarAtividade($atividade_id);
 // Buscar orientadores
 $orientadores = buscarOrientadores();
 
-// Se não encontrar a atividade, definir valores padrão
-if (!$atividade) {
-    $atividade = [
-        'id' => $atividade_id,
-        'nome' => 'Atividade não encontrada',
-        'categoria' => 'Geral',
-        'horas_max' => 40,
-        'descricao' => 'Atividade complementar',
-        'requisitos' => ['Estar matriculado regularmente']
-    ];
-}
 
 // Adicionar requisitos padrão se não existirem
 if (!isset($atividade['requisitos'])) {
@@ -289,7 +276,6 @@ if (!isset($atividade['requisitos'])) {
             AuthClient.logout();
         }
         
-        // Atualizar nome do usuário na interface
         if (user && user.nome) {
             document.getElementById('nomeUsuario').textContent = user.nome;
         }
@@ -377,8 +363,6 @@ if (!isset($atividade['requisitos'])) {
                 const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
                     method: 'POST',
                     body: formData,
-                    headers: {
-                    }
                 });
                 
                 console.log('Status HTTP:', response.status);
@@ -392,8 +376,6 @@ if (!isset($atividade['requisitos'])) {
                 if (!responseText.trim()) {
                     throw new Error('Resposta vazia do servidor');
                 }
-                
-                // Tentar fazer parse do JSON
                 let result;
                 try {
                     result = JSON.parse(responseText);

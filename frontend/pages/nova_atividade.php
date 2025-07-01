@@ -1,59 +1,3 @@
-<?php
-function buscarAtividades() {
-    $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php';
-    
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-    
-    if ($curlError) {
-        error_log("Erro cURL: " . $curlError);
-        return [];
-    }
-    
-    if ($httpCode !== 200) {
-        error_log("Erro HTTP: " . $httpCode);
-        return [];
-    }
-    
-    $data = json_decode($response, true);
-    
-    if (!$data || !isset($data['success']) || !$data['success']) {
-        error_log("Erro na resposta da API: " . $response);
-        return [];
-    }
-    
-    return $data['data'] ?? [];
-}
-
-// Buscar atividades da API
-$atividades_disponiveis = buscarAtividades();
-
-$categoria_filtro = $_GET['categoria'] ?? '';
-$busca_filtro = $_GET['busca'] ?? '';
-
-$atividades_filtradas = $atividades_disponiveis;
-
-if (!empty($categoria_filtro)) {
-    $atividades_filtradas = array_filter($atividades_filtradas, function($atividade) use ($categoria_filtro) {
-        return strtolower($atividade['categoria']) === strtolower($categoria_filtro);
-    });
-}
-
-if (!empty($busca_filtro)) {
-    $atividades_filtradas = array_filter($atividades_filtradas, function($atividade) use ($busca_filtro) {
-        return stripos($atividade['nome'], $busca_filtro) !== false || 
-               stripos($atividade['descricao'], $busca_filtro) !== false;
-    });
-}
-?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -108,90 +52,13 @@ if (!empty($busca_filtro)) {
                         Escolher Nova Atividade
                     </h2>
                     <p class="text-gray-600">Selecione uma atividade para se cadastrar</p>
-                    
-                    <?php if (empty($atividades_disponiveis)): ?>
-                        <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p class="text-yellow-800">⚠️ Não foi possível carregar as atividades. Verifique a conexão com o banco de dados.</p>
-                        </div>
-                    <?php endif; ?>
+                    <div id="alertaAtividades" class="mt-4 hidden p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p class="text-yellow-800">⚠️ Não foi possível carregar as atividades. Verifique a conexão com o banco de dados.</p>
+                    </div>
                 </div>
-                <form method="GET" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <input type="text" name="busca" value="<?= htmlspecialchars($busca_filtro) ?>" 
-                               placeholder="Buscar atividades..." 
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div class="flex space-x-2">
-                        <select name="categoria" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Todas as categorias</option>
-                            <?php 
-                            $categorias = array_unique(array_column($atividades_disponiveis, 'categoria'));
-                            foreach ($categorias as $categoria): ?>
-                                <option value="<?= htmlspecialchars($categoria) ?>" 
-                                        <?= $categoria_filtro === $categoria ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($categoria) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <button type="submit" class="px-4 py-2 text-white rounded-lg hover:opacity-90" style="background-color: #0969DA">
-                            Filtrar
-                        </button>
-                        <?php if (!empty($categoria_filtro) || !empty($busca_filtro)): ?>
-                            <a href="nova_atividade.php" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center">
-                                Limpar
-                            </a>
-                        <?php endif; ?>
-                    </div>
+                <form id="formFiltro" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 </form>
-                <?php if (empty($atividades_filtradas)): ?>
-                    <div class="text-center py-12">
-                        <p class="text-gray-500 text-lg">Nenhuma atividade encontrada com os filtros aplicados.</p>
-                        <?php if (!empty($categoria_filtro) || !empty($busca_filtro)): ?>
-                            <a href="nova_atividade.php" class="text-blue-600 hover:text-blue-800 mt-2 inline-block">
-                                Ver todas as atividades
-                            </a>
-                        <?php endif; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <?php foreach ($atividades_filtradas as $atividade): ?>
-                        <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-                            <div class="p-4" style="background-color: #151B23">
-                                <h3 class="text-lg font-bold text-white"><?= htmlspecialchars($atividade['nome']) ?></h3>
-                                <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 mt-2">
-                                    <?= htmlspecialchars($atividade['categoria']) ?>
-                                </span>
-                            </div>
-                            <div class="p-4">
-                                <p class="text-gray-600 text-sm mb-4"><?= htmlspecialchars($atividade['descricao']) ?></p>
-                                <div class="space-y-2 mb-4">
-                                    <div class="flex justify-between text-sm">
-                                        <span class="font-medium" style="color: #0969DA">Tipo:</span>
-                                        <span class="text-gray-600"><?= htmlspecialchars($atividade['tipo']) ?></span>
-                                    </div>
-                                    <div class="flex justify-between text-sm">
-                                        <span class="font-medium" style="color: #0969DA">Horas Máximas:</span>
-                                        <span class="text-gray-600"><?= $atividade['horas_max'] ?>h</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex gap-2">
-                                    <button onclick="verDetalhes(<?= $atividade['id'] ?>)" 
-                                            class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
-                                            style="color: #0969DA">
-                                        Ver Detalhes
-                                    </button>
-                                    <a href="cadastrar_atividade.php?id=<?= $atividade['id'] ?>" 
-                                       class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200 text-center"
-                                       style="background-color: #1A7F37">
-                                        Selecionar
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                <div id="atividadesContainer"></div>
                 
                 <div class="mt-8 p-6 rounded-lg" style="background-color: #E6F3FF; border-left: 4px solid #0969DA">
                     <h4 class="font-bold mb-2" style="color: #0969DA">Informações Importantes</h4>
@@ -255,23 +122,84 @@ if (!empty($busca_filtro)) {
         if (!AuthClient.isLoggedIn()) {
             window.location.href = 'login.php';
         }
-        
         const user = AuthClient.getUser();
         if (user.tipo !== 'aluno') {
             AuthClient.logout();
         }
-        
-        // Atualizar nome do usuário na interface
         if (user && user.nome) {
             document.getElementById('nomeUsuario').textContent = user.nome;
         }
 
-        const atividades = <?= json_encode(array_values($atividades_filtradas)) ?>;
-        
+        // Carregar atividades via JWT
+        let todasAtividades = [];
+
+        async function carregarAtividades() {
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php');
+                const data = await response.json();
+                if (data.success) {
+                    todasAtividades = data.data || [];
+                    renderizarAtividades();
+                    document.getElementById('alertaAtividades').classList.add('hidden');
+                } else {
+                    document.getElementById('alertaAtividades').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('alertaAtividades').classList.remove('hidden');
+            }
+        }
+
+        function renderizarAtividades() {
+            const container = document.getElementById('atividadesContainer');
+            if (!todasAtividades.length) {
+                container.innerHTML = `<div class="text-center py-12">
+                    <p class="text-gray-500 text-lg">Nenhuma atividade encontrada.</p>
+                </div>`;
+                return;
+            }
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${todasAtividades.map(atividade => `
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
+                        <div class="p-4" style="background-color: #151B23">
+                            <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
+                            <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 mt-2">
+                                ${atividade.categoria}
+                            </span>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-gray-600 text-sm mb-4">${atividade.descricao}</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium" style="color: #0969DA">Tipo:</span>
+                                    <span class="text-gray-600">${atividade.tipo}</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium" style="color: #0969DA">Horas Máximas:</span>
+                                    <span class="text-gray-600">${atividade.horas_max}h</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="verDetalhes(${atividade.id})"
+                                        class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+                                        style="color: #0969DA">
+                                    Ver Detalhes
+                                </button>
+                                <a href="cadastrar_atividade.php?id=${atividade.id}"
+                                   class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200 text-center"
+                                   style="background-color: #1A7F37">
+                                    Selecionar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+
+        // Modal de detalhes
         function verDetalhes(id) {
-            const atividade = atividades.find(a => a.id === id);
+            const atividade = todasAtividades.find(a => a.id === id);
             if (!atividade) return;
-            
             const detalhes = `
                 <h4 class="text-xl font-bold mb-4" style="color: #0969DA">${atividade.nome}</h4>
                 <div class="space-y-3">
@@ -293,27 +221,21 @@ if (!empty($busca_filtro)) {
                     </div>
                 </div>
             `;
-            
             document.getElementById('conteudoDetalhes').innerHTML = detalhes;
             document.getElementById('btnSelecionarModal').onclick = () => selecionarAtividade(id);
             document.getElementById('modalDetalhes').classList.remove('hidden');
             document.getElementById('modalDetalhes').classList.add('flex');
         }
-        
         function fecharModal() {
             document.getElementById('modalDetalhes').classList.add('hidden');
             document.getElementById('modalDetalhes').classList.remove('flex');
         }
-        
         function selecionarAtividade(id) {
-            const atividade = atividades.find(a => a.id === id);
-            if (!atividade) return;
-            
-            // Redirecionar para a página de cadastro
             window.location.href = `cadastrar_atividade.php?id=${id}`;
-            
             fecharModal();
         }
+
+        carregarAtividades();
     </script>
 </body>
 </html>

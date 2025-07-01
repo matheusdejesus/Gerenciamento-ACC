@@ -9,7 +9,7 @@ header('Access-Control-Allow-Methods: GET');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
-// Buffer de saída para garantir que apenas JSON seja retornado
+
 ob_start();
 
 require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
@@ -18,7 +18,6 @@ require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
 
-// Função para retornar resposta de erro formatada
 function enviarErro($mensagem, $codigo = 500) {
     ob_end_clean();
     http_response_code($codigo);
@@ -39,8 +38,6 @@ try {
     $usuario = AuthMiddleware::requireAluno();
     
     $controller = new AtividadeComplementarController();
-    
-    // Capturar a saída do controller em um buffer
     ob_start();
     $controller->listarPorAluno($usuario['id']);
     $output = ob_get_clean();
@@ -52,7 +49,6 @@ try {
         enviarErro('Resposta inválida do servidor');
     }
     
-    // Retornar a resposta json limpa
     echo $output;
     
 } catch (Exception $e) {

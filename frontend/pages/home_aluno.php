@@ -155,14 +155,18 @@
                             </div>
                         </div>
                     </div>
-                    
                     <div class="mb-6">
                         <h4 class="text-lg font-semibold mb-3" style="color: #0969DA">Orientador</h4>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <span id="detalheOrientador" class="text-gray-700"></span>
                         </div>
                     </div>
-
+                    <div id="documentosAnexadosContainer" class="mb-6">
+                        <h4 class="text-lg font-semibold mb-3" style="color: #0969DA">Documentos Anexados</h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div id="documentoDeclaracaoAluno"></div>
+                        </div>
+                    </div>
                     <div id="parecerContainer" class="mb-6 hidden">
                         <h4 class="text-lg font-semibold mb-3" style="color: #0969DA">Parecer da Avaliação</h4>
                         <div class="bg-blue-50 p-4 rounded-lg">
@@ -207,7 +211,7 @@
 
         let minhasAtividades = [];
 
-        // Função para carregar atividades usando JWT
+        // Função para carregar atividades
         async function carregarMinhasAtividades() {
             try {
                 const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/minhas_atividades.php');
@@ -388,8 +392,33 @@
                 parecerContainer.classList.add('hidden');
             }
 
+            // Documentos anexados
+            const docContainer = document.getElementById('documentoDeclaracaoAluno');
+            if (atividade.tem_declaracao === true || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 1 || atividade.tem_declaracao === 'true') {
+                docContainer.innerHTML = `
+                    <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+                        <div class="flex items-center">
+                            <svg class="w-8 h-8 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
+                            </div>
+                        </div>
+                        <button onclick="baixarDeclaracaoAluno(${atividade.id})" class="text-green-600 hover:text-green-800 text-sm font-medium">Baixar</button>
+                    </div>
+                `;
+            } else {
+                docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Nenhum documento anexado</div>`;
+            }
+
             // Mostrar modal
             document.getElementById('modalDetalhesAtividade').classList.remove('hidden');
+        }
+
+        // Função para baixar declaração
+        function baixarDeclaracaoAluno(id) {
+            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
         // Função para formatar data

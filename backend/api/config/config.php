@@ -2,6 +2,7 @@
 // Configurações da API
 define('API_VERSION', '1.0.0');
 define('JWT_SECRET', 'sua_chave_secreta_aqui'); // Altere para uma chave segura em produção
+//define('JWT_SECRET', getenv('JWT_SECRET'));
 define('JWT_EXPIRATION', 3600); // 1 hora em segundos
 
 // Configurações do Banco de Dados
