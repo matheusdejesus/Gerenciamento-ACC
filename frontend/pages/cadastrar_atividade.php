@@ -3,7 +3,7 @@
 $atividade_id = $_GET['id'] ?? 1;
 
 function buscarAtividade($id) {
-    $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php';
+    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/listar_atividades.php';
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
@@ -37,7 +37,7 @@ function buscarAtividade($id) {
 
 // Função para buscar orientadores
 function buscarOrientadores() {
-    $url = 'http://localhost/Gerenciamento-de-ACC/backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
+    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -330,12 +330,12 @@ if (!isset($atividade['requisitos'])) {
                 return;
             }
             
-            // Verificar se o arquivo foi selecionado
-            const arquivo = document.getElementById('declaracao').files[0];
-            if (!arquivo) {
-                alert('Por favor, selecione a declaração do professor.');
-                return;
-            }
+            // Remover validação obrigatória da declaração
+            // const arquivo = document.getElementById('declaracao').files[0];
+            // if (!arquivo) {
+            //     alert('Por favor, selecione a declaração do professor.');
+            //     return;
+            // }
             
             // Confirmação
             if (confirm('Deseja realmente enviar esta solicitação?\n\nApós o envio, você não poderá mais editá-la e ela será enviada para análise.')) {
@@ -360,7 +360,7 @@ if (!isset($atividade['requisitos'])) {
                 }
                 
                 // Usar AuthClient.fetch com JWT
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
                     method: 'POST',
                     body: formData,
                 });

@@ -2,12 +2,14 @@
 error_reporting(0);
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost');
-header('Access-Control-Allow-Methods: GET, POST');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
-ob_start();
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
 
 require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';

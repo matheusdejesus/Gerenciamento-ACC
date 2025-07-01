@@ -92,7 +92,7 @@ class RecuperarSenhaService {
     }
     
     private function enviarEmailRecuperacao($email, $token) {
-        $recoveryLink = "http://" . $_SERVER['HTTP_HOST'] . "/Gerenciamento-de-ACC/frontend/pages/alterar_senha.php?token=" . $token;
+        $recoveryLink = "http://" . $_SERVER['HTTP_HOST'] . "/Gerenciamento-ACC/frontend/pages/alterar_senha.php?token=" . $token;
         
         $mail = new PHPMailer(true);
         try {

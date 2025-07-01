@@ -45,7 +45,7 @@ class AuthClient {
         console.log('Fazendo logout');
         localStorage.removeItem(this.TOKEN_KEY);
         localStorage.removeItem(this.USER_KEY);
-        window.location.href = '/Gerenciamento-de-ACC/frontend/pages/login.php';
+        window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
     }
 
     // Fazer requisição autenticada
@@ -97,7 +97,7 @@ class AuthClient {
         console.log('Fazendo login para:', email);
 
         try {
-            const response = await fetch('/Gerenciamento-de-ACC/backend/api/routes/login.php', {
+            const response = await fetch('/Gerenciamento-ACC/backend/api/routes/login.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -128,7 +128,7 @@ function requireAuth() {
     console.log('Verificando autenticação na página:', window.location.pathname);
     if (!AuthClient.isLoggedIn()) {
         console.log('Usuário não autenticado, redirecionando para login');
-        window.location.href = '/Gerenciamento-de-ACC/frontend/pages/login.php';
+        window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
         return false;
     }
     return true;
@@ -137,7 +137,7 @@ function requireAuth() {
 // Auto-verificação
 setInterval(() => {
     if (!AuthClient.isLoggedIn() &&
-        window.location.pathname !== '/Gerenciamento-de-ACC/frontend/pages/login.php' &&
+        window.location.pathname !== '/Gerenciamento-ACC/frontend/pages/login.php' &&
         !window.location.pathname.includes('login.php')) {
         console.log('Token expirado, fazendo logout automático');
         AuthClient.logout();

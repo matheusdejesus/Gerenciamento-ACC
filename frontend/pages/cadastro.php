@@ -200,7 +200,7 @@ try {
                 const formData = new FormData(this);
                 const data = Object.fromEntries(formData.entries());
                 
-                const response = await fetch('/Gerenciamento-de-ACC/backend/api/routes/cadastro.php', {
+                const response = await fetch('/Gerenciamento-ACC/backend/api/routes/cadastro.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

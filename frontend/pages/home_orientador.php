@@ -238,26 +238,26 @@
         // Carregar atividades pendentes usando JWT
         async function carregarAtividadesPendentes() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/atividades_pendentes.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/atividades_pendentes.php');
                 const data = await response.json();
                 
                 if (data.success) {
                     atividadesPendentes = (data.data || []).map(atividade => ({
                         id: atividade.id,
                         estudante: {
-                            nome: atividade.nome_aluno || atividade.aluno_nome,
-                            matricula: atividade.aluno_matricula || atividade.matricula || 'N/A',
-                            email: atividade.aluno_email || atividade.email || 'N/A',
+                            nome: atividade.nome_aluno || 'N/A',
+                            matricula: atividade.aluno_matricula || 'N/A',
+                            email: atividade.aluno_email || 'N/A',
                             curso: atividade.curso_nome || 'N/A'
                         },
-                        titulo: atividade.titulo_atividade || atividade.titulo,
+                        titulo: atividade.titulo,
                         descricao: atividade.descricao || '',
                         dataInicio: atividade.data_inicio ? new Date(atividade.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A',
                         dataTermino: atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A',
                         dataSubmissao: new Date(atividade.data_submissao).toLocaleDateString('pt-BR'),
                         horasSolicitadas: atividade.carga_horaria_solicitada,
                         tipo: 'Atividade Complementar',
-                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1 || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 'true'
+                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1
                     }));
                     
                     atualizarTabelaAtividades();
@@ -275,7 +275,7 @@
         // Carregar atividades avaliadas usando JWT
         async function carregarAtividadesAvaliadas() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -569,7 +569,7 @@
             }
 
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php', {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -612,7 +612,7 @@
             
             if (confirm('Confirma a rejeição desta atividade?')) {
                 try {
-                    const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php', {
+                    const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -711,12 +711,12 @@
 
         //Visualizar declaração em nova aba
         function visualizarDeclaracao(id) {
-            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
         //Visualizar/baixar declaração
         function baixarDeclaracao(id) {
-            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
         document.addEventListener('DOMContentLoaded', function() {

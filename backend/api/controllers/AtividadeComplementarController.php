@@ -16,87 +16,36 @@ class AtividadeComplementarController extends Controller {
     //Cadastrar Atividade
     public function cadastrarComJWT($aluno_id) {
         try {
-            // Obter dados da requisição
-            $dados = $_POST ?? [];
-            $arquivos = $_FILES ?? [];
-            
-            // Validar dados
-            $erros = $this->validarDadosEntrada($dados);
-            if (!empty($erros)) {
-                $this->sendJsonResponse(['error' => implode(', ', $erros)], 400);
-                return;
-            }
-            
-            // Validar orientador
-            if (empty($dados['orientador_id']) || !is_numeric($dados['orientador_id'])) {
-                $this->sendJsonResponse(['error' => 'Orientador é obrigatório'], 400);
-                return;
-            }
-            
-            // Validar arquivo
-            if (!isset($arquivos['declaracao']) || $arquivos['declaracao']['error'] !== UPLOAD_ERR_OK) {
-                $this->sendJsonResponse(['error' => 'Declaração é obrigatória'], 400);
-                return;
-            }
-            
-            // Buscar informações da atividade disponível
-            $atividadeDisponivel = AtividadesDisponiveis::buscarPorId($dados['atividade_id']);
-            if (!$atividadeDisponivel) {
-                $this->sendJsonResponse(['error' => 'Atividade não encontrada'], 404);
-                return;
-            }
-            
-            // Validar carga horária máxima
-            if ($dados['horas_solicitadas'] > $atividadeDisponivel['horas_max']) {
-                $this->sendJsonResponse(['error' => 'Carga horária solicitada excede o máximo permitido'], 400);
-                return;
-            }
-
-            // Processar arquivo
-            $declaracaoBlob = file_get_contents($arquivos['declaracao']['tmp_name']);
-            $declaracaoMime = $arquivos['declaracao']['type'];
-
-            if ($declaracaoBlob === false) {
-                $this->sendJsonResponse(['error' => 'Erro ao ler o arquivo enviado'], 400);
-                return;
-            }
-
-            // Preparar dados para inserção
-            $dadosInsercao = [
+            // Validar dados do POST
+            $dados = [
                 'aluno_id' => $aluno_id,
-                'categoria_id' => $atividadeDisponivel['categoria_id'],
-                'titulo' => $dados['titulo'],
-                'descricao' => $dados['descricao_atividades'],
-                'data_inicio' => $dados['data_inicio'],
-                'data_fim' => $dados['data_fim'],
-                'carga_horaria_solicitada' => (int)$dados['horas_solicitadas'],
-                'declaracao' => $declaracaoBlob,
-                'declaracao_mime' => $declaracaoMime,
-                'orientador_id' => (int)$dados['orientador_id']
+                'categoria_id' => $_POST['atividade_id'] ?? null,
+                'titulo' => $_POST['titulo'] ?? null,
+                'descricao' => $_POST['descricao_atividades'] ?? null,
+                'data_inicio' => $_POST['data_inicio'] ?? null,
+                'data_fim' => $_POST['data_fim'] ?? null,
+                'carga_horaria_solicitada' => $_POST['horas_solicitadas'] ?? null,
+                'orientador_id' => $_POST['orientador_id'] ?? null
             ];
             
-            error_log("=== DADOS PARA INSERÇÃO (JWT) ===");
-            error_log(json_encode($dadosInsercao));
+            // Validar arquivos (opcional agora)
+            $arquivos = $_FILES ?? [];
             
-            // Criar atividade complementar
-            $atividadeId = \backend\api\models\AtividadeComplementar::create($dadosInsercao);
+            // Criar atividade
+            $atividade_id = AtividadeComplementar::create($dados, $arquivos);
             
-            if ($atividadeId) {
-                $this->sendJsonResponse([
-                    'success' => true,
-                    'message' => 'Atividade cadastrada com sucesso',
-                    'atividade_id' => $atividadeId
-                ]);
-            } else {
-                $this->sendJsonResponse(['error' => 'Erro ao cadastrar atividade'], 500);
-            }
+            $this->sendJsonResponse([
+                'success' => true,
+                'message' => 'Atividade cadastrada com sucesso',
+                'atividade_id' => $atividade_id
+            ]);
             
-        } catch (\Exception $e) {
-            error_log("Erro em AtividadeComplementarController::cadastrarComJWT: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => 'Erro interno do servidor: ' . $e->getMessage()], 500);
         } catch (Exception $e) {
-            error_log("Erro ao criar atividade complementar: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => 'Erro ao criar atividade complementar: ' . $e->getMessage()], 500);
+            error_log("Erro em AtividadeComplementarController::cadastrarComJWT: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro ao cadastrar atividade: ' . $e->getMessage()
+            ], 500);
         }
     }
     // Listar Orientadores
@@ -241,18 +190,74 @@ class AtividadeComplementarController extends Controller {
     }
 
     private function buscarDeclaracaoBlob($atividade_id) {
+        return AtividadeComplementar::buscarDeclaracaoBlob($atividade_id);
+    }
+    
+    public function downloadDeclaracaoComJWT($atividade_id) {
         try {
-            $db = Database::getInstance()->getConnection();
-            $sql = "SELECT declaracao, declaracao_mime FROM AtividadeComplementar WHERE id = ?";
-            $stmt = $db->prepare($sql);
-            $stmt->bind_param("i", $atividade_id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $row = $result->fetch_assoc();
-            return $row ? ['blob' => $row['declaracao'], 'mime' => $row['declaracao_mime']] : null;
-        } catch (\Exception $e) {
-            error_log("Erro ao buscar declaração: " . $e->getMessage());
-            throw $e;
+            // Verificar autenticação JWT
+            $usuario = AuthMiddleware::getAuthenticatedUser();
+            if (!$usuario) {
+                http_response_code(403);
+                echo 'Acesso negado';
+                return;
+            }
+            
+            $atividade = AtividadeComplementar::buscarPorId($atividade_id);
+            
+            if (!$atividade) {
+                http_response_code(404);
+                echo 'Atividade não encontrada';
+                return;
+            }
+            
+            // Verificar permissões
+            $usuario_tipo = $usuario['tipo'];
+            $usuario_id = $usuario['id'];
+            
+            $tem_permissao = false;
+            
+            if ($usuario_tipo === 'aluno' && $atividade['aluno_id'] == $usuario_id) {
+                $tem_permissao = true;
+            } elseif ($usuario_tipo === 'orientador' && $atividade['orientador_id'] == $usuario_id) {
+                $tem_permissao = true;
+            } elseif ($usuario_tipo === 'coordenador') {
+                $tem_permissao = true;
+            }
+            
+            if (!$tem_permissao) {
+                http_response_code(403);
+                echo 'Acesso negado para este documento';
+                return;
+            }
+            
+            // Buscar a declaração
+            $declaracao = $this->buscarDeclaracaoBlob($atividade_id);
+            if (!$declaracao || empty($declaracao['blob'])) {
+                http_response_code(404);
+                echo 'Documento não encontrado';
+                return;
+            }
+            
+            // Limpar headers anteriores
+            header_remove();
+            
+            // Definir headers para download
+            header('Content-Type: ' . $declaracao['mime']);
+            header('Content-Disposition: inline; filename="declaracao_atividade_' . $atividade_id . '"');
+            header('Content-Length: ' . strlen($declaracao['blob']));
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
+            // Enviar o arquivo
+            echo $declaracao['blob'];
+            exit;
+            
+        } catch (Exception $e) {
+            error_log("Erro em downloadDeclaracaoComJWT: " . $e->getMessage());
+            http_response_code(500);
+            echo 'Erro interno do servidor';
         }
     }
     
@@ -372,7 +377,6 @@ class AtividadeComplementarController extends Controller {
                 'success' => true,
                 'data' => $atividades
             ]);
-            
         } catch (\Exception $e) {
             error_log("Erro em AtividadeComplementarController::listarAvaliadasOrientadorComJWT: " . $e->getMessage());
             $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);

@@ -135,7 +135,7 @@
 
         async function carregarAtividades() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/listar_atividades.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php');
                 const data = await response.json();
                 if (data.success) {
                     todasAtividades = data.data || [];

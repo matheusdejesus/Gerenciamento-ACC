@@ -89,7 +89,7 @@ CREATE TABLE AtividadeComplementar (
   orientador_id INT NULL,
   avaliador_id INT NULL,
   observacoes_Analise TEXT,
-  declaracao LONGBLOB,
+  declaracao BLOB,
   declaracao_mime VARCHAR(100),
   certificado BLOB,
   FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,

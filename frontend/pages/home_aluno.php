@@ -214,7 +214,7 @@
         // Função para carregar atividades
         async function carregarMinhasAtividades() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-de-ACC/backend/api/routes/minhas_atividades.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -418,7 +418,8 @@
 
         // Função para baixar declaração
         function baixarDeclaracaoAluno(id) {
-            window.open(`/Gerenciamento-de-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+            // Usar a rota correta
+            window.open(`/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?id=${id}`, '_blank');
         }
 
         // Função para formatar data
