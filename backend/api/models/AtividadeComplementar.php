@@ -28,10 +28,13 @@ class AtividadeComplementar {
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $db->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erro ao preparar query: " . $db->error);
+            }
 
-            $null = NULL;
+            // Correção: usar 'b' para BLOB e 's' para string
             $stmt->bind_param(
-                "iissssibsi",
+                "iisssisbsi",
                 $dados['aluno_id'],
                 $dados['categoria_id'],
                 $dados['titulo'],
@@ -39,11 +42,10 @@ class AtividadeComplementar {
                 $dados['data_inicio'],
                 $dados['data_fim'],
                 $dados['carga_horaria_solicitada'],
-                $null, // declaracao (BLOB)
+                $dados['declaracao'], // BLOB
                 $dados['declaracao_mime'],
                 $dados['orientador_id']
             );
-            $stmt->send_long_data(7, $dados['declaracao']);
 
             if (!$stmt->execute()) {
                 throw new Exception("Erro ao executar query: " . $stmt->error);
@@ -61,6 +63,7 @@ class AtividadeComplementar {
         } catch (Exception $e) {
             if (isset($db)) {
                 $db->rollback();
+                $db->autocommit(true);
             }
             error_log("Erro ao criar atividade complementar: " . $e->getMessage());
             return false;
