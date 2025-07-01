@@ -33,7 +33,7 @@ Siga os passos abaixo para colocar o projeto em funcionamento na sua máquina lo
 5. **Acessar a aplicação**
 
    No navegador, abra:
-   http://localhost/Gerenciamento-de-ACC/
+   http://localhost/Gerenciamento-ACC/
 
 ---
 
