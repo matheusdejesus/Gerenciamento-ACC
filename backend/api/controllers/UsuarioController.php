@@ -56,12 +56,28 @@ class UsuarioController {
             
             $jwt = JWTService::encode($tokenPayload);
             
+            // Buscar API Key do usuário
+            $apiKey = null;
+            try {
+                $db = \backend\api\config\Database::getInstance()->getConnection();
+                $stmt = $db->prepare("SELECT api_key FROM ApiKeys WHERE usuario_id = ? AND ativa = 1 LIMIT 1");
+                $stmt->bind_param("i", $resultado['usuario']['id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($row = $result->fetch_assoc()) {
+                    $apiKey = $row['api_key'];
+                }
+            } catch (\Exception $e) {
+                error_log("Erro ao buscar API Key no login: " . $e->getMessage());
+            }
+            
             // Resposta de sucesso
             $this->sendJsonResponse([
                 'success' => true,
                 'message' => 'Login realizado com sucesso',
                 'token' => $jwt,
-                'usuario' => $resultado['usuario']
+                'usuario' => $resultado['usuario'],
+                'api_key' => $apiKey
             ]);
             
         } catch (Exception $e) {

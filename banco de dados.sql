@@ -89,9 +89,7 @@ CREATE TABLE AtividadeComplementar (
   orientador_id INT NULL,
   avaliador_id INT NULL,
   observacoes_Analise TEXT,
-  declaracao BLOB,
-  declaracao_mime VARCHAR(100),
-  certificado BLOB,
+  declaracao_caminho VARCHAR(255) NULL,
   FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
   FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT,
   FOREIGN KEY (orientador_id) REFERENCES Orientador(usuario_id) ON DELETE SET NULL,
@@ -135,6 +133,17 @@ CREATE TABLE TentativasLogin (
     data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
     sucesso TINYINT(1) DEFAULT 0,
     INDEX idx_email_ip (email, ip_address)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ApiKeys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    nome_aplicacao VARCHAR(255) NOT NULL,
+    api_key VARCHAR(64) NOT NULL UNIQUE,
+    ativa TINYINT(1) NOT NULL DEFAULT 1,
+    criada_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expira_em DATETIME NULL,
+    FOREIGN KEY (usuario_id) REFERENCES Usuario(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO Instituto (id, nome, sigla) VALUES

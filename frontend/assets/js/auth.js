@@ -1,6 +1,7 @@
 class AuthClient {
     static TOKEN_KEY = 'acc_jwt_token';
     static USER_KEY = 'acc_user_data';
+    static API_KEY_KEY = 'acc_api_key';
 
     // Salvar token após login
     static saveToken(token, userData) {
@@ -18,6 +19,11 @@ class AuthClient {
     static getUser() {
         const userData = localStorage.getItem(this.USER_KEY);
         return userData ? JSON.parse(userData) : null;
+    }
+
+    // Obter API Key
+    static getApiKey() {
+        return localStorage.getItem(this.API_KEY_KEY);
     }
 
     // Verificar se está logado
@@ -51,6 +57,7 @@ class AuthClient {
     // Fazer requisição autenticada
     static async fetch(url, options = {}) {
         const token = this.getToken();
+        const apiKey = this.getApiKey();
 
         if (!token) {
             throw new Error('Token não encontrado');
@@ -58,7 +65,8 @@ class AuthClient {
 
         const defaultOptions = {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                ...(apiKey ? { 'X-API-Key': apiKey } : {})
             }
         };
 
@@ -105,13 +113,16 @@ class AuthClient {
                 body: JSON.stringify({ email, senha })
             });
 
-            console.log('Status da resposta:', response.status);
-
             const data = await response.json();
-            console.log('Dados recebidos da API:', data);
 
             if (data.success) {
                 this.saveToken(data.token, data.usuario);
+
+                // Se o login retornar uma API Key, salvar
+                if (data.api_key) {
+                    localStorage.setItem(this.API_KEY_KEY, data.api_key);
+                }
+
                 return data;
             } else {
                 throw new Error(data.error || 'Erro no login');

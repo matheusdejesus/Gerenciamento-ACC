@@ -405,7 +405,9 @@
                                 <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
                             </div>
                         </div>
-                        <button onclick="baixarDeclaracaoAluno(${atividade.id})" class="text-green-600 hover:text-green-800 text-sm font-medium">Baixar</button>
+                        <button onclick="visualizarDeclaracao(${id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            Visualizar
+                        </button>
                     </div>
                 `;
             } else {
@@ -416,10 +418,8 @@
             document.getElementById('modalDetalhesAtividade').classList.remove('hidden');
         }
 
-        // Função para baixar declaração
-        function baixarDeclaracaoAluno(id) {
-            // Usar a rota correta
-            window.open(`/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?id=${id}`, '_blank');
+        function visualizarDeclaracao(id) {
+            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 
         // Função para formatar data

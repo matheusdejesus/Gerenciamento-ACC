@@ -69,17 +69,6 @@
                         <li>• Verifique os requisitos antes de se inscrever</li>
                     </ul>
                 </div>
-                
-                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <a href="cadastrar_atividade.php?id=1" class="p-4 rounded-lg text-center transition duration-200 text-white" style="background-color: #1A7F37">
-                        <h4 class="font-bold mb-2">Nova Atividade</h4>
-                        <p class="text-sm">Cadastrar em uma nova atividade</p>
-                    </a>
-                    <a href="enviar_comprovante.php" class="p-4 rounded-lg text-center transition duration-200" style="background-color: #0969DA">
-                        <h4 class="font-bold mb-2 text-white">Enviar Comprovante</h4>
-                        <p class="text-sm text-white">Fazer upload de comprovantes</p>
-                    </a>
-                </div>
             </main>
         </div>
     </div>

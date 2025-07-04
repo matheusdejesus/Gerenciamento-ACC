@@ -14,49 +14,57 @@ use backend\api\controllers\Controller;
 class AtividadeComplementarController extends Controller {
     
     //Cadastrar Atividade
-    public function cadastrarComJWT($aluno_id) {
+    public function cadastrarComJWT($dados) {
         try {
-            // Validar dados do POST
-            $dados = [
-                'aluno_id' => $aluno_id,
-                'categoria_id' => $_POST['atividade_id'] ?? null,
-                'titulo' => $_POST['titulo'] ?? null,
-                'descricao' => $_POST['descricao_atividades'] ?? null,
-                'data_inicio' => $_POST['data_inicio'] ?? null,
-                'data_fim' => $_POST['data_fim'] ?? null,
-                'carga_horaria_solicitada' => $_POST['horas_solicitadas'] ?? null,
-                'orientador_id' => $_POST['orientador_id'] ?? null
-            ];
+            // Log dos dados recebidos
+            error_log("Dados recebidos para cadastro: " . json_encode($dados));
             
-            // Validar arquivos (opcional agora)
-            $arquivos = $_FILES ?? [];
+            // Validações específicas
+            if (empty($dados['titulo']) || strlen(trim($dados['titulo'])) < 3) {
+                throw new Exception("Título deve ter pelo menos 3 caracteres");
+            }
             
-            // Criar atividade
-            $atividade_id = AtividadeComplementar::create($dados, $arquivos);
+            if (empty($dados['data_inicio']) || empty($dados['data_fim'])) {
+                throw new Exception("Datas de início e fim são obrigatórias");
+            }
             
-            $this->sendJsonResponse([
-                'success' => true,
-                'message' => 'Atividade cadastrada com sucesso',
-                'atividade_id' => $atividade_id
-            ]);
+            // Validar se data_fim > data_inicio
+            if (strtotime($dados['data_fim']) <= strtotime($dados['data_inicio'])) {
+                throw new Exception("Data de término deve ser posterior à data de início");
+            }
+            
+            if (empty($dados['carga_horaria_solicitada']) || $dados['carga_horaria_solicitada'] <= 0) {
+                throw new Exception("Carga horária solicitada deve ser maior que zero");
+            }
+            
+            if (empty($dados['orientador_id']) || !is_numeric($dados['orientador_id'])) {
+                throw new Exception("Orientador deve ser selecionado");
+            }
+            
+            $atividade_id = AtividadeComplementar::create($dados);
+
+            if (!$atividade_id) {
+                throw new Exception("Falha ao criar atividade");
+            }
+
+            return $atividade_id;
             
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementarController::cadastrarComJWT: " . $e->getMessage());
-            $this->sendJsonResponse([
-                'success' => false,
-                'error' => 'Erro ao cadastrar atividade: ' . $e->getMessage()
-            ], 500);
+            throw $e;
         }
     }
+
     // Listar Orientadores
     public function listarOrientadores() {
+
         try {
+            
             $orientadores = AtividadeComplementar::listarOrientadores();
             
-            $this->sendJsonResponse([
+            echo json_encode([
                 'success' => true,
-                'data' => $orientadores,
-                'total' => count($orientadores)
+                'data' => $orientadores
             ]);
             
         } catch (\Exception $e) {
@@ -80,7 +88,6 @@ class AtividadeComplementarController extends Controller {
             }
             
             $atividades = AtividadeComplementar::buscarPorAluno($aluno_id);
-            
             
             $this->sendJsonResponse([
                 'success' => true,
@@ -124,236 +131,6 @@ class AtividadeComplementarController extends Controller {
         }
     }
 
-    
-    public function downloadDeclaracao($atividade_id) {
-        try {
-            session_start();
-            if (empty($_SESSION['usuario'])) {
-                http_response_code(403);
-                echo 'Acesso negado';
-                return;
-            }
-            
-            $atividade = AtividadeComplementar::buscarPorId($atividade_id);
-            
-            if (!$atividade) {
-                http_response_code(404);
-                echo 'Atividade não encontrada';
-                return;
-            }
-            
-            // Verificar permissões
-            $usuario_tipo = $_SESSION['usuario']['tipo'];
-            $usuario_id = $_SESSION['usuario']['id'];
-            
-            $tem_permissao = false;
-            
-            if ($usuario_tipo === 'aluno' && $atividade['aluno_id'] == $usuario_id) {
-                $tem_permissao = true;
-            } elseif ($usuario_tipo === 'orientador' && $atividade['orientador_id'] == $usuario_id) {
-                $tem_permissao = true;
-            } elseif ($usuario_tipo === 'coordenador') {
-                $tem_permissao = true;
-            }
-            
-            if (!$tem_permissao) {
-                http_response_code(403);
-                echo 'Acesso negado para este documento';
-                return;
-            }
-            
-            // Buscar a declaração
-            $declaracao = $this->buscarDeclaracaoBlob($atividade_id);
-            if (!$declaracao || empty($declaracao['blob'])) {
-                http_response_code(404);
-                echo 'Documento não encontrado';
-                return;
-            }
-            
-            header_remove('Content-Type');
-            header_remove('Access-Control-Allow-Origin');
-            header_remove('Access-Control-Allow-Methods');
-            header_remove('Access-Control-Allow-Headers');
-            
-            header('Content-Type: ' . $declaracao['mime']);
-            header('Content-Disposition: inline; filename="declaracao_atividade_' . $atividade_id . '"');
-            header('Content-Length: ' . strlen($declaracao['blob']));
-            header('Cache-Control: private, max-age=0, must-revalidate');
-            header('Pragma: public');
-            echo $declaracao['blob'];
-            exit;
-        } catch (\Exception $e) {
-            error_log("Erro em AtividadeComplementarController::downloadDeclaracao: " . $e->getMessage());
-            http_response_code(500);
-            echo 'Erro interno do servidor';
-        }
-    }
-
-    private function buscarDeclaracaoBlob($atividade_id) {
-        return AtividadeComplementar::buscarDeclaracaoBlob($atividade_id);
-    }
-    
-    public function downloadDeclaracaoComJWT($atividade_id) {
-        try {
-            // Verificar autenticação JWT
-            $usuario = AuthMiddleware::getAuthenticatedUser();
-            if (!$usuario) {
-                http_response_code(403);
-                echo 'Acesso negado';
-                return;
-            }
-            
-            $atividade = AtividadeComplementar::buscarPorId($atividade_id);
-            
-            if (!$atividade) {
-                http_response_code(404);
-                echo 'Atividade não encontrada';
-                return;
-            }
-            
-            // Verificar permissões
-            $usuario_tipo = $usuario['tipo'];
-            $usuario_id = $usuario['id'];
-            
-            $tem_permissao = false;
-            
-            if ($usuario_tipo === 'aluno' && $atividade['aluno_id'] == $usuario_id) {
-                $tem_permissao = true;
-            } elseif ($usuario_tipo === 'orientador' && $atividade['orientador_id'] == $usuario_id) {
-                $tem_permissao = true;
-            } elseif ($usuario_tipo === 'coordenador') {
-                $tem_permissao = true;
-            }
-            
-            if (!$tem_permissao) {
-                http_response_code(403);
-                echo 'Acesso negado para este documento';
-                return;
-            }
-            
-            // Buscar a declaração
-            $declaracao = $this->buscarDeclaracaoBlob($atividade_id);
-            if (!$declaracao || empty($declaracao['blob'])) {
-                http_response_code(404);
-                echo 'Documento não encontrado';
-                return;
-            }
-            
-            // Limpar headers anteriores
-            header_remove();
-            
-            // Definir headers para download
-            header('Content-Type: ' . $declaracao['mime']);
-            header('Content-Disposition: inline; filename="declaracao_atividade_' . $atividade_id . '"');
-            header('Content-Length: ' . strlen($declaracao['blob']));
-            header('Cache-Control: no-cache, no-store, must-revalidate');
-            header('Pragma: no-cache');
-            header('Expires: 0');
-            
-            // Enviar o arquivo
-            echo $declaracao['blob'];
-            exit;
-            
-        } catch (Exception $e) {
-            error_log("Erro em downloadDeclaracaoComJWT: " . $e->getMessage());
-            http_response_code(500);
-            echo 'Erro interno do servidor';
-        }
-    }
-    
-    private function validarDadosEntrada($dados) {
-        $erros = [];
-        
-        if (empty($dados['atividade_id']) || !is_numeric($dados['atividade_id'])) {
-            $erros[] = "ID da atividade é obrigatório";
-        }
-        
-        if (empty($dados['titulo'])) {
-            $erros[] = "Título é obrigatório";
-        }
-        
-        if (empty($dados['data_inicio'])) {
-            $erros[] = "Data de início é obrigatória";
-        }
-        
-        if (empty($dados['data_fim'])) {
-            $erros[] = "Data de término é obrigatória";
-        }
-        
-        if (empty($dados['horas_solicitadas']) || !is_numeric($dados['horas_solicitadas']) || $dados['horas_solicitadas'] <= 0) {
-            $erros[] = "Carga horária deve ser um número maior que zero";
-        }
-        
-        if (empty($dados['orientador_id']) || !is_numeric($dados['orientador_id'])) {
-            $erros[] = "Orientador é obrigatório";
-        }
-        
-        if (empty($dados['descricao_atividades'])) {
-            $erros[] = "Descrição das atividades é obrigatória";
-        }
-        
-        // Validar datas
-        if (!empty($dados['data_inicio']) && !empty($dados['data_fim'])) {
-            $dataInicio = new \DateTime($dados['data_inicio']);
-            $dataFim = new \DateTime($dados['data_fim']);
-            
-            if ($dataInicio > $dataFim) {
-                $erros[] = "Data de início deve ser anterior à data de término";
-            }
-        }
-        
-        return $erros;
-    }
-    
-    private function processarArquivo($arquivo) {
-        // Validar tipo de arquivo
-        $tiposPermitidos = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-        if (!in_array($arquivo['type'], $tiposPermitidos)) {
-            throw new \Exception('Tipo de arquivo não permitido. Use PDF, JPG, JPEG ou PNG.');
-        }
-        
-        // Validar tamanho (5MB máximo)
-        $tamanhoMaximo = 5 * 1024 * 1024;
-        if ($arquivo['size'] > $tamanhoMaximo) {
-            throw new \Exception('Arquivo muito grande. Tamanho máximo: 5MB.');
-        }
-        
-        // Ler conteúdo do arquivo
-        $conteudo = file_get_contents($arquivo['tmp_name']);
-        if ($conteudo === false) {
-            throw new \Exception('Erro ao ler arquivo.');
-        }
-        
-        return $conteudo;
-    }
-    
-    private function obterCategoriaId($atividade) {
-        return $atividade['categoria_id'] ?? 1;
-    }
-    
-    private function validarDadosAvaliacao($dados) {
-        $erros = [];
-        
-        if (empty($dados['atividade_id']) || !is_numeric($dados['atividade_id'])) {
-            $erros[] = "ID da atividade é obrigatório";
-        }
-        
-        if (!isset($dados['carga_horaria_aprovada']) || !is_numeric($dados['carga_horaria_aprovada']) || $dados['carga_horaria_aprovada'] < 0) {
-            $erros[] = "Carga horária aprovada deve ser um número maior ou igual a zero";
-        }
-        
-        if (empty($dados['observacoes_analise'])) {
-            $erros[] = "Observações/parecer são obrigatórias";
-        }
-        
-        if (empty($dados['status'])) {
-            $erros[] = "Status da avaliação é obrigatório";
-        }
-        
-        return $erros;
-    }
-
-
     public function listarPendentesOrientadorComJWT($orientador_id) {
         try {
             $atividades = AtividadeComplementar::buscarPendentesOrientador($orientador_id);
@@ -388,8 +165,11 @@ class AtividadeComplementarController extends Controller {
             // Obter dados da requisição
             $input = json_decode(file_get_contents('php://input'), true);
             
+            error_log("Dados recebidos para avaliação: " . json_encode($input));
+            error_log("Orientador ID: " . $orientador_id);
+            
             if (!$input) {
-                $this->sendJsonResponse(['error' => 'Dados inválidos'], 400);
+                $this->sendJsonResponse(['error' => 'Dados inválidos ou ausentes'], 400);
                 return;
             }
             
@@ -407,35 +187,46 @@ class AtividadeComplementarController extends Controller {
             
             // Validar status
             if (!in_array($status, ['Aprovada', 'Rejeitada'])) {
-                $this->sendJsonResponse(['error' => 'Status inválido'], 400);
+                $this->sendJsonResponse(['error' => 'Status inválido. Deve ser "Aprovada" ou "Rejeitada"'], 400);
                 return;
             }
             
+            // Para atividades rejeitadas, carga horária deve ser 0
             if ($status === 'Rejeitada') {
                 $carga_horaria_aprovada = 0;
             }
             
-            // Verificar se as horas aprovadas não excedem as solicitadas
-            if ($status === 'Aprovada' && $carga_horaria_aprovada > 0) {
-                $atividade = AtividadeComplementar::buscarPorId($atividade_id);
-                if (!$atividade) {
-                    $this->sendJsonResponse(['error' => 'Atividade não encontrada'], 404);
-                    return;
-                }
-                
-                // Verificar se pertence ao orientador
-                if ($atividade['orientador_id'] != $orientador_id) {
-                    $this->sendJsonResponse(['error' => 'Acesso negado para esta atividade'], 403);
-                    return;
-                }
-                
-                // Verificar se não excede as horas solicitadas
-                if ($carga_horaria_aprovada > $atividade['carga_horaria_solicitada']) {
-                    $this->sendJsonResponse([
-                        'error' => "Não é possível aprovar mais horas ({$carga_horaria_aprovada}h) do que o aluno solicitou ({$atividade['carga_horaria_solicitada']}h)"
-                    ], 400);
-                    return;
-                }
+            // Validar carga horária para atividades aprovadas
+            if ($status === 'Aprovada' && $carga_horaria_aprovada <= 0) {
+                $this->sendJsonResponse(['error' => 'Para aprovar, a carga horária deve ser maior que zero'], 400);
+                return;
+            }
+            
+            // Verificar se a atividade existe e pertence ao orientador
+            $atividade = AtividadeComplementar::buscarPorId($atividade_id);
+            if (!$atividade) {
+                $this->sendJsonResponse(['error' => 'Atividade não encontrada'], 404);
+                return;
+            }
+            
+            // Verificar se pertence ao orientador
+            if ($atividade['orientador_id'] != $orientador_id) {
+                $this->sendJsonResponse(['error' => 'Você não tem permissão para avaliar esta atividade'], 403);
+                return;
+            }
+            
+            // Verificar se já foi avaliada
+            if ($atividade['status'] !== 'Pendente') {
+                $this->sendJsonResponse(['error' => 'Esta atividade já foi avaliada'], 400);
+                return;
+            }
+            
+            // Verificar se não excede as horas solicitadas
+            if ($status === 'Aprovada' && $carga_horaria_aprovada > $atividade['carga_horaria_solicitada']) {
+                $this->sendJsonResponse([
+                    'error' => "Não é possível aprovar mais horas ({$carga_horaria_aprovada}h) do que o aluno solicitou ({$atividade['carga_horaria_solicitada']}h)"
+                ], 400);
+                return;
             }
             
             // Avaliar a atividade
@@ -450,18 +241,48 @@ class AtividadeComplementarController extends Controller {
             if ($sucesso) {
                 $this->sendJsonResponse([
                     'success' => true,
-                    'message' => 'Atividade avaliada com sucesso',
+                    'message' => "Atividade {$status} com sucesso",
                     'status' => $status,
-                    'horas_aprovadas' => $carga_horaria_aprovada
+                    'horas_aprovadas' => $carga_horaria_aprovada,
+                    'atividade_id' => $atividade_id
                 ]);
             } else {
-                $this->sendJsonResponse(['error' => 'Erro ao avaliar atividade'], 500);
+                $this->sendJsonResponse(['error' => 'Falha ao salvar avaliação no banco de dados'], 500);
             }
             
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             error_log("Erro em AtividadeComplementarController::avaliarAtividadeComJWT: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => 'Erro interno do servidor: ' . $e->getMessage()], 500);
+            error_log("Stack trace: " . $e->getTraceAsString());
+            $this->sendJsonResponse(['error' => 'Erro interno: ' . $e->getMessage()], 500);
         }
     }
+
+    private function validarDadosAvaliacao($dados) {
+        $erros = [];
+        
+        if (empty($dados['atividade_id']) || !is_numeric($dados['atividade_id'])) {
+            $erros[] = 'ID da atividade é obrigatório';
+        }
+        
+        if (empty($dados['status'])) {
+            $erros[] = 'Status é obrigatório';
+        }
+        
+        if (!isset($dados['carga_horaria_aprovada']) || !is_numeric($dados['carga_horaria_aprovada'])) {
+            $erros[] = 'Carga horária aprovada deve ser um número';
+        }
+        
+        if (empty($dados['observacoes_analise'])) {
+            $erros[] = 'Parecer/observações são obrigatórios';
+        }
+        
+        return $erros;
+    }
+}
+
+if (isset($_GET['orientadores'])) {
+    $controller = new AtividadeComplementarController();
+    $controller->listarOrientadores();
+    exit;
 }
 ?>

@@ -10,31 +10,38 @@ use Exception;
 class AtividadeComplementar {
     public static function create($dados) {
         try {
+            // Validar dados obrigatórios
+            $camposObrigatorios = ['aluno_id', 'categoria_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada', 'orientador_id'];
+            
+            foreach ($camposObrigatorios as $campo) {
+                if (empty($dados[$campo])) {
+                    throw new Exception("Campo obrigatório não informado: $campo");
+                }
+            }
+            
             $db = Database::getInstance()->getConnection();
             $db->autocommit(false);
             $db->begin_transaction();
 
             $sql = "INSERT INTO AtividadeComplementar (
-                        aluno_id, 
-                        categoria_id, 
-                        titulo, 
-                        descricao, 
-                        data_inicio, 
-                        data_fim, 
-                        carga_horaria_solicitada, 
-                        declaracao,
-                        declaracao_mime,
-                        orientador_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                aluno_id, 
+                categoria_id, 
+                titulo, 
+                descricao, 
+                data_inicio, 
+                data_fim, 
+                carga_horaria_solicitada, 
+                orientador_id, 
+                declaracao_caminho
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $db->prepare($sql);
             if (!$stmt) {
                 throw new Exception("Erro ao preparar query: " . $db->error);
             }
 
-            // Correção: usar 'b' para BLOB e 's' para string
             $stmt->bind_param(
-                "iisssisbsi",
+                "iissssiss",
                 $dados['aluno_id'],
                 $dados['categoria_id'],
                 $dados['titulo'],
@@ -42,9 +49,8 @@ class AtividadeComplementar {
                 $dados['data_inicio'],
                 $dados['data_fim'],
                 $dados['carga_horaria_solicitada'],
-                $dados['declaracao'], // BLOB
-                $dados['declaracao_mime'],
-                $dados['orientador_id']
+                $dados['orientador_id'],
+                $dados['declaracao_caminho']
             );
 
             if (!$stmt->execute()) {
@@ -66,7 +72,7 @@ class AtividadeComplementar {
                 $db->autocommit(true);
             }
             error_log("Erro ao criar atividade complementar: " . $e->getMessage());
-            return false;
+            throw $e; // Re-throw para o controller tratar
         }
     }
     
@@ -86,9 +92,10 @@ class AtividadeComplementar {
                         ac.data_submissao,
                         ac.data_avaliacao,
                         ac.observacoes_Analise,
+                        ac.declaracao_caminho,
+                        CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         ca.descricao AS categoria_nome,
-                        u.nome AS orientador_nome,
-                        CASE WHEN ac.declaracao IS NOT NULL THEN 1 ELSE 0 END AS tem_declaracao
+                        u.nome AS orientador_nome
                     FROM AtividadeComplementar ac
                     INNER JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
                     LEFT JOIN Usuario u ON ac.orientador_id = u.id
@@ -122,7 +129,8 @@ class AtividadeComplementar {
                     'observacoes_Analise' => $row['observacoes_Analise'],
                     'categoria_nome' => $row['categoria_nome'],
                     'orientador_nome' => $row['orientador_nome'],
-                    'tem_declaracao' => (bool)$row['tem_declaracao']
+                    'tem_declaracao' => (bool)$row['tem_declaracao'],
+                    'declaracao_caminho' => $row['declaracao_caminho']
                 ];
             }
             
@@ -130,38 +138,6 @@ class AtividadeComplementar {
             
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementar::buscarPorAluno: " . $e->getMessage());
-            throw $e;
-        }
-    }
-    
-    public static function buscarDeclaracaoBlob($atividade_id) {
-        try {
-            $db = Database::getInstance()->getConnection();
-            
-            $sql = "SELECT declaracao, declaracao_mime FROM AtividadeComplementar WHERE id = ?";
-            $stmt = $db->prepare($sql);
-            
-            if (!$stmt) {
-                throw new Exception("Erro ao preparar consulta: " . $db->error);
-            }
-            
-            $stmt->bind_param("i", $atividade_id);
-            $stmt->execute();
-            
-            $result = $stmt->get_result();
-            $row = $result->fetch_assoc();
-            
-            if ($row && !empty($row['declaracao'])) {
-                return [
-                    'blob' => $row['declaracao'],
-                    'mime' => $row['declaracao_mime'] ?: 'application/octet-stream'
-                ];
-            }
-            
-            return null;
-            
-        } catch (Exception $e) {
-            error_log("Erro em AtividadeComplementar::buscarDeclaracaoBlob: " . $e->getMessage());
             throw $e;
         }
     }
@@ -210,6 +186,8 @@ class AtividadeComplementar {
                         ac.data_fim,
                         ac.carga_horaria_solicitada,
                         ac.data_submissao,
+                        ac.declaracao_caminho,
+                        CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         u.nome AS aluno_nome,
                         a.matricula AS aluno_matricula,
                         u.email AS aluno_email,
@@ -244,7 +222,9 @@ class AtividadeComplementar {
                     'nome_aluno' => $row['aluno_nome'],
                     'aluno_matricula' => $row['aluno_matricula'],
                     'aluno_email' => $row['aluno_email'],
-                    'curso_nome' => $row['curso_nome']
+                    'curso_nome' => $row['curso_nome'],
+                    'tem_declaracao' => (bool)$row['tem_declaracao'],
+                    'declaracao_caminho' => $row['declaracao_caminho']
                 ];
             }
             
@@ -272,6 +252,8 @@ class AtividadeComplementar {
                         ac.data_submissao,
                         ac.data_avaliacao,
                         ac.observacoes_Analise,
+                        ac.declaracao_caminho,
+                        CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         u.nome AS aluno_nome,
                         a.matricula AS aluno_matricula,
                         u.email AS aluno_email,
@@ -310,13 +292,105 @@ class AtividadeComplementar {
                     'aluno_nome' => $row['aluno_nome'],
                     'aluno_matricula' => $row['aluno_matricula'],
                     'aluno_email' => $row['aluno_email'],
-                    'curso_nome' => $row['curso_nome']
+                    'curso_nome' => $row['curso_nome'],
+                    'tem_declaracao' => (bool)$row['tem_declaracao'],
+                    'declaracao_caminho' => $row['declaracao_caminho']
                 ];
             }
             
             return $atividades;
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementar::buscarAvaliadasOrientador: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public static function avaliarAtividade($atividade_id, $orientador_id, $carga_horaria_aprovada, $observacoes_analise, $status) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Iniciar transação
+            $db->autocommit(false);
+            $db->begin_transaction();
+            
+            // Verificar se a atividade existe e pertence ao orientador
+            $sqlVerifica = "SELECT id, carga_horaria_solicitada, status FROM AtividadeComplementar 
+                           WHERE id = ? AND orientador_id = ?";
+            $stmtVerifica = $db->prepare($sqlVerifica);
+            $stmtVerifica->bind_param("ii", $atividade_id, $orientador_id);
+            $stmtVerifica->execute();
+            $resultado = $stmtVerifica->get_result();
+            
+            if ($resultado->num_rows === 0) {
+                throw new Exception("Atividade não encontrada ou não pertence a este orientador");
+            }
+            
+            $atividadeData = $resultado->fetch_assoc();
+            
+            // Verificar se já foi avaliada
+            if ($atividadeData['status'] !== 'Pendente') {
+                throw new Exception("Esta atividade já foi avaliada");
+            }
+            
+            // Validar carga horária
+            if ($status === 'Aprovada' && $carga_horaria_aprovada > $atividadeData['carga_horaria_solicitada']) {
+                throw new Exception("Carga horária aprovada não pode ser maior que a solicitada");
+            }
+            
+            // Atualizar a atividade SEM o campo avaliador_id
+            $sql = "UPDATE AtividadeComplementar 
+                    SET status = ?, 
+                        carga_horaria_aprovada = ?, 
+                        observacoes_Analise = ?, 
+                        data_avaliacao = NOW()
+                    WHERE id = ? AND orientador_id = ?";
+            
+            $stmt = $db->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erro ao preparar query de atualização: " . $db->error);
+            }
+            
+            $stmt->bind_param("sisii", $status, $carga_horaria_aprovada, $observacoes_analise, $atividade_id, $orientador_id);
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Erro ao executar atualização: " . $stmt->error);
+            }
+            
+            if ($stmt->affected_rows === 0) {
+                throw new Exception("Nenhuma linha foi atualizada. Verifique se a atividade existe e pertence ao orientador");
+            }
+            
+            $db->commit();
+            $db->autocommit(true);
+            
+            error_log("Atividade ID {$atividade_id} avaliada com sucesso pelo orientador {$orientador_id}. Status: {$status}");
+            
+            return true;
+            
+        } catch (Exception $e) {
+            if (isset($db)) {
+                $db->rollback();
+                $db->autocommit(true);
+            }
+            error_log("Erro em AtividadeComplementar::avaliarAtividade: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public static function buscarPorId($id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $sql = "SELECT * FROM AtividadeComplementar WHERE id = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            
+            $result = $stmt->get_result();
+            return $result->fetch_assoc();
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::buscarPorId: " . $e->getMessage());
             throw $e;
         }
     }

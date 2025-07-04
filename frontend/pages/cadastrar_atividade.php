@@ -38,35 +38,44 @@ function buscarAtividade($id) {
 // Função para buscar orientadores
 function buscarOrientadores() {
     $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
-    
+
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    
+
+    // Adicione este bloco para enviar a API Key
+    session_start();
+    $apiKey = $_SESSION['usuario']['api_key'] ?? '';
+    if ($apiKey) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'X-API-Key: ' . $apiKey
+        ]);
+    }
+
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
     curl_close($ch);
-    
+
     if ($curlError) {
         error_log("Erro cURL ao buscar orientadores: " . $curlError);
         return [];
     }
-    
+
     if ($httpCode !== 200) {
         error_log("Erro HTTP ao buscar orientadores: " . $httpCode . " - " . $response);
         return [];
     }
-    
+
     $data = json_decode($response, true);
-    
+
     if (!$data || !isset($data['success']) || !$data['success']) {
         error_log("Erro na resposta da API de orientadores: " . $response);
         return [];
     }
-    
+
     return $data['data'] ?? [];
 }
 
@@ -90,7 +99,7 @@ if (!isset($atividade['requisitos'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastrar na <?= htmlspecialchars($atividade['nome']) ?> - ACC</title>
+    <title>Cadastrar em <?= htmlspecialchars($atividade['atividade-nome']) ?> - ACC</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <style>
@@ -121,21 +130,19 @@ if (!isset($atividade['requisitos'])) {
                 <div class="p-8" style="background-color: #151B23">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h1 class="text-3xl font-bold text-white mb-2"><?= htmlspecialchars($atividade['nome']) ?></h1>
-                            <span class="inline-block px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
-                                <?= htmlspecialchars($atividade['categoria']) ?>
-                            </span>
+                            <h1 id="atividade-nome" class="text-3xl font-bold text-white mb-2"></h1>
+                            <span id="atividade-categoria" class="inline-block px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800"></span>
                         </div>
                         <div class="text-right">
                             <div class="text-white text-sm">Horas Máximas</div>
-                            <div class="text-white text-2xl font-bold"><?= $atividade['horas_max'] ?>h</div>
+                            <div class="text-white text-2xl font-bold" id="atividade-horas"></div>
                         </div>
                     </div>
                 </div>
                 <div class="p-8">
                     <div class="mb-8">
                         <h2 class="text-xl font-bold mb-3" style="color: #0969DA">Sobre esta Atividade</h2>
-                        <p class="text-gray-700 leading-relaxed"><?= htmlspecialchars($atividade['descricao']) ?></p>
+                        <p class="text-gray-700 leading-relaxed" id="atividade-descricao"></p>
                     </div>
                     <div class="mb-8">
                         <h3 class="text-lg font-bold mb-3" style="color: #0969DA">Requisitos</h3>
@@ -173,8 +180,8 @@ if (!isset($atividade['requisitos'])) {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Carga Horária Solicitada</label>
-                                    <input type="number" name="horas_solicitadas" min="1" max="<?= $atividade['horas_max'] ?>" required class="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Ex: 20">
-                                    <p class="text-sm text-gray-500 mt-1">Máximo: <?= $atividade['horas_max'] ?> horas</p>
+                                    <input type="number" name="horas_solicitadas" id="horas-solicitadas" min="1" required class="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Ex: 20">
+                                    <p class="text-sm text-gray-500 mt-1">Máximo: <span id="horas-max-info"></span> horas</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Orientador Responsável</label>
@@ -353,13 +360,17 @@ if (!isset($atividade['requisitos'])) {
                 
                 const formData = new FormData(document.getElementById('formCadastro'));
                 
-                // Log dos dados que estão sendo enviados
+                // Adicionar categoria_id se não existir
+                if (!formData.get('categoria_id')) {
+                    formData.set('categoria_id', '1'); // Default para Ensino
+                }
+                
+                // Log detalhado dos dados que estão sendo enviados
                 console.log('=== DADOS SENDO ENVIADOS ===');
                 for (let [key, value] of formData.entries()) {
                     console.log(key + ':', value);
                 }
                 
-                // Usar AuthClient.fetch com JWT
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
                     method: 'POST',
                     body: formData,
@@ -367,21 +378,23 @@ if (!isset($atividade['requisitos'])) {
                 
                 console.log('Status HTTP:', response.status);
                 
-                // Obter o texto da resposta primeiro
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                
                 const responseText = await response.text();
                 console.log('=== RESPOSTA BRUTA ===');
                 console.log(responseText);
                 
-                // Verificar se a resposta está vazia
                 if (!responseText.trim()) {
                     throw new Error('Resposta vazia do servidor');
                 }
+                
                 let result;
                 try {
                     result = JSON.parse(responseText);
                 } catch (parseError) {
                     console.error('Erro ao fazer parse do JSON:', parseError);
-                    console.error('Resposta que causou erro:', responseText);
                     throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 100));
                 }
                 
@@ -392,7 +405,7 @@ if (!isset($atividade['requisitos'])) {
                     alert('✅ Solicitação enviada com sucesso!\n\nVocê receberá uma notificação quando ela for avaliada pelo orientador selecionado.');
                     window.location.href = 'home_aluno.php';
                 } else {
-                    alert('❌ Erro: ' + result.error);
+                    alert('❌ Erro: ' + (result.error || 'Erro desconhecido'));
                 }
                 
             } catch (error) {
@@ -428,6 +441,34 @@ if (!isset($atividade['requisitos'])) {
             
             const dataFimInput = document.querySelector('input[name="data_fim"]');
             dataFimInput.max = dataMaxima.toISOString().split('T')[0];
+        });
+
+        // Exemplo de busca via JS (coloque no final do seu arquivo .php)
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (!AuthClient.isLoggedIn()) {
+                window.location.href = 'login.php';
+                return;
+            }
+            const user = AuthClient.getUser();
+            document.getElementById('nomeUsuario').textContent = user.nome;
+
+            // Buscar dados da atividade
+            const atividadeId = <?= json_encode($atividade_id) ?>;
+            const response = await AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/listar_atividades.php?id=${atividadeId}`);
+            const result = await response.json();
+            if (result.success) {
+                const data = result.data;
+                document.getElementById('atividade-nome').textContent = data.nome;
+                document.getElementById('atividade-categoria').textContent = data.categoria;
+                document.getElementById('atividade-horas').textContent = data.horas_max + 'h';
+                document.getElementById('atividade-descricao').textContent = data.descricao;
+                document.getElementById('horas-solicitadas').max = data.horas_max;
+                document.getElementById('horas-max-info').textContent = data.horas_max;
+                // Atualiza o título da página
+                document.title = 'Cadastrar em ' + data.nome + ' - ACC';
+            } else {
+                alert('Erro ao carregar atividade: ' + result.error);
+            }
         });
     </script>
 </body>

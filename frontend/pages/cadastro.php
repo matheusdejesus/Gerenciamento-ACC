@@ -209,8 +209,14 @@ try {
                 });
                 
                 const result = await response.json();
-                
+
                 if (result.success) {
+                    // Salvar API Key se fornecida
+                    if (result.api_key) {
+                        localStorage.setItem('acc_api_key', result.api_key);
+                        console.log('API Key salva:', result.api_key);
+                    }
+                    
                     window.location.href = `confirmacao.php?email=${encodeURIComponent(result.email)}`;
                 } else {
                     showError(result.error || 'Erro ao processar cadastro');

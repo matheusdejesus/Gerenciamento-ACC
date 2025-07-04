@@ -88,23 +88,23 @@ class CadastroController extends Controller {
                 return;
             }
             
-            $usuarioId = Cadastro::create($cadastroTemp['dados']);
+            $usuarioCriado = Cadastro::create($cadastroTemp['dados']);
             
-            if ($usuarioId) {
+            if ($usuarioCriado && isset($usuarioCriado['usuario_id'])) {
                 unset($_SESSION['cadastro_temp']);
-                
-                // Criar sessão do usuário
+
                 $_SESSION['usuario'] = [
-                    'id' => $usuarioId,
+                    'id' => $usuarioCriado['usuario_id'],
                     'nome' => $cadastroTemp['dados']['nome'],
                     'email' => $cadastroTemp['dados']['email'],
                     'tipo' => $cadastroTemp['dados']['tipo']
                 ];
-                
+
                 $this->sendJsonResponse([
                     'success' => true,
                     'message' => 'Cadastro realizado com sucesso',
-                    'usuario' => $_SESSION['usuario']
+                    'usuario' => $_SESSION['usuario'],
+                    'api_key' => $usuarioCriado['api_key'] // Retornar a API Key
                 ]);
             } else {
                 $this->sendJsonResponse(['error' => 'Erro ao criar usuário'], 500);

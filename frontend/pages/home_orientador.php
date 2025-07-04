@@ -568,21 +568,54 @@
                 return;
             }
 
+            if (horas <= 0) {
+                alert('Para aprovar, a carga horária deve ser maior que zero.');
+                return;
+            }
+            
+            const dadosAvaliacao = {
+                atividade_id: id,
+                status: 'Aprovada',
+                carga_horaria_aprovada: horas,
+                observacoes_analise: parecer
+            };
+
+            console.log('=== DADOS DE AVALIAÇÃO ===');
+            console.log(dadosAvaliacao);
+
             try {
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        atividade_id: id,
-                        status: 'Aprovada',
-                        carga_horaria_aprovada: horas,
-                        observacoes_analise: parecer
-                    })
+                    body: JSON.stringify(dadosAvaliacao)
                 });
                 
-                const data = await response.json();
+                console.log('=== RESPOSTA HTTP ===');
+                console.log('Status:', response.status);
+                console.log('Headers:', response.headers);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro HTTP:', response.status, errorText);
+                    throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const responseText = await response.text();
+                console.log('=== RESPOSTA BRUTA ===');
+                console.log(responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Erro ao fazer parse do JSON:', parseError);
+                    throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));
+                }
+                
+                console.log('=== DADOS PARSEADOS ===');
+                console.log(data);
                 
                 if (data.success) {
                     alert(`✅ Atividade aprovada com sucesso! ${horas} horas aprovadas.`);
@@ -593,8 +626,9 @@
                 }
                 
             } catch (error) {
-                console.error('Erro ao aprovar atividade:', error);
-                alert('❌ Erro ao avaliar atividade. Tente novamente.');
+                console.error('=== ERRO COMPLETO ===');
+                console.error(error);
+                alert('❌ Erro ao avaliar atividade: ' + error.message);
             }
         }
 
@@ -611,24 +645,51 @@
             }
             
             if (confirm('Confirma a rejeição desta atividade?')) {
+                const dadosAvaliacao = {
+                    atividade_id: id,
+                    status: 'Rejeitada',
+                    carga_horaria_aprovada: 0,
+                    observacoes_analise: parecer
+                };
+
+                console.log('=== DADOS DE REJEIÇÃO ===');
+                console.log(dadosAvaliacao);
+
                 try {
                     const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            atividade_id: id,
-                            status: 'Rejeitada',
-                            carga_horaria_aprovada: 0,
-                            observacoes_analise: parecer
-                        })
+                        body: JSON.stringify(dadosAvaliacao)
                     });
                     
-                    const data = await response.json();
+                    console.log('=== RESPOSTA HTTP REJEIÇÃO ===');
+                    console.log('Status:', response.status);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Erro HTTP:', response.status, errorText);
+                        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    const responseText = await response.text();
+                    console.log('=== RESPOSTA BRUTA REJEIÇÃO ===');
+                    console.log(responseText);
+                    
+                    let data;
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error('Erro ao fazer parse do JSON:', parseError);
+                        throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));
+                    }
+                    
+                    console.log('=== DADOS PARSEADOS REJEIÇÃO ===');
+                    console.log(data);
                     
                     if (data.success) {
-                        alert('❌ Atividade rejeitada.');
+                        alert('❌ Atividade rejeitada com sucesso.');
                         fecharModalAvaliacao();
                         await carregarTodosOsDados();
                     } else {
@@ -636,8 +697,9 @@
                     }
                     
                 } catch (error) {
-                    console.error('Erro ao rejeitar atividade:', error);
-                    alert('❌ Erro ao avaliar atividade. Tente novamente.');
+                    console.error('=== ERRO COMPLETO REJEIÇÃO ===');
+                    console.error(error);
+                    alert('❌ Erro ao rejeitar atividade: ' + error.message);
                 }
             }
         }
@@ -687,9 +749,6 @@
                             <button onclick="visualizarDeclaracao(${id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 Visualizar
                             </button>
-                            <button onclick="baixarDeclaracao(${id})" class="text-green-600 hover:text-green-800 text-sm font-medium">
-                                Baixar
-                            </button>
                         </div>
                     </div>
                 `;
@@ -711,11 +770,6 @@
 
         //Visualizar declaração em nova aba
         function visualizarDeclaracao(id) {
-            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
-        }
-
-        //Visualizar/baixar declaração
-        function baixarDeclaracao(id) {
             window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
         }
 

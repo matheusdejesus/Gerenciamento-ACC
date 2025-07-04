@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $db = Database::getInstance()->getConnection();
             $db->autocommit(false);
+            $db->begin_transaction();
 
             // 1. Criar usuário na tabela Usuario
             $stmt = $db->prepare("INSERT INTO Usuario (nome, email, senha, tipo) VALUES (?, ?, ?, ?)");
@@ -55,23 +56,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
             }
 
+            // 4. GERAR API KEY
+            $apiKey = bin2hex(random_bytes(32)); // 64 caracteres hexadecimais
+            $nomeAplicacao = 'user_' . $usuario_id;
+            
+            $stmt = $db->prepare("INSERT INTO ApiKeys (usuario_id, nome_aplicacao, api_key, ativa, criada_em) VALUES (?, ?, ?, 1, NOW())");
+            $stmt->bind_param("iss", $usuario_id, $nomeAplicacao, $apiKey);
+            if (!$stmt->execute()) {
+                throw new Exception("Erro ao criar API Key: " . $stmt->error);
+            }
+            $stmt->close();
+
             $db->commit();
             $db->autocommit(true);
-
-
-            // 5. Limpar dados temporários
+            
+            // Limpar sessão
             unset($_SESSION['cadastro_temp']);
             
+            // Salvar dados do usuário na sessão
+            $_SESSION['usuario'] = [
+                'id' => $usuario_id,
+                'nome' => $dados['nome'],
+                'email' => $dados['email'],
+                'tipo' => $dados['tipo']
+            ];
+            
+            // Salvar API Key na sessão para passar para o frontend
+            $_SESSION['api_key'] = $apiKey;
+            
             $success = true;
-            
-            // Redirecionamento para login
-            $redirect_url = 'login.php';
-            
+            error_log("Usuário criado com sucesso: ID={$usuario_id}, API_KEY={$apiKey}");
             
         } catch (Exception $e) {
-            $db->rollback();
-            $db->autocommit(true);
-            $error = "Erro ao cadastrar: " . $e->getMessage();
+            if ($db) {
+                $db->rollback();
+                $db->autocommit(true);
+            }
+            $error = "Erro ao criar usuário: " . $e->getMessage();
+            error_log("Erro no cadastro: " . $e->getMessage());
         }
     }
 }
@@ -170,5 +192,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>  
         </div>
     </div>
+    
+    <!-- No final do arquivo confirmacao.php, adicionar JavaScript para capturar a API Key -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        <?php if ($success && isset($_SESSION['api_key'])): ?>
+            // Salvar API Key no localStorage
+            localStorage.setItem('acc_api_key', '<?php echo $_SESSION['api_key']; ?>');
+            console.log('API Key salva:', '<?php echo $_SESSION['api_key']; ?>');
+            
+            // Limpar da sessão após salvar
+            <?php unset($_SESSION['api_key']); ?>
+            
+            // Redirecionar para login ou dashboard
+            setTimeout(function() {
+                window.location.href = 'login.php';
+            }, 2000);
+        <?php endif; ?>
+    });
+    </script>
 </body>
 </html>

@@ -26,29 +26,40 @@ class Cadastro {
         try {
             $db = Database::getInstance()->getConnection();
             $db->autocommit(false);
-            
+            $db->begin_transaction();
+
             // Inserir na tabela Usuario
             $stmt = $db->prepare("INSERT INTO Usuario (nome, email, senha, tipo) VALUES (?, ?, ?, ?)");
             $senha_hash = password_hash($dados['senha'], PASSWORD_BCRYPT);
             $stmt->bind_param("ssss", $dados['nome'], $dados['email'], $senha_hash, $dados['tipo']);
-            
             if (!$stmt->execute()) {
                 throw new Exception("Erro ao criar usuário: " . $stmt->error);
             }
-            
             $usuario_id = $db->insert_id;
-            error_log("Usuário criado com ID: " . $usuario_id);
-            
+
             // Inserir na tabela específica baseada no tipo
             self::criarRegistroEspecifico($db, $usuario_id, $dados);
+
+            // Gerar API Key única para este usuário
+            $apiKey = self::gerarApiKey();
+            $nomeAplicacao = 'user_' . $usuario_id; // Nome único por usuário
             
-            // Confirmar transação
+            $stmt = $db->prepare("INSERT INTO ApiKeys (nome_aplicacao, api_key, ativa, criada_em) VALUES (?, ?, 1, NOW())");
+            $stmt->bind_param("ss", $nomeAplicacao, $apiKey);
+            if (!$stmt->execute()) {
+                throw new Exception("Erro ao criar API Key: " . $stmt->error);
+            }
+
             $db->commit();
             $db->autocommit(true);
-            
-            error_log("Cadastro concluído com sucesso para usuario_id: " . $usuario_id);
-            return $usuario_id;
-            
+
+            error_log("Usuário criado com sucesso: ID={$usuario_id}, API_KEY={$apiKey}");
+
+            return [
+                'usuario_id' => $usuario_id,
+                'api_key' => $apiKey
+            ];
+
         } catch (Exception $e) {
             if ($db) {
                 $db->rollback();
@@ -57,6 +68,23 @@ class Cadastro {
             error_log("Erro em Cadastro::create: " . $e->getMessage());
             return false;
         }
+    }
+
+    // Adicionar método para gerar API Key única
+    private static function gerarApiKey() {
+        do {
+            $apiKey = bin2hex(random_bytes(32)); // 64 caracteres hexadecimais
+            
+            // Verificar se a chave já existe
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT id FROM ApiKeys WHERE api_key = ?");
+            $stmt->bind_param("s", $apiKey);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+        } while ($result->num_rows > 0); // Continuar gerando até encontrar uma chave única
+        
+        return $apiKey;
     }
     
     private static function criarRegistroEspecifico($db, $usuario_id, $dados) {
