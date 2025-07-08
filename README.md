@@ -45,7 +45,7 @@ O projeto Gerenciamento-ACC é um sistema web desenvolvido para gerenciar Ativid
 
 ### Auditoria e Logs
    - Registro de ações importantes, como alterações de senha, login/logout e avaliações de atividades.
-   - Logs detalhados para rastrear alterações e acessos no sistema.
+   - Manutenção de logs detalhados no banco de dados para rastreamento de alterações e acessos no sistema.
 
 ## 🔐 Mecanismos de Segurança
 
@@ -70,7 +70,7 @@ O projeto Gerenciamento-ACC é um sistema web desenvolvido para gerenciar Ativid
    - Limitação de tamanho e tipo de arquivos enviados.
 
 ### Auditoria:
-   - Registro de ações do usuário, como alterações de senha e acessos a páginas.
+   - Registro das ações dos usuários no banco de dados, incluindo alterações de senha e acessos a páginas.
    - Logs detalhados para monitoramento de atividades suspeitas.
 
 ## Instalação e Setup
