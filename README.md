@@ -1,6 +1,77 @@
-📋 Descrição do Projeto
+## 📋 Descrição do Projeto
 
-Aplicação web em PHP e MySQL para gerenciamento de atividades de ACC para a UFOPA. O sistema possui autenticação segura baseada em tokens JWT, controle de acesso por perfis (Aluno, Coordenador e Orientador), cadastro com confirmação por e‑mail, login seguro com hashing de senhas, redirecionamento automático baseado no tipo de usuário e áreas dedicadas para cada perfil.
+O projeto Gerenciamento-ACC é um sistema web desenvolvido para gerenciar Atividades Complementares de Curso (ACC) em uma instituição acadêmica. Ele possui funcionalidades voltadas para diferentes tipos de usuários, como alunos, coordenadores e orientadores, permitindo o acompanhamento, avaliação e controle de atividades complementares.
+
+## Principais Funcionalidades
+
+### Gestão de Usuários
+
+**Cadastro e Login**
+   - Os usuários podem se registrar e fazer login no sistema.
+   - Autenticação baseada em JWT (JSON Web Token) para proteger as rotas.
+
+**Recuperação de Senha**
+   - Envio de links de recuperação de senha por e-mail.
+   - Validação de tokens para redefinição de senha.
+
+**Alteração de Dados Pessoais**
+   - Usuários podem atualizar informações como e-mail e senha.
+
+### Gestão de Atividades Complementares
+
+**Cadastro de Atividades**
+   - Alunos podem cadastrar atividades complementares, anexando documentos comprobatórios.
+   - Validação de arquivos
+
+**Avaliação de Atividades**
+   - Orientadores e coordenadores podem aprovar ou rejeitar atividades.
+   - Possibilidade de adicionar observações durante a avaliação.
+
+**Certificados**
+   - Geração e envio de certificados para atividades aprovadas.
+   - Histórico de certificados processados e pendentes.
+
+### Painéis Personalizados
+
+**Painel do Aluno**
+   - Visualização de atividades cadastradas e status de avaliação.
+   - Configurações de perfil.
+
+**Painel do Coordenador**
+   - Gerenciamento de certificados pendentes e processados.
+
+**Painel do Orientador**
+   - Avaliação de atividades submetidas pelos alunos.
+
+### Auditoria e Logs
+   - Registro de ações importantes, como alterações de senha, login/logout e avaliações de atividades.
+   - Logs detalhados para rastrear alterações e acessos no sistema.
+
+## 🔐 Mecanismos de Segurança
+
+### Autenticação e Autorização:
+   - Uso de JWT para autenticação segura.
+   Controle de acesso baseado no tipo de usuário (aluno, orientador, coordenador).
+   - Redirecionamento automático para login em caso de sessão expirada.
+
+### Validação de Dados:
+   - Validação de entradas no backend para evitar ataques como SQL Injection.
+   - Regras de validação de senha (mínimo de 6 caracteres, letra maiúscula, número, símbolo).
+
+### Proteção de API:
+   - Uso de API Keys para proteger endpoints críticos.
+   - Middleware para validação de tokens e   permissões.
+
+### Criptografia:
+   - Senhas armazenadas com hash.
+   - Tokens de recuperação de senha com validade limitada.
+
+### Segurança de Arquivos:
+   - Limitação de tamanho e tipo de arquivos enviados.
+
+### Auditoria:
+   - Registro de ações do usuário, como alterações de senha e acessos a páginas.
+   - Logs detalhados para monitoramento de atividades suspeitas.
 
 ## Instalação e Setup
 
@@ -36,16 +107,6 @@ Siga os passos abaixo para colocar o projeto em funcionamento na sua máquina lo
    http://localhost/Gerenciamento-ACC/
 
 ---
-
-🔐 **Mecanismos de Segurança Implementados**
-
-### 1. Autenticação e Autorização via JWT
-
-- A autenticação de usuários é realizada via API utilizando tokens JWT (JSON Web Token).
-- O backend (PHP) gera e valida os tokens JWT para as rotas protegidas.
-- O frontend consome a API, armazena o token JWT de forma segura (em localStorage) e o envia em cada requisição autenticada.
-- O middleware da API valida o JWT antes de permitir acesso a recursos protegidos.
-
 
 ## 🛠️ Tecnologias Utilizadas
 
