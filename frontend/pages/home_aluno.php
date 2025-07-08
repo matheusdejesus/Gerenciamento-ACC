@@ -72,14 +72,15 @@
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead style="background-color: #F6F8FA">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Título</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Categoria</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
-                                </tr>
-                            </thead>
+    <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Título</th>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Categoria</th>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas</th>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Status</th>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Certificados</th>
+    </tr>
+</thead>
                             <tbody id="tabelaAtividades" class="bg-white divide-y divide-gray-200">
                             </tbody>
                         </table>
@@ -236,24 +237,15 @@
             if (atividade.status === 'Pendente') {
                 return { class: 'bg-yellow-100 text-yellow-800', text: 'Aguardando Avaliação' };
             }
-            
+
             if (atividade.status === 'Aprovada') {
-                const hoje = new Date();
-                if (atividade.data_fim) {
-                    const dataFim = new Date(atividade.data_fim + 'T00:00:00');
-                    if (dataFim > hoje) {
-                        return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
-                    } else {
-                        return { class: 'bg-green-100 text-green-800', text: 'Concluída' };
-                    }
-                }
-                return { class: 'bg-green-100 text-green-800', text: 'Aprovada' };
+                return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
             }
-            
+
             if (atividade.status === 'Rejeitada') {
                 return { class: 'bg-red-100 text-red-800', text: 'Rejeitada' };
             }
-            
+
             return { class: 'bg-gray-100 text-gray-800', text: atividade.status || 'N/A' };
         }
 
@@ -272,12 +264,12 @@
             
             tbody.innerHTML = minhasAtividades.map(atividade => {
                 const statusDetalhado = getStatusDetalhado(atividade);
-                
+
                 // Formatação das horas
                 let horasDisplay = `${atividade.carga_horaria_solicitada}h solicitadas`;
                 if (atividade.carga_horaria_aprovada !== null && atividade.carga_horaria_aprovada !== undefined) {
                     if (atividade.status === 'Aprovada') {
-                        horasDisplay = `${atividade.carga_horaria_aprovada}h aprovadas`;
+                        horasDisplay = `${atividade.carga_horaria_aprovada}h`;
                         if (atividade.carga_horaria_aprovada != atividade.carga_horaria_solicitada) {
                             horasDisplay += ` (de ${atividade.carga_horaria_solicitada}h)`;
                         }
@@ -285,7 +277,35 @@
                         horasDisplay = `0h aprovadas (de ${atividade.carga_horaria_solicitada}h)`;
                     }
                 }
-                
+
+                // Botão de certificado: habilita se certificado_caminho existir
+                let certificadoBtn;
+                const hoje = new Date();
+                let dataFim = atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00') : null;
+                const concluida = atividade.status === 'Aprovada' && dataFim && dataFim <= hoje;
+
+                if (atividade.certificado_caminho) {
+                    certificadoBtn = `
+                        <button class="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition"
+                            onclick="verCertificado('${atividade.certificado_caminho}')">
+                            Ver Certificado
+                        </button>
+                    `;
+                } else if (concluida) {
+                    certificadoBtn = `
+                        <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition"
+                            onclick="solicitarCertificado(${atividade.id})">
+                            Solicitar Certificado
+                        </button>
+                    `;
+                } else {
+                    certificadoBtn = `
+                        <button class="bg-gray-200 text-gray-400 px-3 py-1 rounded cursor-not-allowed" disabled>
+                            Certificados
+                        </button>
+                    `;
+                }
+
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -308,45 +328,34 @@
                                 Ver Detalhes
                             </button>
                         </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            ${certificadoBtn}
+                        </td>
                     </tr>
                 `;
             }).join('');
         }
 
+        // Função para ver o certificado
+        function verCertificado(caminho) {
+            window.open('/Gerenciamento-ACC/backend/api/' + caminho, '_blank');
+        }
+
         // Função para atualizar as estatísticas
         function atualizarEstatisticas() {
             const hoje = new Date();
-            
+
             // Horas certificadas
-            const horasValidadas = minhasAtividades
-                .filter(a => {
-                    if (a.status !== 'Aprovada') return false;
-                    if (!a.data_fim) return false;
-                    const dataFim = new Date(a.data_fim + 'T00:00:00');
-                    return dataFim <= hoje;
-                })
-                .reduce((total, a) => total + (a.carga_horaria_aprovada || 0), 0);
-            
+            const horasValidadas = 0;
+
             // Horas pendentes
             const horasPendentes = minhasAtividades
-                .filter(a => {
-                    if (a.status === 'Pendente') return true;
-                    if (a.status === 'Aprovada' && a.data_fim) {
-                        const dataFim = new Date(a.data_fim + 'T00:00:00');
-                        return dataFim > hoje;
-                    }
-                    return false;
-                })
+                .filter(a => a.status !== 'Rejeitada')
                 .reduce((total, a) => total + (a.carga_horaria_solicitada || 0), 0);
-            
+
             // Atividades em andamento
             const atividadesAndamento = minhasAtividades
-                .filter(a => {
-                    if (a.status !== 'Aprovada') return false;
-                    if (!a.data_fim) return true;
-                    const dataFim = new Date(a.data_fim + 'T00:00:00');
-                    return dataFim > hoje;
-                })
+                .filter(a => a.status === 'Aprovada')
                 .length;
 
             document.getElementById('horasValidadas').textContent = horasValidadas;
@@ -464,6 +473,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             carregarMinhasAtividades();
         });
+
+        function solicitarCertificado(atividadeId) {
+            alert('Solicitação de certificado enviada para a secretaria/coordenador. (Funcionalidade a ser implementada)');
+        }
     </script>
 </body>
 </html>

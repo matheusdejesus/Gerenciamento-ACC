@@ -28,12 +28,10 @@ try {
     
     $controller = new UsuarioController();
     
-    // Capturar a saída do controller
     ob_start();
     $controller->login();
     $output = ob_get_clean();
     
-    // Verificar se é JSON válido
     $jsonData = json_decode($output, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
         error_log("JSON inválido em login: " . $output);

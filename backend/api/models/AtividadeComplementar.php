@@ -93,6 +93,7 @@ class AtividadeComplementar {
                         ac.data_avaliacao,
                         ac.observacoes_Analise,
                         ac.declaracao_caminho,
+                        ac.certificado_caminho, -- ADICIONE ESTA LINHA
                         CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         ca.descricao AS categoria_nome,
                         u.nome AS orientador_nome
@@ -130,7 +131,8 @@ class AtividadeComplementar {
                     'categoria_nome' => $row['categoria_nome'],
                     'orientador_nome' => $row['orientador_nome'],
                     'tem_declaracao' => (bool)$row['tem_declaracao'],
-                    'declaracao_caminho' => $row['declaracao_caminho']
+                    'declaracao_caminho' => $row['declaracao_caminho'],
+                    'certificado_caminho' => $row['certificado_caminho'] ?? null
                 ];
             }
             
@@ -170,6 +172,40 @@ class AtividadeComplementar {
             
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementar::listarOrientadores: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public static function listarCoordenadores() {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $sql = "SELECT u.id, u.nome, u.email, c.siape, cur.nome as curso_nome
+                    FROM Usuario u
+                    INNER JOIN Coordenador c ON u.id = c.usuario_id
+                    INNER JOIN Curso cur ON c.curso_id = cur.id
+                    WHERE u.tipo = 'coordenador'
+                    ORDER BY u.nome";
+            
+            $result = $db->query($sql);
+            $coordenadores = [];
+            
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $coordenadores[] = [
+                        'id' => (int)$row['id'],
+                        'nome' => $row['nome'],
+                        'email' => $row['email'],
+                        'siape' => $row['siape'] ?? null,
+                        'curso_nome' => $row['curso_nome']
+                    ];
+                }
+            }
+            
+            return $coordenadores;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::listarCoordenadores: " . $e->getMessage());
             throw $e;
         }
     }
@@ -224,7 +260,8 @@ class AtividadeComplementar {
                     'aluno_email' => $row['aluno_email'],
                     'curso_nome' => $row['curso_nome'],
                     'tem_declaracao' => (bool)$row['tem_declaracao'],
-                    'declaracao_caminho' => $row['declaracao_caminho']
+                    'declaracao_caminho' => $row['declaracao_caminho'],
+                    'certificado_caminho' => $row['certificado_caminho'] ?? null
                 ];
             }
             
@@ -294,7 +331,8 @@ class AtividadeComplementar {
                     'aluno_email' => $row['aluno_email'],
                     'curso_nome' => $row['curso_nome'],
                     'tem_declaracao' => (bool)$row['tem_declaracao'],
-                    'declaracao_caminho' => $row['declaracao_caminho']
+                    'declaracao_caminho' => $row['declaracao_caminho'],
+                    'certificado_caminho' => $row['certificado_caminho'] ?? null
                 ];
             }
             
@@ -305,73 +343,29 @@ class AtividadeComplementar {
         }
     }
 
-    public static function avaliarAtividade($atividade_id, $orientador_id, $carga_horaria_aprovada, $observacoes_analise, $status) {
+    public static function avaliarAtividade($atividade_id, $orientador_id, $carga_horaria_aprovada, $observacoes_analise, $status, $certificado_caminho = null) {
         try {
             $db = Database::getInstance()->getConnection();
-            
-            // Iniciar transação
-            $db->autocommit(false);
-            $db->begin_transaction();
-            
-            // Verificar se a atividade existe e pertence ao orientador
-            $sqlVerifica = "SELECT id, carga_horaria_solicitada, status FROM AtividadeComplementar 
-                           WHERE id = ? AND orientador_id = ?";
-            $stmtVerifica = $db->prepare($sqlVerifica);
-            $stmtVerifica->bind_param("ii", $atividade_id, $orientador_id);
-            $stmtVerifica->execute();
-            $resultado = $stmtVerifica->get_result();
-            
-            if ($resultado->num_rows === 0) {
-                throw new Exception("Atividade não encontrada ou não pertence a este orientador");
-            }
-            
-            $atividadeData = $resultado->fetch_assoc();
-            
-            // Verificar se já foi avaliada
-            if ($atividadeData['status'] !== 'Pendente') {
-                throw new Exception("Esta atividade já foi avaliada");
-            }
-            
-            // Validar carga horária
-            if ($status === 'Aprovada' && $carga_horaria_aprovada > $atividadeData['carga_horaria_solicitada']) {
-                throw new Exception("Carga horária aprovada não pode ser maior que a solicitada");
-            }
-            
-            // Atualizar a atividade SEM o campo avaliador_id
+
             $sql = "UPDATE AtividadeComplementar 
                     SET status = ?, 
                         carga_horaria_aprovada = ?, 
-                        observacoes_Analise = ?, 
-                        data_avaliacao = NOW()
+                        observacoes_analise = ?, 
+                        certificado_caminho = ? 
                     WHERE id = ? AND orientador_id = ?";
-            
             $stmt = $db->prepare($sql);
-            if (!$stmt) {
-                throw new Exception("Erro ao preparar query de atualização: " . $db->error);
-            }
-            
-            $stmt->bind_param("sisii", $status, $carga_horaria_aprovada, $observacoes_analise, $atividade_id, $orientador_id);
-            
-            if (!$stmt->execute()) {
-                throw new Exception("Erro ao executar atualização: " . $stmt->error);
-            }
-            
-            if ($stmt->affected_rows === 0) {
-                throw new Exception("Nenhuma linha foi atualizada. Verifique se a atividade existe e pertence ao orientador");
-            }
-            
-            $db->commit();
-            $db->autocommit(true);
-            
-            error_log("Atividade ID {$atividade_id} avaliada com sucesso pelo orientador {$orientador_id}. Status: {$status}");
-            
-            return true;
-            
+            $stmt->bind_param(
+                "sissii",
+                $status,
+                $carga_horaria_aprovada,
+                $observacoes_analise,
+                $certificado_caminho,
+                $atividade_id,
+                $orientador_id
+            );
+            $stmt->execute();
+            return $stmt->affected_rows > 0;
         } catch (Exception $e) {
-            if (isset($db)) {
-                $db->rollback();
-                $db->autocommit(true);
-            }
             error_log("Erro em AtividadeComplementar::avaliarAtividade: " . $e->getMessage());
             throw $e;
         }
@@ -392,6 +386,318 @@ class AtividadeComplementar {
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementar::buscarPorId: " . $e->getMessage());
             throw $e;
+        }
+    }
+
+    public static function aprovarCertificado($atividade_id, $coordenador_id, $observacoes = '') {
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            // Adiciona uma observação sobre a aprovação na coluna observacoes_Analise
+            $observacao_aprovacao = "\n[CERTIFICADO APROVADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
+            if ($observacoes) {
+                $observacao_aprovacao .= "\nObservações do coordenador: " . $observacoes;
+            }
+            
+            $sql = "UPDATE AtividadeComplementar 
+                    SET observacoes_Analise = CONCAT(
+                        COALESCE(observacoes_Analise, ''), 
+                        ?
+                    )
+                    WHERE id = ? AND avaliador_id = ?";
+                    
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("sii", $observacao_aprovacao, $atividade_id, $coordenador_id);
+            
+            $sucesso = $stmt->execute();
+            
+            if ($sucesso) {
+                error_log("Certificado aprovado com sucesso para atividade ID: " . $atividade_id);
+            } else {
+                error_log("Erro ao aprovar certificado: " . $stmt->error);
+            }
+            
+            return $sucesso;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::aprovarCertificado: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function rejeitarCertificado($atividade_id, $coordenador_id, $observacoes) {
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            // Adiciona uma observação sobre a rejeição na coluna observacoes_Analise
+            $observacao_rejeicao = "\n[CERTIFICADO REJEITADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
+            $observacao_rejeicao .= "\nMotivo da rejeição: " . $observacoes;
+            
+            // Remove o certificado processado e adiciona a observação
+            $sql = "UPDATE AtividadeComplementar 
+                    SET certificado_processado = NULL,
+                        observacoes_Analise = CONCAT(
+                            COALESCE(observacoes_Analise, ''), 
+                            ?
+                        )
+                    WHERE id = ? AND avaliador_id = ?";
+                    
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("sii", $observacao_rejeicao, $atividade_id, $coordenador_id);
+            
+            $sucesso = $stmt->execute();
+            
+            if ($sucesso) {
+                error_log("Certificado rejeitado com sucesso para atividade ID: " . $atividade_id);
+            } else {
+                error_log("Erro ao rejeitar certificado: " . $stmt->error);
+            }
+            
+            return $sucesso;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::rejeitarCertificado: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function atualizarCertificado($atividade_id, $certificado_caminho) {
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            // Verificar qual coluna usar para certificado
+            $sql = "SHOW COLUMNS FROM AtividadeComplementar LIKE 'certificado%'";
+            $result = $db->query($sql);
+            
+            $coluna_certificado = 'certificado';
+            while ($row = $result->fetch_assoc()) {
+                if ($row['Field'] === 'certificado_caminho') {
+                    $coluna_certificado = 'certificado_caminho';
+                    break;
+                }
+            }
+
+            $sql = "UPDATE AtividadeComplementar 
+                    SET {$coluna_certificado} = ? 
+                    WHERE id = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("si", $certificado_caminho, $atividade_id);
+            
+            $sucesso = $stmt->execute();
+            
+            if ($sucesso) {
+                error_log("Certificado atualizado para atividade ID: " . $atividade_id . " na coluna: " . $coluna_certificado);
+            } else {
+                error_log("Erro ao atualizar certificado: " . $stmt->error);
+            }
+            
+            return $sucesso;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::atualizarCertificado: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Método para verificar se certificado foi aprovado (usando avaliador_id)
+    public static function certificadoAprovado($atividade_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $stmt = $db->prepare("SELECT avaliador_id FROM AtividadeComplementar WHERE id = ? AND avaliador_id IS NOT NULL");
+            $stmt->bind_param("i", $atividade_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->num_rows > 0;
+            
+        } catch (Exception $e) {
+            error_log("Erro em certificadoAprovado: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function buscarCertificadosPendentesPorCoordenador($coordenador_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+    
+            // Buscar o curso_id do coordenador
+            $sqlCurso = "SELECT curso_id FROM Coordenador WHERE usuario_id = ?";
+            $stmtCurso = $db->prepare($sqlCurso);
+            $stmtCurso->bind_param("i", $coordenador_id);
+            $stmtCurso->execute();
+            $resultCurso = $stmtCurso->get_result();
+    
+            if ($resultCurso->num_rows === 0) {
+                return [];
+            }
+    
+            $coordenador = $resultCurso->fetch_assoc();
+            $curso_id = $coordenador['curso_id'];
+
+        
+            // Usar observacoes_Analise para identificar se foi aprovado
+            $sql = "SELECT 
+                    ac.id,
+                    ac.titulo,
+                    ac.carga_horaria_aprovada as horas_aprovadas,
+                    ac.data_avaliacao as data_envio,
+                    ac.certificado_processado as certificado_caminho,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    ca.descricao as atividade_nome
+                FROM AtividadeComplementar ac
+                INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                INNER JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
+                WHERE a.curso_id = ? 
+                  AND ac.status = 'Aprovada'
+                  AND ac.certificado_processado IS NOT NULL 
+                  AND ac.certificado_processado != ''
+                  AND ac.avaliador_id = ?
+                  AND (ac.observacoes_Analise IS NULL 
+                       OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%')
+                ORDER BY ac.data_avaliacao DESC";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("ii", $curso_id, $coordenador_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'titulo' => $row['titulo'],
+                    'horas_aprovadas' => (int)$row['horas_aprovadas'],
+                    'data_envio' => $row['data_envio'],
+                    'certificado_caminho' => $row['certificado_caminho'],
+                    'aluno_nome' => $row['aluno_nome'],
+                    'aluno_matricula' => $row['aluno_matricula'],
+                    'curso_nome' => $row['curso_nome'],
+                    'atividade_nome' => $row['atividade_nome']
+                ];
+            }
+
+            return $atividades;
+
+        } catch (Exception $e) {
+            error_log("Erro em buscarCertificadosPendentesPorCoordenador: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function buscarCertificadosProcessadosPorCoordenador($coordenador_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+    
+            // Buscar o curso_id do coordenador
+            $sqlCurso = "SELECT curso_id FROM Coordenador WHERE usuario_id = ?";
+            $stmtCurso = $db->prepare($sqlCurso);
+            $stmtCurso->bind_param("i", $coordenador_id);
+            $stmtCurso->execute();
+            $resultCurso = $stmtCurso->get_result();
+    
+            if ($resultCurso->num_rows === 0) {
+                return [];
+            }
+    
+            $coordenador = $resultCurso->fetch_assoc();
+            $curso_id = $coordenador['curso_id'];
+    
+            // Usando observacoes_Analise para identificar aprovação
+            $sql = "SELECT 
+                    ac.id,
+                    ac.titulo,
+                    ac.carga_horaria_aprovada as horas_contabilizadas,
+                    'Aprovado' as status,
+                    ac.data_avaliacao as data_envio,
+                    ac.data_avaliacao as data_aprovacao,
+                    ac.certificado_processado as certificado_caminho,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    ca.descricao as atividade_nome
+                FROM AtividadeComplementar ac
+                INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                INNER JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
+                WHERE a.curso_id = ? 
+                  AND ac.status = 'Aprovada'
+                  AND ac.certificado_processado IS NOT NULL 
+                  AND ac.certificado_processado != ''
+                  AND ac.avaliador_id = ?
+                  AND ac.observacoes_Analise LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%'
+                ORDER BY ac.data_avaliacao DESC";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("ii", $curso_id, $coordenador_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'aluno_nome' => $row['aluno_nome'],
+                    'aluno_matricula' => $row['aluno_matricula'],
+                    'curso_nome' => $row['curso_nome'],
+                    'atividade_nome' => $row['atividade_nome'],
+                    'horas_contabilizadas' => (int)$row['horas_contabilizadas'],
+                    'status' => $row['status'],
+                    'data_envio' => $row['data_envio'],
+                    'data_aprovacao' => $row['data_aprovacao'],
+                    'certificado_caminho' => $row['certificado_caminho']
+                ];
+            }
+        
+            return $atividades;
+        
+        } catch (Exception $e) {
+            error_log("Erro em buscarCertificadosProcessadosPorCoordenador: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function atualizarCertificadoProcessado($atividade_id, $certificado_caminho, $avaliador_id = null) {
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            // Se avaliador_id for fornecido, incluir na atualização
+            if ($avaliador_id) {
+                $sql = "UPDATE AtividadeComplementar 
+                        SET certificado_processado = ?, avaliador_id = ? 
+                        WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("sii", $certificado_caminho, $avaliador_id, $atividade_id);
+            } else {
+                $sql = "UPDATE AtividadeComplementar 
+                        SET certificado_processado = ? 
+                        WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("si", $certificado_caminho, $atividade_id);
+            }
+            
+            $sucesso = $stmt->execute();
+            
+            if ($sucesso) {
+                if ($avaliador_id) {
+                    error_log("Certificado processado atualizado com avaliador para atividade ID: " . $atividade_id . ", avaliador: " . $avaliador_id);
+                } else {
+                    error_log("Certificado processado atualizado para atividade ID: " . $atividade_id);
+                }
+            } else {
+                error_log("Erro ao atualizar certificado processado: " . $stmt->error);
+            }
+            
+            return $sucesso;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::atualizarCertificadoProcessado: " . $e->getMessage());
+            return false;
         }
     }
 }

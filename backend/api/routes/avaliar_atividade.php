@@ -1,104 +1,23 @@
 <?php
-error_reporting(0);
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Verificar se é uma requisição de download antes de definir headers JSON
-if (isset($_GET['download']) && $_GET['download'] === 'declaracao' && isset($_GET['id'])) {
-    // Não definir headers JSON para downloads
-    require_once __DIR__ . '/../config/database.php';
-    require_once __DIR__ . '/../middleware/AuthMiddleware.php';
-    
-    
-    try {
-        // Verificar autenticação (aluno ou orientador pode visualizar)
-        $usuario = AuthMiddleware::requireAuth();
-        $atividadeId = intval($_GET['id']);
-        
-        $db = Database::getInstance()->getConnection();
-        
-        // Verificar se o usuário tem permissão para ver esta atividade
-        $sqlVerifica = "SELECT ac.declaracao_caminho, ac.aluno_id, ac.orientador_id 
-                       FROM AtividadeComplementar ac 
-                       WHERE ac.id = ?";
-        $stmtVerifica = $db->prepare($sqlVerifica);
-        $stmtVerifica->bind_param("i", $atividadeId);
-        $stmtVerifica->execute();
-        $resultVerifica = $stmtVerifica->get_result();
-        
-        if ($resultVerifica->num_rows === 0) {
-            http_response_code(404);
-            echo "Atividade não encontrada.";
-            exit;
-        }
-        
-        $atividade = $resultVerifica->fetch_assoc();
-        
-        // Verificar permissão (aluno dono ou orientador responsável)
-        $temPermissao = false;
-        if ($usuario['tipo'] === 'aluno' && $atividade['aluno_id'] == $usuario['id']) {
-            $temPermissao = true;
-        } elseif ($usuario['tipo'] === 'orientador' && $atividade['orientador_id'] == $usuario['id']) {
-            $temPermissao = true;
-        }
-        
-        if (!$temPermissao) {
-            http_response_code(403);
-            echo "Acesso negado.";
-            exit;
-        }
-        
-        if (empty($atividade['declaracao_caminho'])) {
-            http_response_code(404);
-            echo "Declaração não encontrada.";
-            exit;
-        }
-
-        // Caminho completo do arquivo
-        $filePath = __DIR__ . "/../../" . $atividade['declaracao_caminho'];
-
-        if (!file_exists($filePath)) {
-            http_response_code(404);
-            echo "Arquivo não encontrado no servidor.";
-            exit;
-        }
-        
-        // Determinar o tipo MIME
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $filePath);
-        finfo_close($finfo);
-        
-        // Headers para visualização do arquivo
-        header('Content-Type: ' . $mimeType);
-        header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
-        header('Content-Length: ' . filesize($filePath));
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        header('Pragma: public');
-        
-        // Enviar o arquivo
-        readfile($filePath);
-        exit;
-        
-    } catch (Exception $e) {
-        error_log("Erro ao baixar declaração: " . $e->getMessage());
-        http_response_code(500);
-        echo "Erro interno do servidor.";
-        exit;
-    }
-}
-
-// Se não for download, continuar com a lógica normal
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: http://localhost');
 header('Access-Control-Allow-Methods: GET, POST');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 header('Access-Control-Allow-Credentials: true');
 
 ob_start();
 
-require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
+require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
 
 use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
+use backend\api\middleware\ApiKeyMiddleware;
 
 function enviarErro($mensagem, $codigo = 500) {
     ob_end_clean();
@@ -111,46 +30,200 @@ function enviarErro($mensagem, $codigo = 500) {
 }
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        // Listar atividades avaliadas pelo orientador
-        $usuario = AuthMiddleware::requireOrientador();
+    error_log("=== AVALIAR_ATIVIDADE.PHP ===");
+    error_log("Method: " . $_SERVER['REQUEST_METHOD']);
+    error_log("GET: " . print_r($_GET, true));
+    error_log("POST: " . print_r($_POST, true));
+    error_log("FILES: " . print_r($_FILES, true));
+    
+    // POST: Rejeitar certificado (COORDENADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'rejeitar_certificado') {
+        error_log("=== ROTA COORDENADOR: REJEITAR CERTIFICADO ===");
         
-        $controller = new AtividadeComplementarController();
-        ob_start();
-        $controller->listarAvaliadasOrientadorComJWT($usuario['id']);
-        $output = ob_get_clean();
+        $usuario = AuthMiddleware::requireCoordenador();
+        error_log("Usuário validado: " . print_r($usuario, true));
         
-        $jsonData = json_decode($output, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("JSON inválido em listar avaliadas: " . $output);
-            enviarErro('Resposta inválida do servidor');
+        $atividade_id = $_POST['atividade_id'] ?? null;
+        $observacoes = $_POST['observacoes'] ?? '';
+        
+        if (!$atividade_id) {
+            error_log("ID da atividade não fornecido");
+            enviarErro('ID da atividade é obrigatório', 400);
         }
         
-        echo $output;
-    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // Avaliar atividade
-        $usuario = AuthMiddleware::requireOrientador();
-        
-        error_log("=== INÍCIO AVALIAÇÃO ===");
-        error_log("Usuário orientador: " . json_encode($usuario));
-        error_log("POST data: " . file_get_contents('php://input'));
-        
-        $controller = new AtividadeComplementarController();
-        
-        // Não usar ob_start aqui para capturar erros melhor
-        try {
-            $controller->avaliarAtividadeComJWT($usuario['id']);
-        } catch (Exception $e) {
-            error_log("Erro na rota avaliar_atividade: " . $e->getMessage());
-            enviarErro('Erro ao processar avaliação: ' . $e->getMessage());
+        if (!$observacoes) {
+            error_log("Observações não fornecidas");
+            enviarErro('Observações são obrigatórias para rejeição', 400);
         }
         
-        error_log("=== FIM AVALIAÇÃO ===");
-    } else {
-        enviarErro('Método não permitido', 405);
+        error_log("Processando rejeição do certificado para atividade ID: " . $atividade_id);
+        
+        $controller = new AtividadeComplementarController();
+        $controller->rejeitarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes);
+        exit;
     }
+
+    // POST: Aprovar certificado (COORDENADOR) - Modificado para aceitar observações
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'aprovar_certificado') {
+        error_log("=== ROTA COORDENADOR: APROVAR CERTIFICADO ===");
+        
+        $usuario = AuthMiddleware::requireCoordenador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $atividade_id = $_POST['atividade_id'] ?? null;
+        $observacoes = $_POST['observacoes'] ?? '';
+        
+        if (!$atividade_id) {
+            error_log("ID da atividade não fornecido");
+            enviarErro('ID da atividade é obrigatório', 400);
+        }
+        
+        error_log("Processando aprovação do certificado para atividade ID: " . $atividade_id);
+        
+        $controller = new AtividadeComplementarController();
+        $controller->aprovarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes);
+        exit;
+    }
+    
+    // GET: Certificados pendentes (COORDENADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'certificados_pendentes') {
+        error_log("=== ROTA COORDENADOR: CERTIFICADOS PENDENTES ===");
+        
+        $usuario = AuthMiddleware::requireCoordenador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $controller = new AtividadeComplementarController();
+        $controller->listarCertificadosPendentesCoordenadorComJWT($usuario['id']);
+        exit;
+    }
+    
+    // GET: Certificados processados (COORDENADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'certificados_processados') {
+        error_log("=== ROTA COORDENADOR: CERTIFICADOS PROCESSADOS ===");
+        
+        $usuario = AuthMiddleware::requireCoordenador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $controller = new AtividadeComplementarController();
+        $controller->listarCertificadosProcessadosCoordenadorComJWT($usuario['id']);
+        exit;
+    }
+    
+    // POST: Enviar certificado (ALUNO)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'enviar_certificado_processado') {
+        error_log("=== ROTA ALUNO: ENVIAR CERTIFICADO ===");
+        
+        $usuario = AuthMiddleware::requireAluno();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $atividade_id = $_POST['atividade_id'] ?? null;
+        if (!$atividade_id) {
+            enviarErro('ID da atividade é obrigatório', 400);
+        }
+        
+        $controller = new AtividadeComplementarController();
+        $controller->enviarCertificadoProcessado($usuario['id'], $atividade_id);
+        exit;
+    }
+    
+    // POST: Upload de certificado pelo orientador
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'upload_certificado') {
+        error_log("=== ROTA ORIENTADOR: UPLOAD CERTIFICADO ===");
+        error_log("Ação detectada: upload_certificado");
+        
+        $usuario = AuthMiddleware::requireOrientador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $atividade_id = $_POST['atividade_id'] ?? null;
+        if (!$atividade_id) {
+            error_log("ID da atividade não fornecido");
+            enviarErro('ID da atividade é obrigatório', 400);
+        }
+        
+        // Verificar se há arquivo enviado
+        if (!isset($_FILES['certificado']) || $_FILES['certificado']['error'] !== UPLOAD_ERR_OK) {
+            error_log("Arquivo de certificado não encontrado ou com erro");
+            error_log("FILES: " . print_r($_FILES, true));
+            enviarErro('Arquivo de certificado é obrigatório', 400);
+        }
+        
+        error_log("Processando upload de certificado para atividade ID: " . $atividade_id);
+        
+        $controller = new AtividadeComplementarController();
+        $controller->processarUploadCertificado($usuario['id'], $atividade_id);
+        exit;
+    }
+    
+    // POST: Avaliar atividade (ORIENTADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if ($input && (isset($input['acao']) || isset($input['atividade_id']))) {
+            error_log("=== ROTA ORIENTADOR: AVALIAR ATIVIDADE (JSON) ===");
+            error_log("Dados JSON recebidos: " . print_r($input, true));
+            
+            $usuario = AuthMiddleware::requireOrientador();
+            error_log("Usuário validado: " . print_r($usuario, true));
+            
+            $controller = new AtividadeComplementarController();
+            $controller->avaliarAtividadeComJWT($usuario['id']);
+            exit;
+        }
+    }
+    
+    // POST: Avaliar atividade (ORIENTADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'avaliar_atividade') {
+        error_log("=== ROTA ORIENTADOR: AVALIAR ATIVIDADE (POST) ===");
+        
+        $usuario = AuthMiddleware::requireOrientador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $controller = new AtividadeComplementarController();
+        $controller->avaliarAtividadeComJWT($usuario['id']);
+        exit;
+    }
+    
+    // GET: Atividades pendentes (ORIENTADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'atividades_pendentes') {
+        error_log("=== ROTA ORIENTADOR: ATIVIDADES PENDENTES ===");
+        
+        $usuario = AuthMiddleware::requireOrientador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $controller = new AtividadeComplementarController();
+        $controller->listarPendentesOrientadorComJWT($usuario['id']);
+        exit;
+    }
+
+    // GET: Atividades avaliadas (ORIENTADOR)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['acao'])) {
+        error_log("=== ROTA ORIENTADOR: ATIVIDADES AVALIADAS (SEM ACAO) ===");
+        
+        $usuario = AuthMiddleware::requireOrientador();
+        error_log("Usuário validado: " . print_r($usuario, true));
+        
+        $controller = new AtividadeComplementarController();
+        $controller->listarAvaliadasOrientadorComJWT($usuario['id']);
+        exit;
+    }
+
+    error_log("Nenhuma rota correspondente encontrada");
+    error_log("Method: " . $_SERVER['REQUEST_METHOD']);
+    error_log("Acao GET: " . ($_GET['acao'] ?? 'null'));
+    error_log("Acao POST: " . ($_POST['acao'] ?? 'null'));
+    
+    // Verificar se há dados JSON
+    $input = json_decode(file_get_contents('php://input'), true);
+    error_log("Dados JSON: " . print_r($input, true));
+    
+    enviarErro('Rota não encontrada', 404);
+
 } catch (Exception $e) {
     error_log("Erro na rota avaliar_atividade: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     enviarErro('Erro interno do servidor: ' . $e->getMessage());
+}
+
+if (ob_get_length()) {
+    ob_end_flush();
 }
 ?>

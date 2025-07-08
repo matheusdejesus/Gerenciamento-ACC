@@ -6,7 +6,7 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 
 require_once __DIR__ . '/../controllers/AtividadesDisponiveisController.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
-require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php'; // ← Adicionado
+require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
 
 use backend\api\controllers\AtividadesDisponiveisController;
 use backend\api\middleware\AuthMiddleware;

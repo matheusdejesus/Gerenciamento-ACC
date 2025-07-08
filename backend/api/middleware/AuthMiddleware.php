@@ -1,9 +1,13 @@
 <?php
 namespace backend\api\middleware;
 
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/JWTService.php';
+require_once __DIR__ . '/ApiKeyMiddleware.php';
 
+use backend\api\config\Database;
 use backend\api\services\JWTService;
+use backend\api\middleware\ApiKeyMiddleware;
 use Exception;
 
 class AuthMiddleware {
@@ -66,7 +70,17 @@ class AuthMiddleware {
     }
     
     public static function requireAluno() {
-        $user = self::validateToken();
+        $user = ApiKeyMiddleware::verificarApiKey();
+        
+        if (!$user) {
+            $user = self::validateToken();
+        }
+        
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Token de acesso inválido']);
+            exit;
+        }
         
         if ($user['tipo'] !== 'aluno') {
             http_response_code(403);
@@ -76,13 +90,49 @@ class AuthMiddleware {
         
         return $user;
     }
-    
+
     public static function requireOrientador() {
-        return self::requireRole(['orientador']);
+        $user = ApiKeyMiddleware::verificarApiKey();
+        
+        if (!$user) {
+            $user = self::validateToken();
+        }
+        
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Token de acesso inválido']);
+            exit;
+        }
+        
+        if ($user['tipo'] !== 'orientador') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado - apenas orientadores']);
+            exit;
+        }
+        
+        return $user;
     }
     
     public static function requireCoordenador() {
-        return self::requireRole(['coordenador']);
+        $user = ApiKeyMiddleware::verificarApiKey();
+        
+        if (!$user) {
+            $user = self::validateToken();
+        }
+        
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Token de acesso inválido']);
+            exit;
+        }
+        
+        if ($user['tipo'] !== 'coordenador') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado - apenas coordenadores']);
+            exit;
+        }
+        
+        return $user;
     }
     
     public static function requireAlunoOrOrientador() {

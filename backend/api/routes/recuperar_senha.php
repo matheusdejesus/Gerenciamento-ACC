@@ -7,7 +7,6 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/Database.php';
 
-// Verificar se o autoload do PHPMailer existe
 if (file_exists(__DIR__ . '/../../../frontend/pages/vendor/autoload.php')) {
     require_once __DIR__ . '/../../../frontend/pages/vendor/autoload.php';
 }

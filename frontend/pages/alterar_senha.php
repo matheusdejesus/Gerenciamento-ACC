@@ -129,38 +129,48 @@ $token = $_GET['token'] ?? '';
 
     <script>
     const token = document.getElementById('token').value;
+    console.log('Token recebido:', token);
+    
     if (token) {
-        console.log('Token encontrado:', token);
         validateToken();
     } else {
         console.log('Token não fornecido');
-        showInvalidToken('Token não fornecido');
+        showInvalidToken('Token não fornecido na URL');
     }
 
     async function validateToken() {
         console.log('Validando token...');
         try {
-            const url = `/Gerenciamento-ACC/backend/api/routes/alterar_senha.php?token=${token}`;
-            console.log('URL:', url);
+            const url = `/Gerenciamento-ACC/backend/api/routes/alterar_senha.php?token=${encodeURIComponent(token)}`;
+            console.log('URL de validação:', url);
             
-            const response = await fetch(url);
-            console.log('Status:', response.status);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log('Status da resposta:', response.status);
             
             const data = await response.json();
-            console.log('Resposta:', data);
+            console.log('Dados da resposta:', data);
             
             if (!data.success) {
-                showInvalidToken(data.error);
+                showInvalidToken(data.error || 'Token inválido');
             } else {
                 console.log('Token válido!');
+                // Token válido, mostrar formulário
+                document.getElementById('form-container').classList.remove('hidden');
             }
         } catch (error) {
-            console.error('Erro:', error);
-            showInvalidToken('Erro ao validar token');
+            console.error('Erro ao validar token:', error);
+            showInvalidToken('Erro ao validar token. Tente novamente.');
         }
     }
 
     function showInvalidToken(message) {
+        console.log('Mostrando token inválido:', message);
         document.getElementById('invalid-token-text').textContent = message;
         document.getElementById('form-container').classList.add('hidden');
         document.getElementById('invalid-token').classList.remove('hidden');

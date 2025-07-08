@@ -17,8 +17,8 @@ class AuthClient {
 
     // Obter dados do usuário
     static getUser() {
-        const userData = localStorage.getItem(this.USER_KEY);
-        return userData ? JSON.parse(userData) : null;
+        const userStr = localStorage.getItem(this.USER_KEY);
+        return userStr ? JSON.parse(userStr) : null;
     }
 
     // Obter API Key
@@ -29,81 +29,91 @@ class AuthClient {
     // Verificar se está logado
     static isLoggedIn() {
         const token = this.getToken();
-        if (!token) {
-            console.log('Nenhum token encontrado');
-            return false;
-        }
-
-        // Verificar se token não expirou
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const isValid = payload.exp > (Date.now() / 1000);
-            console.log('Token válido:', isValid, 'Expira em:', new Date(payload.exp * 1000));
-            return isValid;
-        } catch (e) {
-            console.error('Erro ao validar token:', e);
-            return false;
-        }
+        const apiKey = this.getApiKey();
+        return !!(token && apiKey);
     }
 
     // Logout
-    static logout() {
-        console.log('Fazendo logout');
-        localStorage.removeItem(this.TOKEN_KEY);
-        localStorage.removeItem(this.USER_KEY);
-        window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
+    static async logout() {
+        try {
+            // Registrar logout antes de limpar dados
+            await this.registrarAcao('LOGOUT', 'Usuário fez logout');
+
+            localStorage.removeItem(this.TOKEN_KEY);
+            localStorage.removeItem(this.USER_KEY);
+            localStorage.removeItem(this.API_KEY_KEY);
+
+            window.location.href = 'login.php';
+        } catch (error) {
+            console.error('Erro no logout:', error);
+            // Logout mesmo com erro de auditoria
+            localStorage.removeItem(this.TOKEN_KEY);
+            localStorage.removeItem(this.USER_KEY);
+            localStorage.removeItem(this.API_KEY_KEY);
+            window.location.href = 'login.php';
+        }
+    }
+
+    // Método getHeaders
+    static getHeaders() {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        const token = this.getToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const apiKey = this.getApiKey();
+        if (apiKey) {
+            headers['X-API-Key'] = apiKey;
+        }
+
+        return headers;
     }
 
     // Fazer requisição autenticada
     static async fetch(url, options = {}) {
-        const token = this.getToken();
-        const apiKey = this.getApiKey();
+        const defaultHeaders = this.getHeaders();
 
-        if (!token) {
-            throw new Error('Token não encontrado');
-        }
-
-        const defaultOptions = {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                ...(apiKey ? { 'X-API-Key': apiKey } : {})
-            }
+        const headers = {
+            ...defaultHeaders,
+            ...(options.headers || {})
         };
 
-        if (!options.body || options.body instanceof FormData) {
-        } else {
-            defaultOptions.headers['Content-Type'] = 'application/json';
+        if (options.body instanceof FormData) {
+            delete headers['Content-Type'];
         }
 
-        const mergedOptions = {
-            ...defaultOptions,
+        const config = {
             ...options,
-            headers: {
-                ...defaultOptions.headers,
-                // Só adiciona headers customizados se NÃO for FormData
-                ...(options.body instanceof FormData ? {} : options.headers)
-            }
+            headers
         };
 
         console.log('Fazendo requisição para:', url);
-        console.log('Options:', mergedOptions);
+        console.log('Headers enviados:', headers);
 
-        const response = await fetch(url, mergedOptions);
+        try {
+            const response = await fetch(url, config);
 
-        // Se token expirou, fazer logout
-        if (response.status === 401) {
-            console.log('Token expirado, fazendo logout');
-            this.logout();
-            throw new Error('Sessão expirada');
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Erro na resposta:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            return response;
+        } catch (error) {
+            console.error('Erro na requisição:', error);
+            throw error;
         }
-
-        return response;
     }
 
-    // Login
+    // Método para fazer login
     static async login(email, senha) {
-        console.log('Fazendo login para:', email);
-
         try {
             const response = await fetch('/Gerenciamento-ACC/backend/api/routes/login.php', {
                 method: 'POST',
@@ -116,23 +126,63 @@ class AuthClient {
             const data = await response.json();
 
             if (data.success) {
-                this.saveToken(data.token, data.usuario);
+                // Salvar dados no localStorage
+                localStorage.setItem(this.TOKEN_KEY, data.token);
+                localStorage.setItem(this.USER_KEY, JSON.stringify(data.usuario));
+                localStorage.setItem(this.API_KEY_KEY, data.api_key);
 
-                // Se o login retornar uma API Key, salvar
-                if (data.api_key) {
-                    localStorage.setItem(this.API_KEY_KEY, data.api_key);
-                }
+                console.log('Login realizado com sucesso');
+                console.log('Token salvo:', data.token);
+                console.log('API Key salva:', data.api_key);
+                console.log('Usuário salvo:', data.usuario);
 
                 return data;
             } else {
                 throw new Error(data.error || 'Erro no login');
             }
         } catch (error) {
-            console.error('Erro na requisição de login:', error);
+            console.error('Erro no login:', error);
             throw error;
         }
     }
+
+    // Método para salvar dados de login (mantido para compatibilidade)
+    static saveLoginData(data) {
+        if (data.token) {
+            localStorage.setItem(this.TOKEN_KEY, data.token);
+        }
+        if (data.usuario) {
+            localStorage.setItem(this.USER_KEY, JSON.stringify(data.usuario));
+        }
+        if (data.api_key) {
+            localStorage.setItem(this.API_KEY_KEY, data.api_key);
+        }
+
+        console.log('Dados salvos no localStorage:');
+        console.log('Token:', localStorage.getItem(this.TOKEN_KEY));
+        console.log('User:', localStorage.getItem(this.USER_KEY));
+        console.log('API Key:', localStorage.getItem(this.API_KEY_KEY));
+    }
+
+    // Método para debug
+    static debugAuth() {
+        console.log('=== DEBUG AUTH ===');
+        console.log('Token:', this.getToken());
+        console.log('API Key:', this.getApiKey());
+        console.log('User:', this.getUser());
+        console.log('Headers:', this.getHeaders());
+        console.log('Is Logged In:', this.isLoggedIn());
+    }
+
+    // Método para registrar ações do frontend
+    static async registrarAcao(acao, detalhes) {
+        console.log(`Ação registrada: ${acao} - ${detalhes}`);
+        return { success: true };
+    }
 }
+
+// Adicionar método global para debug
+window.debugAuth = () => AuthClient.debugAuth();
 
 // Verificar autenticação em páginas protegidas
 function requireAuth() {
@@ -154,3 +204,25 @@ setInterval(() => {
         AuthClient.logout();
     }
 }, 30000);
+
+// Registrar ações importantes do frontend
+document.addEventListener('DOMContentLoaded', function () {
+    // Registrar acesso à página
+    if (AuthClient.isLoggedIn()) {
+        const pagina = window.location.pathname.split('/').pop();
+        AuthClient.registrarAcao('ACESSAR_PAGINA', `Acesso à página: ${pagina}`);
+    }
+});
+
+// Registrar antes de sair da página
+window.addEventListener('beforeunload', function () {
+    if (AuthClient.isLoggedIn()) {
+        navigator.sendBeacon('/Gerenciamento-ACC/backend/api/routes/auditoria.php',
+            JSON.stringify({
+                usuario_id: AuthClient.getUser()?.id,
+                acao: 'SAIR_PAGINA',
+                descricao: `Saiu da página: ${window.location.pathname}`
+            })
+        );
+    }
+});

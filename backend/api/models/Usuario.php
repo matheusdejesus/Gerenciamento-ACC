@@ -50,7 +50,6 @@ class Usuario {
     }
 
      // Verificar se usuário está bloqueado
-
     public static function verificarBloqueio($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -75,9 +74,8 @@ class Usuario {
         }
     }
 
-    /**
-     * Obter tempo restante de bloqueio
-     */
+    // Obter tempo restante de bloqueio
+
     public static function obterTempoRestanteBloqueio($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -101,9 +99,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Limpar tentativas antigas
-     */
+
+    // Limpar tentativas antigas
+
     public static function limparTentativasAntigas($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -122,9 +120,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Buscar usuário para login
-     */
+    
+    // Buscar usuário para login
+    
     public static function findByEmailForLogin($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -144,10 +142,10 @@ class Usuario {
         }
     }
 
-    // Métodos de configuração
-    /**
-     * Buscar dados completos de um usuário por ID
-     */
+    
+    
+    // Buscar dados completos de um usuário por ID
+     
     public static function buscarDadosCompletosPorId($id, $tipo) {
         try {
             error_log("=== buscarDadosCompletosPorId ===");
@@ -222,9 +220,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Atualizar dados básicos do usuário
-     */
+    
+    // Atualizar dados básicos do usuário
+    
     public static function atualizarDadosBasicos($id, $dados) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -265,9 +263,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Alterar senha do usuário
-     */
+    
+    // Alterar senha do usuário
+    
     public static function alterarSenha($id, $senhaAtual, $novaSenha) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -305,9 +303,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Método principal de autenticação - centraliza toda lógica de login
-     */
+    
+    // Método principal de autenticação - centraliza toda lógica de login
+    
     public static function autenticar($email, $senha) {
         try {
             // Validações básicas
@@ -381,9 +379,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Buscar dados para configuração com validações
-     */
+    
+    // Buscar dados para configuração com validações
+    
     public static function buscarDadosConfiguracao($userId, $userType) {
         try {
             if (empty($userId) || empty($userType)) {
@@ -420,9 +418,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Atualizar dados pessoais com validações
-     */
+
+    // Atualizar dados pessoais com validações
+
     public static function atualizarDadosPessoaisCompleto($userId, $dados) {
         try {
             // Validações
@@ -489,9 +487,9 @@ class Usuario {
         }
     }
 
-    /**
-     * Alterar senha com validações completas
-     */
+    
+    // Alterar senha com validações completas
+    
     public static function alterarSenhaCompleta($userId, $senhaAtual, $novaSenha) {
         try {
             // Validações

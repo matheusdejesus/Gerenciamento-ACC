@@ -4,20 +4,19 @@ error_reporting(0);
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: http://localhost');
 header('Access-Control-Allow-Methods: GET');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key'); // ← Adicionado X-API-Key
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 header('Access-Control-Allow-Credentials: true');
 
 ob_start();
 
 require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
-require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php'; // ← Adicionado
+require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
 
 use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
-use backend\api\middleware\ApiKeyMiddleware; // ← Adicionado
-
-ApiKeyMiddleware::validateApiKey(); // ← Protege a rota
+use backend\api\middleware\ApiKeyMiddleware;
+ApiKeyMiddleware::validateApiKey();
 
 function enviarErro($mensagem, $codigo = 500) {
     ob_end_clean();

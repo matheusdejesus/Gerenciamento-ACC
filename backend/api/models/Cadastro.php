@@ -42,7 +42,7 @@ class Cadastro {
 
             // Gerar API Key única para este usuário
             $apiKey = self::gerarApiKey();
-            $nomeAplicacao = 'user_' . $usuario_id; // Nome único por usuário
+            $nomeAplicacao = 'user_' . $usuario_id;
             
             $stmt = $db->prepare("INSERT INTO ApiKeys (nome_aplicacao, api_key, ativa, criada_em) VALUES (?, ?, 1, NOW())");
             $stmt->bind_param("ss", $nomeAplicacao, $apiKey);
@@ -73,7 +73,7 @@ class Cadastro {
     // Adicionar método para gerar API Key única
     private static function gerarApiKey() {
         do {
-            $apiKey = bin2hex(random_bytes(32)); // 64 caracteres hexadecimais
+            $apiKey = bin2hex(random_bytes(32));
             
             // Verificar se a chave já existe
             $db = Database::getInstance()->getConnection();
@@ -82,7 +82,7 @@ class Cadastro {
             $stmt->execute();
             $result = $stmt->get_result();
             
-        } while ($result->num_rows > 0); // Continuar gerando até encontrar uma chave única
+        } while ($result->num_rows > 0);
         
         return $apiKey;
     }

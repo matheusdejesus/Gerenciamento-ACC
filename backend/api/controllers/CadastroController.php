@@ -3,6 +3,7 @@ namespace backend\api\controllers;
 
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/Cadastro.php';
+require_once __DIR__ . '/LogAcoesController.php';
 
 if (file_exists(__DIR__ . '/../../../frontend/pages/vendor/autoload.php')) {
     require_once __DIR__ . '/../../../frontend/pages/vendor/autoload.php';
@@ -13,6 +14,7 @@ if (file_exists(__DIR__ . '/../../../frontend/pages/vendor/autoload.php')) {
 use backend\api\models\Cadastro;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+use backend\api\controllers\LogAcoesController;
 
 class CadastroController extends Controller {
     
@@ -34,7 +36,6 @@ class CadastroController extends Controller {
                 return;
             }
             
-            // Gerar código de confirmação
             $codigo = $this->gerarCodigo();
             
             // Armazenar dados temporários na sessão
@@ -48,7 +49,6 @@ class CadastroController extends Controller {
             // Enviar email de confirmação
             $emailEnviado = $this->enviarEmailConfirmacao($data['email'], $data['nome'], $codigo);
             
-            // Resposta de sucesso
             $this->sendJsonResponse([
                 'success' => true,
                 'message' => 'Código enviado para o email',
@@ -91,6 +91,13 @@ class CadastroController extends Controller {
             $usuarioCriado = Cadastro::create($cadastroTemp['dados']);
             
             if ($usuarioCriado && isset($usuarioCriado['usuario_id'])) {
+                // Registrar novo cadastro
+                LogAcoesController::registrar(
+                    $usuarioCriado['usuario_id'],
+                    'CADASTRO_USUARIO',
+                    "Novo usuário cadastrado: {$cadastroTemp['dados']['nome']} ({$cadastroTemp['dados']['tipo']})"
+                );
+                
                 unset($_SESSION['cadastro_temp']);
 
                 $_SESSION['usuario'] = [
@@ -104,7 +111,7 @@ class CadastroController extends Controller {
                     'success' => true,
                     'message' => 'Cadastro realizado com sucesso',
                     'usuario' => $_SESSION['usuario'],
-                    'api_key' => $usuarioCriado['api_key'] // Retornar a API Key
+                    'api_key' => $usuarioCriado['api_key']
                 ]);
             } else {
                 $this->sendJsonResponse(['error' => 'Erro ao criar usuário'], 500);

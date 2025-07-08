@@ -1,10 +1,4 @@
 <?php
-session_start();
-if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador') {
-    header('Location: login.php');
-    exit;
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -17,7 +11,6 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
     <style>
         .bg-pattern {
             background-color: #0D1117;
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23151B23' fill-opacity='0.3'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
         }
     </style>
 </head>
@@ -30,10 +23,13 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
                 </div>
                 <div class="flex items-center">
                     <a href="home_orientador.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
+                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
+                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
                 </div>
             </div>
         </div>
     </nav>
+    
     <div class="flex-grow pt-24 flex" style="background-color: #0D1117">
         <div class="container mx-auto flex flex-col lg:flex-row p-4">
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
@@ -41,8 +37,8 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
                     <a href="home_orientador.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Início
                     </a>
-                    <a href="configuracoes_orientador.php" class="block p-3 rounded bg-gray-200 text-[#0969DA] font-medium">
-                        Configurações
+                    <a href="configuracoes_orientador.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
+                        Configurações da Conta
                     </a>
                 </nav>
             </aside>
@@ -50,10 +46,11 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
             <main class="lg:w-3/4 p-6 rounded-lg" style="background-color: #F6F8FA">
                 <div class="mb-8">
                     <h2 class="text-3xl font-extralight mb-2" style="color: #0969DA">
-                        Configurações do Perfil
+                        Configurações da Conta
                     </h2>
                     <p class="text-gray-600">Gerencie suas informações pessoais e preferências do sistema.</p>
                 </div>
+                
                 <div class="mb-6">
                     <div class="border-b border-gray-200">
                         <nav class="-mb-px flex space-x-8">
@@ -70,27 +67,31 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
                         </nav>
                     </div>
                 </div>
+                
                 <div id="aba-dados-pessoais" class="aba-conteudo">
                     <div class="bg-white rounded-lg shadow-sm p-6">
                         <h3 class="text-xl font-bold mb-6" style="color: #0969DA">Informações Pessoais</h3>
                         
-                        <form class="space-y-6">
+                        <form id="formDadosPessoais" class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium mb-2" style="color: #0969DA">Nome Completo</label>
-                                <input type="text" value="<?= htmlspecialchars($orientador['nome']) ?>" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="nomeCompleto" readonly
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
+                                <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium mb-2" style="color: #0969DA">SIAPE</label>
-                                <input type="text" value="<?= htmlspecialchars($orientador['siape']) ?>" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="text" id="siape" readonly
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
+                                <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium mb-2" style="color: #0969DA">E-mail</label>
-                                <input type="email" value="<?= htmlspecialchars($orientador['email']) ?>" 
+                                <input type="email" id="email" 
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="text-xs text-gray-500 mt-1">Este campo pode ser editado</p>
                             </div>
 
                             <div class="flex justify-end">
@@ -103,11 +104,12 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
                         </form>
                     </div>
                 </div>
+                
                 <div id="aba-senha" class="aba-conteudo hidden">
                     <div class="bg-white rounded-lg shadow-sm p-6">
                         <h3 class="text-xl font-bold mb-6" style="color: #0969DA">Alterar Senha</h3>
                         
-                        <form class="space-y-6">
+                        <form id="formSenha" class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium mb-2" style="color: #0969DA">Senha Atual</label>
                                 <input type="password" id="senhaAtual" 
@@ -127,16 +129,6 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
 
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <h4 class="font-medium text-yellow-800 mb-2">Critérios de Segurança</h4>
-                                <ul class="text-sm text-yellow-700 space-y-1">
-                                    <li>• Mínimo de 6 caracteres</li>
-                                    <li>• Pelo menos uma letra maiúscula</li>
-                                    <li>• Pelo menos um número</li>
-                                    <li>• Evite informações pessoais</li>
-                                </ul>
-                            </div>
-
                             <div class="flex justify-end">
                                 <button type="button" onclick="alterarSenha()" 
                                         class="px-6 py-2 text-white rounded-lg hover:opacity-90 transition duration-200"
@@ -150,9 +142,53 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
             </main>
         </div>
     </div>
+
+    <script src="../assets/js/auth.js"></script>
     <script>
+        // Verificar autenticação JWT
+        if (!AuthClient.isLoggedIn()) {
+            window.location.href = 'login.php';
+        }
+        
+        const user = AuthClient.getUser();
+        if (user.tipo !== 'orientador') {
+            AuthClient.logout();
+        }
+        
+        // Atualizar nome do usuário na interface
+        if (user && user.nome) {
+            document.getElementById('nomeUsuario').textContent = user.nome;
+        }
+
+        // Carregar dados do usuário
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarDadosUsuario();
+        });
+
+        async function carregarDadosUsuario() {
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php');
+                const data = await response.json();
+                console.log('Dados recebidos:', data);
+
+                if (data.success) {
+                    
+                    const usuario = data.data;
+                    
+                    document.getElementById('nomeCompleto').value = usuario.nome || '';
+                    document.getElementById('siape').value = usuario.siape || '';
+                    document.getElementById('email').value = usuario.email || '';
+                } else {
+                    console.error('Erro ao carregar dados:', data.error);
+                    alert('Erro ao carregar dados: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                alert('Erro ao conectar com o servidor');
+            }
+        }
+
         function mostrarAba(abaId) {
-            // Esconder todas as abas
             document.querySelectorAll('.aba-conteudo').forEach(aba => {
                 aba.classList.add('hidden');
             });
@@ -174,11 +210,46 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
             btnAtivo.style.color = '#0969DA';
         }
 
-        function salvarDadosPessoais() {
-            alert('✅ Dados pessoais atualizados com sucesso!');
+        async function salvarDadosPessoais() {
+            try {
+                const email = document.getElementById('email').value;
+                
+                if (!email) {
+                    alert('Por favor, preencha o campo de e-mail.');
+                    return;
+                }
+
+                if (!email.includes('@') || !email.includes('.')) {
+                    alert('Por favor, insira um e-mail válido.');
+                    return;
+                }
+
+                const dados = {
+                    email: email
+                };
+
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dados)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ E-mail atualizado com sucesso!');
+                } else {
+                    alert('❌ Erro ao salvar: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Erro ao salvar dados:', error);
+                alert('❌ Erro ao salvar e-mail.');
+            }
         }
 
-        function alterarSenha() {
+        async function alterarSenha() {
             const senhaAtual = document.getElementById('senhaAtual').value;
             const novaSenha = document.getElementById('novaSenha').value;
             const confirmarSenha = document.getElementById('confirmarSenha').value;
@@ -198,19 +269,40 @@ if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'orientador'
                 return;
             }
 
-            // Simular alteração de senha
-            if (confirm('Confirma a alteração da senha?')) {
-                alert('✅ Senha alterada com sucesso!');
-                // Limpar campos
-                document.getElementById('senhaAtual').value = '';
-                document.getElementById('novaSenha').value = '';
-                document.getElementById('confirmarSenha').value = '';
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        acao: 'alterar_senha',
+                        senha_atual: senhaAtual,
+                        nova_senha: novaSenha
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Senha alterada com sucesso!');
+                    // Limpar campos
+                    document.getElementById('senhaAtual').value = '';
+                    document.getElementById('novaSenha').value = '';
+                    document.getElementById('confirmarSenha').value = '';
+                } else {
+                    alert('❌ Erro ao alterar senha: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Erro ao alterar senha:', error);
+                alert('❌ Erro ao alterar senha.');
             }
         }
 
         // Inicializar primeira aba
         mostrarAba('dados-pessoais');
     </script>
+    
     <style>
         .aba-btn.active {
             border-color: #0969DA !important;

@@ -13,13 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
-require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php'; // ← Adicionado
+require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
+require_once __DIR__ . '/../middleware/AuditoriaMiddleware.php';
 
 use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
-use backend\api\middleware\ApiKeyMiddleware; // ← Adicionado
+use backend\api\middleware\ApiKeyMiddleware;
+use backend\api\middleware\AuditoriaMiddleware;
 
-ApiKeyMiddleware::validateApiKey(); // ← Protege a rota
+ApiKeyMiddleware::validateApiKey(); 
 
 function enviarErro($mensagem, $codigo = 500) {
     ob_end_clean();
@@ -32,17 +34,22 @@ function enviarErro($mensagem, $codigo = 500) {
 }
 
 try {
-    // Verificar se é uma requisição para listar orientadores
+    
     if (isset($_GET['orientadores'])) {
         $controller = new AtividadeComplementarController();
         $controller->listarOrientadores();
         exit;
     }
 
+    if (isset($_GET['coordenadores'])) {
+        $controller = new AtividadeComplementarController();
+        $controller->listarCoordenadores();
+        exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usuario = AuthMiddleware::requireAluno();
 
-        // Processar upload do arquivo
         if (isset($_FILES['declaracao']) && $_FILES['declaracao']['error'] === UPLOAD_ERR_OK) {
             $uploadDir = __DIR__ . '/../../uploads/declaracoes/';
             if (!is_dir($uploadDir)) {

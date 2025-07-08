@@ -34,11 +34,11 @@
         <div class="container mx-auto flex flex-col lg:flex-row p-4">
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
                 <nav class="space-y-2">
-                    <a href="#" class="block p-3 rounded bg-gray-200 text-[#0969DA] font-medium">
+                    <a href="#" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Início
                     </a>
                     <a href="configuracoes_orientador.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Configurações
+                        Configurações da Conta
                     </a>
                 </nav>
             </aside>
@@ -389,9 +389,7 @@
                 // Opção de enviar certificado apenas para atividades aprovadas
                 const opcaoCertificado = atividade.status === 'Aprovada' ? `
                     <button onclick="enviarCertificado(${atividade.id})" 
-                            class="text-purple-600 hover:text-purple-900 disabled:opacity-50 disabled:cursor-not-allowed" 
-                            disabled
-                            title="Funcionalidade em desenvolvimento">
+                            class="text-purple-600 hover:text-purple-900">
                         Enviar Certificado
                     </button>
                 ` : '';
@@ -555,7 +553,7 @@
             }
         }
 
-        //Aprovar atividade
+        // Aprovar atividade
         async function aprovarAtividadeModal(id) {
             const modal = document.querySelector('.modal-avaliacao');
             if (!modal) return;
@@ -632,7 +630,7 @@
             }
         }
 
-        //Rejeitar atividade
+        // Rejeitar atividade
         async function rejeitarAtividadeModal(id) {
             const modal = document.querySelector('.modal-avaliacao');
             if (!modal) return;
@@ -704,7 +702,7 @@
             }
         }
 
-        //Ver detalhes
+        // Ver detalhes
         function verDetalhes(id) {
             let atividade = atividadesPendentes.find(a => a.id === id);
             if (!atividade) {
@@ -763,14 +761,124 @@
             document.getElementById('modalDetalhes').classList.remove('hidden');
         }
 
-        //Fechar modal de detalhes
+        // Fechar modal de detalhes
         function fecharModal() {
             document.getElementById('modalDetalhes').classList.add('hidden');
         }
 
-        //Visualizar declaração em nova aba
+        // Visualizar declaração em nova aba
         function visualizarDeclaracao(id) {
             window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+        }
+
+        // Função para abrir modal de envio de certificado
+        function enviarCertificado(atividadeId) {
+            // Remover modal antigo se existir
+            const modalExistente = document.getElementById('modalCertificado');
+            if (modalExistente) modalExistente.remove();
+
+            // Buscar dados da atividade avaliada
+            const atividade = atividadesAvaliadas.find(a => a.id === atividadeId);
+
+            // Criar modal
+            const modal = document.createElement('div');
+            modal.id = 'modalCertificado';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold" style="color: #0969DA">Enviar Certificado</h3>
+                        <button onclick="document.getElementById('modalCertificado').remove()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4 bg-gray-50 p-4 rounded-lg">
+                        <p><strong>Atividade:</strong> ${atividade?.titulo || 'N/A'}</p>
+                        <p><strong>Estudante:</strong> ${atividade?.estudante?.nome || 'N/A'}</p>
+                        <p><strong>Horas Aprovadas:</strong> ${atividade?.horasAprovadas || 0}h</p>
+                    </div>
+                    
+                    <form id="formCertificado" enctype="multipart/form-data">
+                        <input type="hidden" name="atividade_id" value="${atividadeId}">
+                        <input type="hidden" name="acao" value="upload_certificado">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Arquivo do Certificado (PDF, JPG, PNG)</label>
+                            <input type="file" name="certificado" accept=".pdf,.jpg,.jpeg,.png" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">Tamanho máximo: 10MB</p>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" onclick="document.getElementById('modalCertificado').remove()" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700">
+                                Enviar Certificado
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Handler do submit
+            document.getElementById('formCertificado').onsubmit = async function(e) {
+                e.preventDefault();
+                const form = e.target;
+                const formData = new FormData(form);
+
+                // Validar se arquivo foi selecionado
+                const arquivoCertificado = form.querySelector('input[name="certificado"]').files[0];
+                if (!arquivoCertificado) {
+                    alert('Por favor, selecione um arquivo de certificado.');
+                    return;
+                }
+
+                // Validar tamanho do arquivo (10MB)
+                if (arquivoCertificado.size > 10 * 1024 * 1024) {
+                    alert('Arquivo muito grande. O tamanho máximo é 10MB.');
+                    return;
+                }
+
+                try {
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Enviando...';
+
+                    // Usar a rota correta para orientador enviar certificado
+                    const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('✅ Certificado enviado com sucesso!');
+                        document.getElementById('modalCertificado').remove();
+                        await carregarTodosOsDados();
+                    } else {
+                        alert('❌ Erro ao enviar certificado: ' + (data.error || 'Erro desconhecido'));
+                    }
+                } catch (err) {
+                    console.error('Erro completo:', err);
+                    alert('❌ Erro ao enviar certificado: ' + err.message);
+                } finally {
+                    // Restaurar botão
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                }
+            };
         }
 
         document.addEventListener('DOMContentLoaded', function() {

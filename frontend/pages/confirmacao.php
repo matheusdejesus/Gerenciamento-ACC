@@ -3,7 +3,11 @@ session_start();
 require_once __DIR__ . '/../../backend/api/config/config.php';
 require_once __DIR__ . '/../../backend/api/config/database.php';
 
+// Importar LogAcoesController
+require_once __DIR__ . '/../../backend/api/controllers/LogAcoesController.php';
+
 use backend\api\config\Database;
+use backend\api\controllers\LogAcoesController;
 
 $email = $_GET['email'] ?? '';
 $error = '';
@@ -57,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // 4. GERAR API KEY
-            $apiKey = bin2hex(random_bytes(32)); // 64 caracteres hexadecimais
+            $apiKey = bin2hex(random_bytes(32));
             $nomeAplicacao = 'user_' . $usuario_id;
             
             $stmt = $db->prepare("INSERT INTO ApiKeys (usuario_id, nome_aplicacao, api_key, ativa, criada_em) VALUES (?, ?, ?, 1, NOW())");
@@ -67,8 +71,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt->close();
 
+            // 5. REGISTRAR LOG DE AÇÕES
+            try {
+                $logRegistrado = LogAcoesController::registrar(
+                    $usuario_id,
+                    'CADASTRO_USUARIO',
+                    "Novo usuário cadastrado: {$dados['nome']} ({$dados['tipo']})"
+                );
+                
+                if ($logRegistrado) {
+                    error_log("Log de cadastro registrado com sucesso para usuário ID: " . $usuario_id);
+                } else {
+                    error_log("Falha ao registrar log de cadastro para usuário ID: " . $usuario_id);
+                }
+            } catch (Exception $logError) {
+                error_log("Erro ao registrar log: " . $logError->getMessage());
+            }
+
             $db->commit();
-            $db->autocommit(true);
+            $success = true;
             
             // Limpar sessão
             unset($_SESSION['cadastro_temp']);
@@ -81,19 +102,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'tipo' => $dados['tipo']
             ];
             
-            // Salvar API Key na sessão para passar para o frontend
+            // Salvar API Key na sessão
             $_SESSION['api_key'] = $apiKey;
             
-            $success = true;
             error_log("Usuário criado com sucesso: ID={$usuario_id}, API_KEY={$apiKey}");
             
         } catch (Exception $e) {
-            if ($db) {
-                $db->rollback();
-                $db->autocommit(true);
-            }
+            $db->rollback();
+            error_log("Erro ao criar usuário: " . $e->getMessage());
             $error = "Erro ao criar usuário: " . $e->getMessage();
-            error_log("Erro no cadastro: " . $e->getMessage());
         }
     }
 }
@@ -204,7 +221,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Limpar da sessão após salvar
             <?php unset($_SESSION['api_key']); ?>
             
-            // Redirecionar para login ou dashboard
             setTimeout(function() {
                 window.location.href = 'login.php';
             }, 2000);

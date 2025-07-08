@@ -7,7 +7,7 @@ CREATE TABLE Usuario (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nome VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
-  senha VARCHAR(255) NOT NULL,  -- armazena hash
+  senha VARCHAR(255) NOT NULL,
   tipo ENUM('aluno','coordenador','orientador','admin') NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -90,6 +90,8 @@ CREATE TABLE AtividadeComplementar (
   avaliador_id INT NULL,
   observacoes_Analise TEXT,
   declaracao_caminho VARCHAR(255) NULL,
+  certificado_caminho VARCHAR(255) NULL,
+  certificado_processado VARCHAR(255) NULL,
   FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
   FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT,
   FOREIGN KEY (orientador_id) REFERENCES Orientador(usuario_id) ON DELETE SET NULL,

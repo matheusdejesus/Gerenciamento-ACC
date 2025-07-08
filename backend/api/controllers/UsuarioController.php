@@ -2,9 +2,11 @@
 require_once __DIR__ . '/../models/Usuario.php';
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../services/JWTService.php';
+require_once __DIR__ . '/LogAcoesController.php';
 
 use backend\api\config\Database;
 use backend\api\services\JWTService;
+use backend\api\controllers\LogAcoesController;
 
 class UsuarioController {
     
@@ -29,10 +31,16 @@ class UsuarioController {
                 return;
             }
             
-            // Delegar toda lógica de autenticação para o Model
             $resultado = Usuario::autenticar($data['email'], $data['senha']);
             
             if (!$resultado['success']) {
+                // Registrar tentativa de login falhada
+                LogAcoesController::registrar(
+                    null,
+                    'LOGIN_FALHA',
+                    "Tentativa de login falhada para email: {$data['email']}"
+                );
+                
                 $statusCode = $resultado['status_code'] ?? 401;
                 $response = ['error' => $resultado['error']];
                 
@@ -46,7 +54,7 @@ class UsuarioController {
                 return;
             }
             
-            // Gerar JWT Token (responsabilidade do Controller/Service)
+            // Gerar JWT Token
             $tokenPayload = [
                 'id' => $resultado['usuario']['id'],
                 'email' => $resultado['usuario']['email'],
@@ -71,6 +79,13 @@ class UsuarioController {
                 error_log("Erro ao buscar API Key no login: " . $e->getMessage());
             }
             
+            // Registrar login bem-sucedido
+            LogAcoesController::registrar(
+                $resultado['usuario']['id'],
+                'LOGIN_SUCESSO',
+                "Usuário {$resultado['usuario']['nome']} fez login com sucesso"
+            );
+            
             // Resposta de sucesso
             $this->sendJsonResponse([
                 'success' => true,
@@ -86,9 +101,9 @@ class UsuarioController {
         }
     }
 
-    /**
-     * Buscar dados de configuração do usuário
-     */
+    
+    // Buscar dados de configuração do usuário
+
     public function buscarDadosConfiguracao($userId, $userType) {
         try {
             // Delegar para o model
@@ -119,9 +134,9 @@ class UsuarioController {
         }
     }
 
-    /**
-     * Atualizar dados pessoais do usuário
-     */
+
+    // Atualizar dados pessoais do usuário
+
     public function atualizarDadosPessoais($userId, $dados) {
         try {
             // Delegar para o model
@@ -130,6 +145,13 @@ class UsuarioController {
             $statusCode = $resultado['status_code'] ?? 200;
             
             if ($resultado['success']) {
+                // Registrar atualização de dados
+                LogAcoesController::registrar(
+                    $userId,
+                    'ATUALIZAR_DADOS',
+                    "Dados pessoais atualizados"
+                );
+                
                 $response = [
                     'success' => true,
                     'message' => $resultado['message']
@@ -152,9 +174,9 @@ class UsuarioController {
         }
     }
 
-    /**
-     * Alterar senha do usuário
-     */
+
+    // Alterar senha do usuário
+
     public function alterarSenha($userId, $senhaAtual, $novaSenha) {
         try {
             // Delegar para o model
@@ -163,6 +185,13 @@ class UsuarioController {
             $statusCode = $resultado['status_code'] ?? 200;
             
             if ($resultado['success']) {
+                // Registrar alteração de senha
+                LogAcoesController::registrar(
+                    $userId,
+                    'ALTERAR_SENHA',
+                    "Senha alterada com sucesso"
+                );
+                
                 $response = [
                     'success' => true,
                     'message' => $resultado['message']

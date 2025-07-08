@@ -35,15 +35,6 @@
                     <a href="home_aluno.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Início
                     </a>
-                    <a href="nova_atividade.php" class="block p-3 rounded bg-gray-200 text-[#0969DA]">
-                        Nova Atividade
-                    </a>
-                    <a href="enviar_comprovante.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Enviar Comprovante
-                    </a>
-                    <a href="configuracoes_aluno.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Configurações da Conta
-                    </a>
                 </nav>
             </aside>
             <main class="lg:w-3/4 p-6 rounded-lg" style="background-color: #F6F8FA">
