@@ -19,6 +19,8 @@ use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
 
+ApiKeyMiddleware::validateApiKey();
+
 function enviarErro($mensagem, $codigo = 500) {
     ob_end_clean();
     http_response_code($codigo);
