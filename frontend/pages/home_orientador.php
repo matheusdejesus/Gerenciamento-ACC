@@ -257,7 +257,8 @@
                         dataSubmissao: new Date(atividade.data_submissao).toLocaleDateString('pt-BR'),
                         horasSolicitadas: atividade.carga_horaria_solicitada,
                         tipo: 'Atividade Complementar',
-                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1
+                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1,
+                        declaracao_caminho: atividade.declaracao_caminho || '', // <-- adicione isto
                     }));
                     
                     atualizarTabelaAtividades();
@@ -298,7 +299,8 @@
                         status: atividade.status,
                         parecer: atividade.observacoes_Analise,
                         tipo: 'Atividade Complementar',
-                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1 || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 'true'
+                        temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1 || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 'true',
+                        declaracao_caminho: atividade.declaracao_caminho || '' // <-- ADICIONE ESTA LINHA
                     }));
                     
                     atualizarTabelaAtividadesAvaliadas();
@@ -744,7 +746,7 @@
                             </div>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="visualizarDeclaracao(${id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <button onclick="visualizarDeclaracao('${atividade.declaracao_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 Visualizar
                             </button>
                         </div>
@@ -767,8 +769,8 @@
         }
 
         // Visualizar declaração em nova aba
-        function visualizarDeclaracao(id) {
-            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+        function visualizarDeclaracao(caminho) {
+            window.open('/Gerenciamento-ACC/backend/' + caminho, '_blank');
         }
 
         // Função para abrir modal de envio de certificado

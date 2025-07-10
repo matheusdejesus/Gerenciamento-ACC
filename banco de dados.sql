@@ -92,6 +92,7 @@ CREATE TABLE AtividadeComplementar (
   declaracao_caminho VARCHAR(255) NULL,
   certificado_caminho VARCHAR(255) NULL,
   certificado_processado VARCHAR(255) NULL,
+  data_envio_certificado DATETIME NULL,
   FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
   FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT,
   FOREIGN KEY (orientador_id) REFERENCES Orientador(usuario_id) ON DELETE SET NULL,

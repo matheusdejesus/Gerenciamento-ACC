@@ -351,7 +351,8 @@ class AtividadeComplementar {
                     SET status = ?, 
                         carga_horaria_aprovada = ?, 
                         observacoes_analise = ?, 
-                        certificado_caminho = ? 
+                        certificado_caminho = ?, 
+                        data_avaliacao = NOW() -- Adicione esta linha
                     WHERE id = ? AND orientador_id = ?";
             $stmt = $db->prepare($sql);
             $stmt->bind_param(
@@ -363,8 +364,8 @@ class AtividadeComplementar {
                 $atividade_id,
                 $orientador_id
             );
-            $stmt->execute();
-            return $stmt->affected_rows > 0;
+            $sucesso = $stmt->execute();
+            return $sucesso;
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementar::avaliarAtividade: " . $e->getMessage());
             throw $e;
@@ -403,7 +404,8 @@ class AtividadeComplementar {
                     SET observacoes_Analise = CONCAT(
                         COALESCE(observacoes_Analise, ''), 
                         ?
-                    )
+                    ),
+                    data_avaliacao = NOW() -- ADICIONE ESTA LINHA
                     WHERE id = ? AND avaliador_id = ?";
                     
             $stmt = $db->prepare($sql);
@@ -541,7 +543,7 @@ class AtividadeComplementar {
                     ac.id,
                     ac.titulo,
                     ac.carga_horaria_aprovada as horas_aprovadas,
-                    ac.data_avaliacao as data_envio,
+                    ac.data_envio_certificado as data_envio,
                     ac.certificado_processado as certificado_caminho,
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
@@ -666,21 +668,19 @@ class AtividadeComplementar {
         try {
             $db = Database::getInstance()->getConnection();
 
-            // Se avaliador_id for fornecido, incluir na atualização
             if ($avaliador_id) {
                 $sql = "UPDATE AtividadeComplementar 
-                        SET certificado_processado = ?, avaliador_id = ? 
+                        SET certificado_processado = ?, avaliador_id = ?, data_envio_certificado = NOW()
                         WHERE id = ?";
                 $stmt = $db->prepare($sql);
                 $stmt->bind_param("sii", $certificado_caminho, $avaliador_id, $atividade_id);
             } else {
                 $sql = "UPDATE AtividadeComplementar 
-                        SET certificado_processado = ? 
+                        SET certificado_processado = ?, data_envio_certificado = NOW()
                         WHERE id = ?";
                 $stmt = $db->prepare($sql);
                 $stmt->bind_param("si", $certificado_caminho, $atividade_id);
             }
-            
             $sucesso = $stmt->execute();
             
             if ($sucesso) {

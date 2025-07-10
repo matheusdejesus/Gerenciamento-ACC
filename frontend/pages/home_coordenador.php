@@ -86,13 +86,12 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horas</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processado</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificado</th>
                                 </tr>
                             </thead>
                             <tbody id="tabelaCertificadosProcessados" class="bg-white divide-y divide-gray-200">
                                 <tr>
-                                    <td colspan="8" class="text-center text-gray-500 py-8">
+                                    <td colspan="7" class="text-center text-gray-500 py-8">
                                         Carregando...
                                     </td>
                                 </tr>
@@ -269,10 +268,10 @@
                                 </button>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.certificado_caminho || cert.certificado_processado ? 
-                                    `<a href="/Gerenciamento-ACC/backend/uploads/${cert.certificado_caminho || cert.certificado_processado}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
-                                    'N/A'
-                                }
+                                ${cert.certificado_caminho ? 
+        `<a href="/Gerenciamento-ACC/backend/${cert.certificado_caminho}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
+        'N/A'
+}
                             </td>
                         </tr>
                     `).join('');
@@ -308,52 +307,51 @@
                     const certificados = data.data || [];
                     if (certificados.length === 0) {
                         document.getElementById('tabelaCertificadosProcessados').innerHTML = `
-                            <tr>
-                                <td colspan="8" class="text-center text-gray-500 py-8">
-                                    Nenhum certificado processado
-                                </td>
-                            </tr>
-                        `;
+    <tr>
+        <td colspan="7" class="text-center text-gray-500 py-8">
+            Nenhum certificado processado
+        </td>
+    </tr>
+`;
                         return;
                     }
                     
-                    document.getElementById('tabelaCertificadosProcessados').innerHTML = certificados.map(cert => `
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                ${cert.aluno_nome || 'N/A'}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.curso_nome || 'N/A'}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.atividade_nome || cert.titulo || 'N/A'}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.horas_contabilizadas || cert.horas_aprovadas || 0}h
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    cert.status === 'aprovado' ? 'bg-green-100 text-green-800' : 
-                                    cert.status === 'rejeitado' ? 'bg-red-100 text-red-800' : 
-                                    'bg-yellow-100 text-yellow-800'
-                                }">
-                                    ${cert.status || 'Pendente'}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.data_envio ? new Date(cert.data_envio).toLocaleDateString('pt-BR') : 'N/A'}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.data_aprovacao ? new Date(cert.data_aprovacao).toLocaleDateString('pt-BR') : 'N/A'}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.certificado_caminho ? 
-                                    `<a href="/Gerenciamento-ACC/backend/uploads/${cert.certificado_caminho}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
-                                    'N/A'
-                                }
-                            </td>
-                        </tr>
-                    `).join('');
+                    document.getElementById('tabelaCertificadosProcessados').innerHTML = certificados.map(cert => {
+    return `
+        <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                ${cert.aluno_nome || 'N/A'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${cert.curso_nome || 'N/A'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${cert.atividade_nome || cert.titulo || 'N/A'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${cert.horas_contabilizadas || cert.horas_aprovadas || 0}h
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    cert.status === 'aprovado' ? 'bg-green-100 text-green-800' : 
+                    cert.status === 'rejeitado' ? 'bg-red-100 text-red-800' : 
+                    'bg-yellow-100 text-yellow-800'
+                }">
+                    ${cert.status || 'Pendente'}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${cert.data_envio ? new Date(cert.data_envio).toLocaleDateString('pt-BR') : 'N/A'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${cert.certificado_processado || cert.certificado_caminho ? 
+                    `<a href="/Gerenciamento-ACC/backend/${cert.certificado_processado || cert.certificado_caminho}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
+                    'N/A'
+                }
+            </td>
+        </tr>
+    `;
+}).join('');
                 } else {
                     console.error('Erro ao carregar certificados processados:', data.error);
                     document.getElementById('tabelaCertificadosProcessados').innerHTML = `
@@ -395,13 +393,10 @@
             
             // Configurar botão de visualizar certificado
             const btnVisualizarCertificado = document.getElementById('btnVisualizarCertificado');
-            if (certificado.certificado_caminho || certificado.certificado_processado) {
+            const caminhoCertificado = certificado.certificado_processado || certificado.certificado_caminho;
+            if (caminhoCertificado) {
                 btnVisualizarCertificado.onclick = () => {
-                    window.open(`/Gerenciamento-ACC/backend/uploads/${certificado.certificado_caminho || certificado.certificado_processado}`, '_blank');
-                };
-            } else {
-                btnVisualizarCertificado.onclick = () => {
-                    alert('Certificado não disponível');
+                    window.open(`/Gerenciamento-ACC/backend/${caminhoCertificado}`, '_blank');
                 };
             }
             

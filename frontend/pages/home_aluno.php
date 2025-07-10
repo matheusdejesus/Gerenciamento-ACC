@@ -338,19 +338,23 @@
 
         // Função para ver o certificado
         function verCertificado(caminho) {
-            window.open('/Gerenciamento-ACC/backend/api/' + caminho, '_blank');
+            window.open('/Gerenciamento-ACC/backend/' + caminho, '_blank');
         }
 
         // Função para atualizar as estatísticas
         function atualizarEstatisticas() {
-            const hoje = new Date();
+            // Horas certificadas: atividades aprovadas E com certificado aprovado pelo coordenador
+            const horasValidadas = minhasAtividades
+                .filter(a => a.status === 'Aprovada' && 
+                            a.observacoes_Analise && 
+                            a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR'))
+                .reduce((total, a) => total + (a.carga_horaria_aprovada || 0), 0);
 
-            // Horas certificadas
-            const horasValidadas = 0;
-
-            // Horas pendentes
+            // Horas pendentes: atividades não rejeitadas e ainda sem certificado aprovado pelo coordenador
             const horasPendentes = minhasAtividades
-                .filter(a => a.status !== 'Rejeitada')
+                .filter(a => a.status !== 'Rejeitada' && 
+                            (!a.observacoes_Analise || 
+                             !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')))
                 .reduce((total, a) => total + (a.carga_horaria_solicitada || 0), 0);
 
             // Atividades em andamento
@@ -414,7 +418,7 @@
                                 <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
                             </div>
                         </div>
-                        <button onclick="visualizarDeclaracao(${id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                       <button onclick="visualizarDeclaracao('${atividade.declaracao_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                             Visualizar
                         </button>
                     </div>
@@ -427,9 +431,10 @@
             document.getElementById('modalDetalhesAtividade').classList.remove('hidden');
         }
 
-        function visualizarDeclaracao(id) {
-            window.open(`/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?download=declaracao&id=${id}`, '_blank');
+      function visualizarDeclaracao(caminho) {
+            window.open('/Gerenciamento-ACC/backend/' + caminho, '_blank');
         }
+
 
         // Função para formatar data
         function formatarData(data) {
