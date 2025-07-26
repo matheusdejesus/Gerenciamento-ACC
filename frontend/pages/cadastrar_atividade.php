@@ -45,7 +45,6 @@ function buscarOrientadores() {
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-    // Adicione este bloco para enviar a API Key
     session_start();
     $apiKey = $_SESSION['usuario']['api_key'] ?? '';
     if ($apiKey) {
@@ -85,8 +84,6 @@ $atividade = buscarAtividade($atividade_id);
 // Buscar orientadores
 $orientadores = buscarOrientadores();
 
-
-// Adicionar requisitos padrão se não existirem
 if (!isset($atividade['requisitos'])) {
     $atividade['requisitos'] = [
         'Estar matriculado regularmente',
@@ -99,7 +96,7 @@ if (!isset($atividade['requisitos'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastrar em <?= htmlspecialchars($atividade['atividade-nome']) ?> - ACC</title>
+    <title>Cadastrar em <?= htmlspecialchars($atividade['nome'] ?? $atividade['titulo'] ?? 'Atividade') ?> - ACC</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <style>
@@ -337,14 +334,6 @@ if (!isset($atividade['requisitos'])) {
                 return;
             }
             
-            // Remover validação obrigatória da declaração
-            // const arquivo = document.getElementById('declaracao').files[0];
-            // if (!arquivo) {
-            //     alert('Por favor, selecione a declaração do professor.');
-            //     return;
-            // }
-            
-            // Confirmação
             if (confirm('Deseja realmente enviar esta solicitação?\n\nApós o envio, você não poderá mais editá-la e ela será enviada para análise.')) {
                 enviarFormulario();
             }
@@ -362,10 +351,9 @@ if (!isset($atividade['requisitos'])) {
                 
                 // Adicionar categoria_id se não existir
                 if (!formData.get('categoria_id')) {
-                    formData.set('categoria_id', '1'); // Default para Ensino
+                    formData.set('categoria_id', '1');
                 }
                 
-                // Log detalhado dos dados que estão sendo enviados
                 console.log('=== DADOS SENDO ENVIADOS ===');
                 for (let [key, value] of formData.entries()) {
                     console.log(key + ':', value);
@@ -433,7 +421,7 @@ if (!isset($atividade['requisitos'])) {
             dataFim.max = dataMaximaFormatada;
         });
 
-        // Definir data máxima inicial (1 ano a partir de hoje)
+        // Definir data máxima inicial
         document.addEventListener('DOMContentLoaded', function() {
             const hoje = new Date();
             const dataMaxima = new Date();
@@ -443,7 +431,7 @@ if (!isset($atividade['requisitos'])) {
             dataFimInput.max = dataMaxima.toISOString().split('T')[0];
         });
 
-        // Exemplo de busca via JS (coloque no final do seu arquivo .php)
+        // Exemplo de busca via JS
         document.addEventListener('DOMContentLoaded', async function() {
             if (!AuthClient.isLoggedIn()) {
                 window.location.href = 'login.php';
@@ -457,15 +445,14 @@ if (!isset($atividade['requisitos'])) {
             const response = await AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/listar_atividades.php?id=${atividadeId}`);
             const result = await response.json();
             if (result.success) {
-                const data = result.data;
-                document.getElementById('atividade-nome').textContent = data.nome;
-                document.getElementById('atividade-categoria').textContent = data.categoria;
-                document.getElementById('atividade-horas').textContent = data.horas_max + 'h';
-                document.getElementById('atividade-descricao').textContent = data.descricao;
-                document.getElementById('horas-solicitadas').max = data.horas_max;
-                document.getElementById('horas-max-info').textContent = data.horas_max;
-                // Atualiza o título da página
-                document.title = 'Cadastrar em ' + data.nome + ' - ACC';
+                const data = Array.isArray(result.data) ? result.data[0] : result.data;
+                document.getElementById('atividade-nome').textContent = data.nome || data.titulo;
+                document.getElementById('atividade-categoria').textContent = data.categoria || '';
+                document.getElementById('atividade-horas').textContent = (data.horas_max || data.carga_horaria || '') + 'h';
+                document.getElementById('atividade-descricao').textContent = data.descricao || '';
+                document.getElementById('horas-solicitadas').max = data.horas_max || data.carga_horaria || '';
+                document.getElementById('horas-max-info').textContent = data.horas_max || data.carga_horaria || '';
+                document.title = 'Cadastrar em ' + (data.nome || data.titulo || 'Atividade') + ' - ACC';
             } else {
                 alert('Erro ao carregar atividade: ' + result.error);
             }

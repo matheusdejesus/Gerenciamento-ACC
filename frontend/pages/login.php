@@ -116,7 +116,6 @@ if (isset($_GET['logout'])) {
             const errorMessage = document.getElementById('errorMessage');
             const submitBtn = document.getElementById('submitBtn');
             
-            // Limpar erro anterior
             errorDiv.classList.add('hidden');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Entrando...';
@@ -141,6 +140,9 @@ if (isset($_GET['logout'])) {
                         console.log('Redirecionando para home_orientador.php');
                         window.location.href = 'home_orientador.php';
                         break;
+                    case 'admin':
+                        window.location.href = 'home_admin.php';
+                        break;
                     default:
                         console.error('Tipo de usuário não reconhecido:', result.usuario.tipo);
                         throw new Error('Tipo de usuário não reconhecido');
@@ -156,7 +158,6 @@ if (isset($_GET['logout'])) {
         });
     </script>
     <script>
-        // Debug temporário
         console.log('=== DEBUG LOGIN ===');
         console.log('AuthClient existe?', typeof AuthClient !== 'undefined');
         console.log('Token atual:', AuthClient ? AuthClient.getToken() : 'N/A');

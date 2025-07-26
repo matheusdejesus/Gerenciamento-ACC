@@ -6,14 +6,14 @@ class JWTService {
     private static $algorithm = 'HS256';
     
     public static function init() {
-        self::$secret = $_ENV['JWT_SECRET'] ?? 'chave secreta aqui';
+        self::$secret = $_ENV['JWT_SECRET'] ?? '';
     }
     
     public static function encode($payload) {
         self::init();
         
         $payload['iat'] = time();
-        $payload['exp'] = time() + 3600; // ← 1 hora
+        $payload['exp'] = time() + 3600;
     
         $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
         $payload = json_encode($payload);

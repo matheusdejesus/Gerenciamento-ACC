@@ -11,37 +11,25 @@ class AtividadeComplementar {
     public static function create($dados) {
         try {
             // Validar dados obrigatórios
-            $camposObrigatorios = ['aluno_id', 'categoria_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada', 'orientador_id'];
-            
+            $camposObrigatorios = ['aluno_id', 'categoria_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada'];
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
                     throw new Exception("Campo obrigatório não informado: $campo");
                 }
             }
-            
+            if (empty($dados['orientador_id']) && empty($dados['avaliador_id'])) {
+                throw new Exception("É obrigatório informar um orientador ou um avaliador (coordenador)");
+            }
+
             $db = Database::getInstance()->getConnection();
             $db->autocommit(false);
             $db->begin_transaction();
 
-            $sql = "INSERT INTO AtividadeComplementar (
-                aluno_id, 
-                categoria_id, 
-                titulo, 
-                descricao, 
-                data_inicio, 
-                data_fim, 
-                carga_horaria_solicitada, 
-                orientador_id, 
-                declaracao_caminho
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-            $stmt = $db->prepare($sql);
-            if (!$stmt) {
-                throw new Exception("Erro ao preparar query: " . $db->error);
-            }
-
-            $stmt->bind_param(
-                "iissssiss",
+            // Montar SQL para orientador_id ou avaliador_id
+            $campos = "aluno_id, categoria_id, titulo, descricao, data_inicio, data_fim, carga_horaria_solicitada, declaracao_caminho";
+            $placeholders = "?, ?, ?, ?, ?, ?, ?, ?";
+            $tipos = "iissssis";
+            $valores = [
                 $dados['aluno_id'],
                 $dados['categoria_id'],
                 $dados['titulo'],
@@ -49,9 +37,29 @@ class AtividadeComplementar {
                 $dados['data_inicio'],
                 $dados['data_fim'],
                 $dados['carga_horaria_solicitada'],
-                $dados['orientador_id'],
                 $dados['declaracao_caminho']
-            );
+            ];
+
+            if (!empty($dados['orientador_id'])) {
+                $campos .= ", orientador_id";
+                $placeholders .= ", ?";
+                $tipos .= "i";
+                $valores[] = $dados['orientador_id'];
+            } else {
+                $campos .= ", avaliador_id";
+                $placeholders .= ", ?";
+                $tipos .= "i";
+                $valores[] = $dados['avaliador_id'];
+            }
+
+            $sql = "INSERT INTO AtividadeComplementar ($campos) VALUES ($placeholders)";
+
+            $stmt = $db->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erro ao preparar query: " . $db->error);
+            }
+
+            $stmt->bind_param($tipos, ...$valores);
 
             if (!$stmt->execute()) {
                 throw new Exception("Erro ao executar query: " . $stmt->error);
@@ -72,7 +80,7 @@ class AtividadeComplementar {
                 $db->autocommit(true);
             }
             error_log("Erro ao criar atividade complementar: " . $e->getMessage());
-            throw $e; // Re-throw para o controller tratar
+            throw $e;
         }
     }
     
@@ -93,7 +101,7 @@ class AtividadeComplementar {
                         ac.data_avaliacao,
                         ac.observacoes_Analise,
                         ac.declaracao_caminho,
-                        ac.certificado_caminho, -- ADICIONE ESTA LINHA
+                        ac.certificado_caminho,
                         CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         ca.descricao AS categoria_nome,
                         u.nome AS orientador_nome
@@ -352,7 +360,7 @@ class AtividadeComplementar {
                         carga_horaria_aprovada = ?, 
                         observacoes_analise = ?, 
                         certificado_caminho = ?, 
-                        data_avaliacao = NOW() -- Adicione esta linha
+                        data_avaliacao = NOW()
                     WHERE id = ? AND orientador_id = ?";
             $stmt = $db->prepare($sql);
             $stmt->bind_param(
@@ -394,7 +402,7 @@ class AtividadeComplementar {
         try {
             $db = Database::getInstance()->getConnection();
 
-            // Adiciona uma observação sobre a aprovação na coluna observacoes_Analise
+            // Adiciona uma observação sobre a aprovação
             $observacao_aprovacao = "\n[CERTIFICADO APROVADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
             if ($observacoes) {
                 $observacao_aprovacao .= "\nObservações do coordenador: " . $observacoes;
@@ -405,7 +413,7 @@ class AtividadeComplementar {
                         COALESCE(observacoes_Analise, ''), 
                         ?
                     ),
-                    data_avaliacao = NOW() -- ADICIONE ESTA LINHA
+                    data_avaliacao = NOW()
                     WHERE id = ? AND avaliador_id = ?";
                     
             $stmt = $db->prepare($sql);
@@ -431,7 +439,7 @@ class AtividadeComplementar {
         try {
             $db = Database::getInstance()->getConnection();
 
-            // Adiciona uma observação sobre a rejeição na coluna observacoes_Analise
+            // Adiciona uma observação sobre a rejeição
             $observacao_rejeicao = "\n[CERTIFICADO REJEITADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
             $observacao_rejeicao .= "\nMotivo da rejeição: " . $observacoes;
             
@@ -501,7 +509,7 @@ class AtividadeComplementar {
         }
     }
 
-    // Método para verificar se certificado foi aprovado (usando avaliador_id)
+    // Método para verificar se certificado foi aprovado
     public static function certificadoAprovado($atividade_id) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -522,69 +530,61 @@ class AtividadeComplementar {
     public static function buscarCertificadosPendentesPorCoordenador($coordenador_id) {
         try {
             $db = Database::getInstance()->getConnection();
-    
+
             // Buscar o curso_id do coordenador
             $sqlCurso = "SELECT curso_id FROM Coordenador WHERE usuario_id = ?";
             $stmtCurso = $db->prepare($sqlCurso);
             $stmtCurso->bind_param("i", $coordenador_id);
             $stmtCurso->execute();
             $resultCurso = $stmtCurso->get_result();
-    
+
             if ($resultCurso->num_rows === 0) {
                 return [];
             }
-    
+
             $coordenador = $resultCurso->fetch_assoc();
             $curso_id = $coordenador['curso_id'];
 
-        
-            // Usar observacoes_Analise para identificar se foi aprovado
-            $sql = "SELECT 
+            // Buscar certificados pendentes do curso do coordenador
+            $sql = "
+                SELECT 
                     ac.id,
                     ac.titulo,
-                    ac.carga_horaria_aprovada as horas_aprovadas,
+                    ac.carga_horaria_aprovada,
+                    ac.status,
                     ac.data_envio_certificado as data_envio,
                     ac.certificado_processado as certificado_caminho,
+                    ac.aluno_id,
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ca.descricao as atividade_nome
+                    ac.observacoes_Analise,
+                    ac.categoria_id,
+                    cat.descricao as categoria_nome
                 FROM AtividadeComplementar ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
-                WHERE a.curso_id = ? 
-                  AND ac.status = 'Aprovada'
-                  AND ac.certificado_processado IS NOT NULL 
-                  AND ac.certificado_processado != ''
-                  AND ac.avaliador_id = ?
-                  AND (ac.observacoes_Analise IS NULL 
-                       OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%')
-                ORDER BY ac.data_avaliacao DESC";
-            
+                INNER JOIN CategoriaAtividade cat ON ac.categoria_id = cat.id
+                WHERE c.id = ?
+                  AND ac.certificado_processado IS NOT NULL
+                  AND (ac.status = 'Aprovada' OR ac.status = 'Pendente')
+                  AND (ac.observacoes_Analise IS NULL OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%')
+                  AND (ac.observacoes_Analise IS NULL OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO REJEITADO PELO COORDENADOR%')
+                ORDER BY ac.data_envio_certificado DESC
+            ";
+
             $stmt = $db->prepare($sql);
-            $stmt->bind_param("ii", $curso_id, $coordenador_id);
+            $stmt->bind_param("i", $curso_id);
             $stmt->execute();
             $result = $stmt->get_result();
-            
+
             $atividades = [];
             while ($row = $result->fetch_assoc()) {
-                $atividades[] = [
-                    'id' => (int)$row['id'],
-                    'titulo' => $row['titulo'],
-                    'horas_aprovadas' => (int)$row['horas_aprovadas'],
-                    'data_envio' => $row['data_envio'],
-                    'certificado_caminho' => $row['certificado_caminho'],
-                    'aluno_nome' => $row['aluno_nome'],
-                    'aluno_matricula' => $row['aluno_matricula'],
-                    'curso_nome' => $row['curso_nome'],
-                    'atividade_nome' => $row['atividade_nome']
-                ];
+                $atividades[] = $row;
             }
 
             return $atividades;
-
         } catch (Exception $e) {
             error_log("Erro em buscarCertificadosPendentesPorCoordenador: " . $e->getMessage());
             return [];
@@ -626,7 +626,7 @@ class AtividadeComplementar {
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
+                LEFT JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
                 WHERE a.curso_id = ? 
                   AND ac.status = 'Aprovada'
                   AND ac.certificado_processado IS NOT NULL 
@@ -700,5 +700,93 @@ class AtividadeComplementar {
             return false;
         }
     }
+
+    public static function listarCategorias() {
+        try {
+            $db = \backend\api\config\Database::getInstance()->getConnection();
+            $sql = "SELECT id, descricao as nome FROM CategoriaAtividade ORDER BY descricao";
+            $result = $db->query($sql);
+            
+            $categorias = [];
+            while ($row = $result->fetch_assoc()) {
+                $categorias[] = [
+                    'id' => (int)$row['id'],
+                    'nome' => $row['nome']
+                ];
+            }
+            return $categorias;
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::listarCategorias: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public static function contarPorAtividadeDisponivel($atividade_disponivel_id) {
+        try {
+            $db = \backend\api\config\Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT COUNT(*) as total FROM AtividadeComplementar WHERE categoria_id = ?");
+            $stmt->bind_param("i", $atividade_disponivel_id);
+            $stmt->execute();
+            
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            
+            return $row['total'] ?? 0;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::contarPorAtividadeDisponivel: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public static function removerPorAtividadeDisponivel($atividade_disponivel_id) {
+        try {
+            $db = \backend\api\config\Database::getInstance()->getConnection();
+            
+            // Remover todas as atividades complementares vinculadas à atividade disponível
+            $stmt = $db->prepare("DELETE FROM AtividadeComplementar WHERE categoria_id = ?");
+            $stmt->bind_param("i", $atividade_disponivel_id);
+            
+            $sucesso = $stmt->execute();
+            $linhas_afetadas = $stmt->affected_rows;
+            
+            error_log("Remoção de atividades vinculadas - Linhas afetadas: " . $linhas_afetadas);
+            
+            return $sucesso;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::removerPorAtividadeDisponivel: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function criarAtividadeAvulsaComCertificado($dados)
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $sql = "INSERT INTO AtividadeComplementar 
+                (aluno_id, categoria_id, titulo, descricao, carga_horaria_solicitada, status, certificado_caminho, avaliador_id, data_submissao)
+                VALUES (?, ?, ?, ?, ?, 'Pendente', ?, ?, NOW())";
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param(
+                "iissisi",
+                $dados['aluno_id'],
+                $dados['categoria_id'],
+                $dados['titulo'],
+                $dados['descricao'],
+                $dados['carga_horaria_solicitada'],
+                $dados['certificado_caminho'],
+                $dados['avaliador_id']
+            );
+            if ($stmt->execute()) {
+                return $db->insert_id;
+            }
+            error_log("Erro ao inserir atividade avulsa: " . $stmt->error);
+            return false;
+        } catch (Exception $e) {
+            error_log("Erro em criarAtividadeAvulsaComCertificado: " . $e->getMessage());
+            return false;
+        }
+    }
 }
-?>
+

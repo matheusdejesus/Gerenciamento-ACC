@@ -50,42 +50,23 @@ class AtividadesDisponiveis {
     
     public static function buscarPorId($id) {
         try {
-            $db = Database::getInstance()->getConnection();
+            $db = \backend\api\config\Database::getInstance()->getConnection();
             
-            $sql = "SELECT 
-                        ad.id,
-                        ad.titulo as nome,
-                        ad.descricao,
-                        ad.carga_horaria as horas_max,
-                        ca.descricao as categoria,
-                        ad.categoria_id,
-                        'Atividade Complementar' as tipo
+            $sql = "SELECT ad.*, ca.descricao as categoria_nome 
                     FROM AtividadesDisponiveis ad
-                    INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    LEFT JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
                     WHERE ad.id = ?";
             
             $stmt = $db->prepare($sql);
             $stmt->bind_param("i", $id);
             $stmt->execute();
+            
             $result = $stmt->get_result();
-            
-            if ($row = $result->fetch_assoc()) {
-                return [
-                    'id' => (int)$row['id'],
-                    'nome' => $row['nome'],
-                    'descricao' => $row['descricao'],
-                    'horas_max' => (int)$row['horas_max'],
-                    'categoria' => $row['categoria'],
-                    'categoria_id' => (int)$row['categoria_id'],
-                    'tipo' => $row['tipo']
-                ];
-            }
-            
-            return null;
+            return $result->fetch_assoc();
             
         } catch (Exception $e) {
             error_log("Erro em AtividadesDisponiveis::buscarPorId: " . $e->getMessage());
-            throw $e;
+            return null;
         }
     }
     
@@ -127,6 +108,77 @@ class AtividadesDisponiveis {
             
         } catch (Exception $e) {
             error_log("Erro em AtividadesDisponiveis::buscarPorCategoria: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    public static function editar($id, $titulo, $descricao, $categoria_id, $carga_horaria) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $sql = "UPDATE AtividadesDisponiveis 
+                    SET titulo = ?, descricao = ?, categoria_id = ?, carga_horaria = ?
+                    WHERE id = ?";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("ssiii", $titulo, $descricao, $categoria_id, $carga_horaria, $id);
+            
+            return $stmt->execute();
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadesDisponiveis::editar: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    public static function remover($id) {
+        try {
+            $db = \backend\api\config\Database::getInstance()->getConnection();
+            
+            $stmt = $db->prepare("DELETE FROM AtividadesDisponiveis WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            
+            $sucesso = $stmt->execute();
+            $linhas_afetadas = $stmt->affected_rows;
+            
+            error_log("Remoção - Linhas afetadas: " . $linhas_afetadas);
+            
+            return $sucesso && $linhas_afetadas > 0;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadesDisponiveis::remover: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public static function adicionar($titulo, $descricao, $categoria_id, $carga_horaria) {
+        try {
+            error_log("=== AtividadesDisponiveis::adicionar ===");
+            error_log("Parâmetros: título=$titulo, descrição=$descricao, categoria_id=$categoria_id, carga_horaria=$carga_horaria");
+            
+            $db = \backend\api\config\Database::getInstance()->getConnection();
+            
+            // Verificar se a categoria existe
+            $checkCat = $db->prepare("SELECT id FROM CategoriaAtividade WHERE id = ?");
+            $checkCat->bind_param("i", $categoria_id);
+            $checkCat->execute();
+            if ($checkCat->get_result()->num_rows === 0) {
+                throw new \Exception("Categoria não encontrada: $categoria_id");
+            }
+            
+            $stmt = $db->prepare("INSERT INTO AtividadesDisponiveis (titulo, descricao, categoria_id, carga_horaria) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssii", $titulo, $descricao, $categoria_id, $carga_horaria);
+            
+            if (!$stmt->execute()) {
+                throw new \Exception("Erro ao inserir atividade: " . $stmt->error);
+            }
+            
+            $id = $db->insert_id;
+            error_log("Atividade inserida com ID: $id");
+            return $id;
+            
+        } catch (\Exception $e) {
+            error_log("Erro em AtividadesDisponiveis::adicionar: " . $e->getMessage());
             throw $e;
         }
     }

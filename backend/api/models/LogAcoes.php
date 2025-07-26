@@ -10,86 +10,54 @@ class LogAcoes {
     
     
     // Registrar uma ação no log de auditoria
-    
     public static function registrarAcao($usuario_id, $acao, $descricao = null) {
         try {
             $db = Database::getInstance()->getConnection();
             
-            $sql = "INSERT INTO LogAcoes (usuario_id, acao, descricao) VALUES (?, ?, ?)";
+            $sql = "INSERT INTO LogAcoes (usuario_id, acao, descricao, data_hora) VALUES (?, ?, ?, NOW())";
             $stmt = $db->prepare($sql);
             
             if (!$stmt) {
-                throw new Exception("Erro ao preparar consulta: " . $db->error);
+                error_log("Erro ao preparar statement: " . $db->error);
+                return false;
             }
             
             $stmt->bind_param("iss", $usuario_id, $acao, $descricao);
             $resultado = $stmt->execute();
+            $stmt->close();
             
-            if (!$resultado) {
-                throw new Exception("Erro ao executar consulta: " . $stmt->error);
-            }
-            
-            return $db->insert_id;
+            return $resultado;
             
         } catch (Exception $e) {
-            error_log("Erro ao registrar ação no log: " . $e->getMessage());
-            throw $e;
+            error_log("Erro em LogAcoes::registrarAcao: " . $e->getMessage());
+            return false;
         }
     }
 
     // Buscar logs por usuário
-
-    public static function buscarPorUsuario($usuario_id, $limite = 50, $offset = 0) {
-        try {
-            $db = Database::getInstance()->getConnection();
-            
-            $sql = "SELECT 
-                        l.id,
-                        l.acao,
-                        l.data_hora,
-                        l.descricao,
-                        u.nome as usuario_nome,
-                        u.email as usuario_email,
-                        u.tipo as usuario_tipo
-                    FROM LogAcoes l
-                    INNER JOIN Usuario u ON l.usuario_id = u.id
-                    WHERE l.usuario_id = ?
-                    ORDER BY l.data_hora DESC
-                    LIMIT ? OFFSET ?";
-            
-            $stmt = $db->prepare($sql);
-            $stmt->bind_param("iii", $usuario_id, $limite, $offset);
-            $stmt->execute();
-            
-            $result = $stmt->get_result();
-            $logs = [];
-            
-            while ($row = $result->fetch_assoc()) {
-                $logs[] = [
-                    'id' => (int)$row['id'],
-                    'acao' => $row['acao'],
-                    'data_hora' => $row['data_hora'],
-                    'descricao' => $row['descricao'],
-                    'usuario' => [
-                        'nome' => $row['usuario_nome'],
-                        'email' => $row['usuario_email'],
-                        'tipo' => $row['usuario_tipo']
-                    ]
-                ];
-            }
-            
-            return $logs;
-            
-        } catch (Exception $e) {
-            error_log("Erro ao buscar logs por usuário: " . $e->getMessage());
-            throw $e;
+    public static function buscarPorUsuario($usuario_id, $limite = 50) {
+        $db = \backend\api\config\Database::getInstance()->getConnection();
+        $sql = "SELECT l.*, u.nome as nome_usuario 
+                FROM LogAcoes l 
+                JOIN Usuario u ON l.usuario_id = u.id 
+                WHERE l.usuario_id = ? 
+                ORDER BY l.data_hora DESC 
+                LIMIT ?";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("ii", $usuario_id, $limite);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $logs = [];
+        while ($row = $result->fetch_assoc()) {
+            $logs[] = $row;
         }
+        $stmt->close();
+        return $logs;
     }
     
     
     // Buscar todos os logs (para administradores)
-    
-    public static function buscarTodos($filtros = [], $limite = 50, $offset = 0) {
+    public static function buscarTodos($filtros = [], $limite = 100, $offset = 0) {
         try {
             $db = Database::getInstance()->getConnection();
             
@@ -180,9 +148,7 @@ class LogAcoes {
         }
     }
     
-
     // Contar total de logs para paginação
-    
     public static function contarLogs($filtros = []) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -246,7 +212,6 @@ class LogAcoes {
     
     
     // Buscar estatísticas de ações
-     
     public static function buscarEstatisticas($filtros = []) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -305,7 +270,6 @@ class LogAcoes {
     
     
     // Limpar logs antigos
-    
     public static function limparLogsAntigos($dias = 365) {
         try {
             $db = Database::getInstance()->getConnection();

@@ -113,22 +113,25 @@ class AtividadeComplementarController extends Controller {
             if ($aluno_id === null) {
                 session_start();
                 if (empty($_SESSION['usuario']) || $_SESSION['usuario']['tipo'] !== 'aluno') {
-                    $this->sendJsonResponse(['error' => 'Acesso negado'], 403);
-                    return;
+                    return [
+                        'success' => false,
+                        'error' => 'Acesso negado'
+                    ];
                 }
                 $aluno_id = $_SESSION['usuario']['id'];
             }
-            
+
             $atividades = AtividadeComplementar::buscarPorAluno($aluno_id);
-            
-            $this->sendJsonResponse([
+            return [
                 'success' => true,
                 'data' => $atividades
-            ]);
-            
+            ];
         } catch (\Exception $e) {
             error_log("Erro em AtividadeComplementarController::listarPorAluno: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
+            return [
+                'success' => false,
+                'error' => 'Erro interno do servidor'
+            ];
         }
     }
     
@@ -241,12 +244,10 @@ class AtividadeComplementarController extends Controller {
                 return;
             }
             
-            // Para atividades rejeitadas, carga horária deve ser 0
             if ($status === 'Rejeitada') {
                 $carga_horaria_aprovada = 0;
             }
             
-            // Validar carga horária para atividades aprovadas
             if ($status === 'Aprovada' && $carga_horaria_aprovada <= 0) {
                 $this->sendJsonResponse(['error' => 'Para aprovar, a carga horária deve ser maior que zero'], 400);
                 return;
@@ -551,13 +552,11 @@ class AtividadeComplementarController extends Controller {
             
             error_log("Atividade encontrada: " . print_r($atividade, true));
             
-            // Verificar se a atividade tem certificado para rejeição
             if (empty($atividade['certificado_processado'])) {
                 $this->sendJsonResponse(['error' => 'Esta atividade não possui certificado para rejeição'], 400);
                 return;
             }
             
-            // Verificar se o coordenador é o mesmo que recebeu o certificado
             if ($atividade['avaliador_id'] != $coordenador_id) {
                 $this->sendJsonResponse(['error' => 'Este certificado não foi enviado para você'], 403);
                 return;
@@ -605,13 +604,11 @@ class AtividadeComplementarController extends Controller {
             
             error_log("Atividade encontrada: " . print_r($atividade, true));
             
-            // Verificar se a atividade tem certificado para aprovação
             if (empty($atividade['certificado_processado'])) {
                 $this->sendJsonResponse(['error' => 'Esta atividade não possui certificado para aprovação'], 400);
                 return;
             }
             
-            // Verificar se o coordenador é o mesmo que recebeu o certificado
             if ($atividade['avaliador_id'] != $coordenador_id) {
                 $this->sendJsonResponse(['error' => 'Este certificado não foi enviado para você'], 403);
                 return;
@@ -647,6 +644,15 @@ class AtividadeComplementarController extends Controller {
             error_log("Erro em aprovarCertificadoComJWT: " . $e->getMessage());
             $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
         }
+    }
+
+    public function listarCategorias() {
+        require_once __DIR__ . '/../models/AtividadeComplementar.php';
+        $categorias = \backend\api\models\AtividadeComplementar::listarCategorias();
+        echo json_encode([
+            'success' => true,
+            'data' => $categorias
+        ]);
     }
 }
 

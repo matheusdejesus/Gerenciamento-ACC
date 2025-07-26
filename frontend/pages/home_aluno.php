@@ -239,6 +239,11 @@
             }
 
             if (atividade.status === 'Aprovada') {
+                // Verificar se o certificado foi aprovado pelo coordenador
+                if (atividade.observacoes_Analise && 
+                    atividade.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) {
+                    return { class: 'bg-green-100 text-green-800', text: 'Concluída' };
+                }
                 return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
             }
 
@@ -343,7 +348,7 @@
 
         // Função para atualizar as estatísticas
         function atualizarEstatisticas() {
-            // Horas certificadas: atividades aprovadas E com certificado aprovado pelo coordenador
+            // Horas certificadas: atividades aprovadas e com certificado aprovado pelo coordenador
             const horasValidadas = minhasAtividades
                 .filter(a => a.status === 'Aprovada' && 
                             a.observacoes_Analise && 
@@ -357,9 +362,11 @@
                              !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')))
                 .reduce((total, a) => total + (a.carga_horaria_solicitada || 0), 0);
 
-            // Atividades em andamento
+            // Atividades em andamento: aprovadas mas ainda sem aprovação do coordenador
             const atividadesAndamento = minhasAtividades
-                .filter(a => a.status === 'Aprovada')
+                .filter(a => a.status === 'Aprovada' && 
+                            (!a.observacoes_Analise || 
+                             !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')))
                 .length;
 
             document.getElementById('horasValidadas').textContent = horasValidadas;
@@ -467,14 +474,12 @@
             `;
         }
 
-        // Fechar modal ao clicar fora dele
         document.getElementById('modalDetalhesAtividade').addEventListener('click', function(e) {
             if (e.target === this) {
                 fecharModalDetalhes();
             }
         });
 
-        // Carregar atividades ao carregar a página
         document.addEventListener('DOMContentLoaded', function() {
             carregarMinhasAtividades();
         });

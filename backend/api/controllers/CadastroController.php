@@ -149,7 +149,7 @@ class CadastroController extends Controller {
         }
         
         // Validar tipo de usuário
-        if (!in_array($data['tipo'], ['aluno', 'coordenador', 'orientador'])) {
+        if (!in_array($data['tipo'], ['aluno', 'coordenador', 'orientador', 'admin'])) {
             return ['valid' => false, 'message' => 'Tipo de usuário inválido'];
         }
         

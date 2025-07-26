@@ -75,7 +75,6 @@ class Usuario {
     }
 
     // Obter tempo restante de bloqueio
-
     public static function obterTempoRestanteBloqueio($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -101,7 +100,6 @@ class Usuario {
 
 
     // Limpar tentativas antigas
-
     public static function limparTentativasAntigas($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -122,7 +120,6 @@ class Usuario {
 
     
     // Buscar usuário para login
-    
     public static function findByEmailForLogin($email) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -142,10 +139,7 @@ class Usuario {
         }
     }
 
-    
-    
     // Buscar dados completos de um usuário por ID
-     
     public static function buscarDadosCompletosPorId($id, $tipo) {
         try {
             error_log("=== buscarDadosCompletosPorId ===");
@@ -222,7 +216,6 @@ class Usuario {
 
     
     // Atualizar dados básicos do usuário
-    
     public static function atualizarDadosBasicos($id, $dados) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -265,7 +258,6 @@ class Usuario {
 
     
     // Alterar senha do usuário
-    
     public static function alterarSenha($id, $senhaAtual, $novaSenha) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -305,7 +297,6 @@ class Usuario {
 
     
     // Método principal de autenticação - centraliza toda lógica de login
-    
     public static function autenticar($email, $senha) {
         try {
             // Validações básicas
@@ -379,9 +370,7 @@ class Usuario {
         }
     }
 
-    
     // Buscar dados para configuração com validações
-    
     public static function buscarDadosConfiguracao($userId, $userType) {
         try {
             if (empty($userId) || empty($userType)) {
@@ -420,7 +409,6 @@ class Usuario {
 
 
     // Atualizar dados pessoais com validações
-
     public static function atualizarDadosPessoaisCompleto($userId, $dados) {
         try {
             // Validações
@@ -489,7 +477,6 @@ class Usuario {
 
     
     // Alterar senha com validações completas
-    
     public static function alterarSenhaCompleta($userId, $senhaAtual, $novaSenha) {
         try {
             // Validações
@@ -527,6 +514,34 @@ class Usuario {
                 'status_code' => 500
             ];
         }
+    }
+
+    public static function listarTodos() {
+        $db = \backend\api\config\Database::getInstance()->getConnection();
+        // Remover o filtro para incluir admin
+        $res = $db->query("SELECT id, nome, email, tipo FROM Usuario ORDER BY nome");
+        $usuarios = [];
+        while ($row = $res->fetch_assoc()) {
+            // Buscar dados adicionais conforme o tipo
+            if ($row['tipo'] === 'aluno') {
+                $stmt = $db->prepare("SELECT matricula, curso_id FROM Aluno WHERE usuario_id = ?");
+                $stmt->bind_param("i", $row['id']);
+                $stmt->execute();
+                $dadosAluno = $stmt->get_result()->fetch_assoc();
+                $row['matricula'] = $dadosAluno['matricula'] ?? null;
+                $row['curso_id'] = $dadosAluno['curso_id'] ?? null;
+                $stmt->close();
+            } elseif ($row['tipo'] === 'coordenador' || $row['tipo'] === 'orientador') {
+                $stmt = $db->prepare("SELECT siape FROM " . ucfirst($row['tipo']) . " WHERE usuario_id = ?");
+                $stmt->bind_param("i", $row['id']);
+                $stmt->execute();
+                $dados = $stmt->get_result()->fetch_assoc();
+                $row['siape'] = $dados['siape'] ?? null;
+                $stmt->close();
+            }
+            $usuarios[] = $row;
+        }
+        return $usuarios;
     }
 }
 ?>

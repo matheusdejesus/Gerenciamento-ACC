@@ -4,9 +4,14 @@ ini_set('display_errors', 1);
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: http://localhost');
-header('Access-Control-Allow-Methods: GET, POST');
+header('Access-Control-Allow-Methods: GET, POST, DELETE');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 header('Access-Control-Allow-Credentials: true');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 ob_start();
 
@@ -34,10 +39,7 @@ try {
     error_log("GET: " . print_r($_GET, true));
     error_log("POST: " . print_r($_POST, true));
     
-    // Validar API Key
     ApiKeyMiddleware::validateApiKey();
-    
-    // Validar autenticação
     $usuario = AuthMiddleware::validateToken();
     if (!$usuario) {
         enviarErro('Token inválido ou ausente', 401);
@@ -45,18 +47,33 @@ try {
     
     $controller = new LogAcoesController();
     
+    // DELETE: Remover atividade (ADMIN)
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        error_log("=== REMOVER ATIVIDADE ===");
+        if ($usuario['tipo'] !== 'admin') {
+            enviarErro('Acesso negado. Apenas administradores podem remover atividades.', 403);
+        }
+        
+        // Verificar se é para remover atividade
+        if (isset($_GET['acao']) && $_GET['acao'] === 'remover_atividade') {
+            require_once __DIR__ . '/../controllers/AtividadesDisponiveisController.php';
+            $atividadesController = new \backend\api\controllers\AtividadesDisponiveisController();
+            $atividadesController->remover();
+            exit;
+        }
+        
+        enviarErro('Ação DELETE não reconhecida', 400);
+    }
+    
     // POST: Registrar nova ação
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("=== REGISTRAR NOVA AÇÃO ===");
         
         $data = json_decode(file_get_contents('php://input'), true);
         
-        // Permitir que usuários registrem suas próprias ações
         if ($usuario['tipo'] === 'admin') {
-            // Administradores podem registrar qualquer ação
             $controller->registrarAcao();
         } else {
-            // Usuários comuns só podem registrar ações para si mesmos
             $controller->registrarAcaoUsuario($usuario['id'], $data['acao'], $data['detalhes']);
         }
         exit;
@@ -68,8 +85,6 @@ try {
         // GET: Estatísticas
         if (isset($_GET['acao']) && $_GET['acao'] === 'estatisticas') {
             error_log("=== BUSCAR ESTATÍSTICAS ===");
-            
-            // Apenas administradores podem ver estatísticas
             if ($usuario['tipo'] !== 'admin') {
                 enviarErro('Acesso negado. Apenas administradores podem ver estatísticas.', 403);
             }
@@ -80,11 +95,8 @@ try {
         
         // GET: Logs de um usuário específico
         if (isset($_GET['usuario_id'])) {
-            error_log("=== BUSCAR LOGS POR USUÁRIO ===");
-            
-            $usuario_id = (int)$_GET['usuario_id'];
-            
-            // Usuários podem ver apenas seus próprios logs, admins podem ver todos
+            $usuario_id = intval($_GET['usuario_id']);
+            error_log("=== BUSCAR LOGS POR USUARIO: $usuario_id ===");
             if ($usuario['tipo'] !== 'admin' && $usuario['id'] != $usuario_id) {
                 enviarErro('Acesso negado. Você só pode ver seus próprios logs.', 403);
             }
@@ -93,18 +105,15 @@ try {
             exit;
         }
         
-        // GET: Todos os logs (apenas para administradores)
-        error_log("=== BUSCAR TODOS OS LOGS ===");
-        
+        // GET: Todos os logs
         if ($usuario['tipo'] !== 'admin') {
             enviarErro('Acesso negado. Apenas administradores podem ver todos os logs.', 403);
         }
-        
+
         $controller->buscarTodos();
         exit;
     }
     
-    // Se chegou até aqui, método não é suportado
     enviarErro('Método não permitido', 405);
     
 } catch (Exception $e) {

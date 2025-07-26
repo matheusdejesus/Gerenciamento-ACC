@@ -100,7 +100,6 @@ class UsuarioController {
             $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
         }
     }
-
     
     // Buscar dados de configuração do usuário
 
@@ -133,8 +132,6 @@ class UsuarioController {
             ], 500);
         }
     }
-
-
     // Atualizar dados pessoais do usuário
 
     public function atualizarDadosPessoais($userId, $dados) {
@@ -174,9 +171,7 @@ class UsuarioController {
         }
     }
 
-
     // Alterar senha do usuário
-
     public function alterarSenha($userId, $senhaAtual, $novaSenha) {
         try {
             // Delegar para o model
@@ -211,6 +206,16 @@ class UsuarioController {
                 'success' => false,
                 'error' => 'Erro interno do servidor'
             ], 500);
+        }
+    }
+
+    // Listar todos os usuários
+    public function listarTodos() {
+        try {
+            $usuarios = Usuario::listarTodos();
+            $this->sendJsonResponse(['success' => true, 'data' => $usuarios]);
+        } catch (Exception $e) {
+            $this->sendJsonResponse(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 }

@@ -10,41 +10,45 @@ use Exception;
 
 class LogAcoesController extends Controller {
     
+    // Método para listar todos os logs
+    public function buscarTodos() {
+        try {
+            $logs = self::listarTodos();
+            $this->sendJsonResponse([
+                'success' => true,
+                'data' => $logs
+            ]);
+        } catch (Exception $e) {
+            error_log("Erro em LogAcoesController::buscarTodos: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro ao buscar logs'
+            ], 500);
+        }
+    }
+    
+    // Método para buscar logs por usuário
+    public function buscarPorUsuario($usuario_id) {
+        try {
+            $logs = self::listarPorUsuario($usuario_id);
+            $this->sendJsonResponse([
+                'success' => true,
+                'data' => $logs
+            ]);
+        } catch (Exception $e) {
+            error_log("Erro em LogAcoesController::buscarPorUsuario: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro ao buscar logs do usuário'
+            ], 500);
+        }
+    }
     
     // Registrar uma ação no log
-
     public static function registrar($usuario_id, $acao, $descricao = null) {
         try {
-            error_log("=== LogAcoesController::registrar ===");
-            error_log("Usuario ID: " . $usuario_id);
-            error_log("Ação: " . $acao);
-            error_log("Descrição: " . $descricao);
-            
-            $db = Database::getInstance()->getConnection();
-            
-            $sql = "INSERT INTO LogAcoes (usuario_id, acao, descricao, data_hora) VALUES (?, ?, ?, NOW())";
-            $stmt = $db->prepare($sql);
-            
-            if (!$stmt) {
-                error_log("Erro ao preparar statement: " . $db->error);
-                return false;
-            }
-            
-            $stmt->bind_param("iss", $usuario_id, $acao, $descricao);
-            
-            $resultado = $stmt->execute();
-            
-            if ($resultado) {
-                $log_id = $db->insert_id;
-                error_log("Log registrado com sucesso - ID: " . $log_id);
-                $stmt->close();
-                return true;
-            } else {
-                error_log("Erro ao executar statement: " . $stmt->error);
-                $stmt->close();
-                return false;
-            }
-            
+            require_once __DIR__ . '/../models/LogAcoes.php';
+            return \backend\api\models\LogAcoes::registrarAcao($usuario_id, $acao, $descricao);
         } catch (Exception $e) {
             error_log("Erro em LogAcoesController::registrar: " . $e->getMessage());
             return false;
@@ -53,32 +57,10 @@ class LogAcoesController extends Controller {
     
     
     // Listar logs de um usuário
-    
     public static function listarPorUsuario($usuario_id, $limite = 50) {
         try {
-            $db = Database::getInstance()->getConnection();
-            
-            $sql = "SELECT l.*, u.nome as nome_usuario 
-                    FROM LogAcoes l 
-                    JOIN Usuario u ON l.usuario_id = u.id 
-                    WHERE l.usuario_id = ? 
-                    ORDER BY l.data_hora DESC 
-                    LIMIT ?";
-            
-            $stmt = $db->prepare($sql);
-            $stmt->bind_param("ii", $usuario_id, $limite);
-            $stmt->execute();
-            
-            $result = $stmt->get_result();
-            $logs = [];
-            
-            while ($row = $result->fetch_assoc()) {
-                $logs[] = $row;
-            }
-            
-            $stmt->close();
-            return $logs;
-            
+            require_once __DIR__ . '/../models/LogAcoes.php';
+            return \backend\api\models\LogAcoes::buscarPorUsuario($usuario_id, $limite);
         } catch (Exception $e) {
             error_log("Erro em LogAcoesController::listarPorUsuario: " . $e->getMessage());
             return [];
@@ -87,31 +69,11 @@ class LogAcoesController extends Controller {
     
     
     // Listar todos os logs (para administradores)
-    
     public static function listarTodos($limite = 100) {
         try {
-            $db = Database::getInstance()->getConnection();
-            
-            $sql = "SELECT l.*, u.nome as nome_usuario 
-                    FROM LogAcoes l 
-                    JOIN Usuario u ON l.usuario_id = u.id 
-                    ORDER BY l.data_hora DESC 
-                    LIMIT ?";
-            
-            $stmt = $db->prepare($sql);
-            $stmt->bind_param("i", $limite);
-            $stmt->execute();
-            
-            $result = $stmt->get_result();
-            $logs = [];
-            
-            while ($row = $result->fetch_assoc()) {
-                $logs[] = $row;
-            }
-            
-            $stmt->close();
-            return $logs;
-            
+            // Delegar para o model
+            require_once __DIR__ . '/../models/LogAcoes.php';
+            return \backend\api\models\LogAcoes::buscarTodos([], $limite, 0);
         } catch (Exception $e) {
             error_log("Erro em LogAcoesController::listarTodos: " . $e->getMessage());
             return [];
@@ -120,7 +82,6 @@ class LogAcoesController extends Controller {
     
     
     // Buscar logs por ação específica
-    
     public static function buscarPorAcao($acao, $limite = 50) {
         try {
             $db = Database::getInstance()->getConnection();
@@ -152,9 +113,7 @@ class LogAcoesController extends Controller {
         }
     }
     
-    
-    // Limpar logs antigos (mais de X dias)
-    
+    // Limpar logs antigos
     public static function limparLogsAntigos($dias = 90) {
         try {
             $db = Database::getInstance()->getConnection();

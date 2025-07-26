@@ -30,7 +30,22 @@ class AuthClient {
     static isLoggedIn() {
         const token = this.getToken();
         const apiKey = this.getApiKey();
-        return !!(token && apiKey);
+        if (!(token && apiKey)) return false;
+
+        // Verificar expiração do JWT
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (payload.exp && Date.now() / 1000 > payload.exp) {
+                // Token expirado, fazer logout
+                this.logout();
+                return false;
+            }
+        } catch (e) {
+            this.logout();
+            return false;
+        }
+
+        return true;
     }
 
     // Logout
@@ -46,7 +61,6 @@ class AuthClient {
             window.location.href = 'login.php';
         } catch (error) {
             console.error('Erro no logout:', error);
-            // Logout mesmo com erro de auditoria
             localStorage.removeItem(this.TOKEN_KEY);
             localStorage.removeItem(this.USER_KEY);
             localStorage.removeItem(this.API_KEY_KEY);
@@ -146,7 +160,7 @@ class AuthClient {
         }
     }
 
-    // Método para salvar dados de login (mantido para compatibilidade)
+    // Método para salvar dados de login
     static saveLoginData(data) {
         if (data.token) {
             localStorage.setItem(this.TOKEN_KEY, data.token);
@@ -205,7 +219,6 @@ setInterval(() => {
     }
 }, 30000);
 
-// Registrar ações importantes do frontend
 document.addEventListener('DOMContentLoaded', function () {
     // Registrar acesso à página
     if (AuthClient.isLoggedIn()) {
