@@ -6,7 +6,7 @@ https://drive.google.com/file/d/12LAJtGZ6I4jrJP66aEGO6F_iU6HxDuM2/view?usp=shari
 
 O projeto Gerenciamento-ACC é um sistema web desenvolvido para gerenciar Atividades Complementares de Curso (ACC) em uma instituição acadêmica. Ele possui funcionalidades voltadas para diferentes tipos de usuários, como alunos, coordenadores e orientadores, permitindo o acompanhamento, avaliação e controle de atividades complementares.
 
-## Principais Funcionalidades
+## ⭐ Principais Funcionalidades
 
 ### Gestão de Usuários
 
