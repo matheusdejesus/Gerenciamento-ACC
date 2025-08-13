@@ -22,8 +22,6 @@
                 </div>
                 <div class="flex items-center">
                     <a href="home_admin.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
-                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
-                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
                 </div>
             </div>
         </div>
@@ -33,7 +31,7 @@
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
                 <nav class="space-y-2">
                     <a href="home_admin.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Dashboard
+                        Início
                     </a>
                     <a href="configuracoes_admin.php" class="block p-3 rounded bg-gray-200 text-[#0969DA] font-medium">
                         Configurações da Conta
@@ -69,9 +67,9 @@
                         <form id="formDadosPessoais" class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium mb-2" style="color: #0969DA">Nome Completo</label>
-                                <input type="text" id="nomeCompleto"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Digite seu nome">
+                                <input type="text" id="nomeCompleto" readonly
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                                       placeholder="Nome não pode ser alterado">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-2" style="color: #0969DA">E-mail</label>
@@ -144,10 +142,6 @@
         if (user.tipo !== 'admin') {
             AuthClient.logout();
         }
-        // Atualizar nome do usuário na interface
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
         // Carregar dados do usuário nos campos
         document.addEventListener('DOMContentLoaded', function() {
             carregarDadosUsuario();
@@ -169,26 +163,34 @@
             }
         }
         async function salvarDadosPessoais() {
-            const nome = document.getElementById('nomeCompleto').value;
             const email = document.getElementById('email').value;
-            if (!nome || !email) {
-                alert('Por favor, preencha todos os campos.');
+            
+            if (!email) {
+                alert('Por favor, preencha o campo de email.');
                 return;
             }
+            
             if (!email.includes('@') || !email.includes('.')) {
                 alert('Por favor, insira um e-mail válido.');
                 return;
             }
+            
+            if (!confirm('🔄 Após alterar o email, você precisará fazer login novamente. Deseja continuar?')) {
+                return;
+            }
+            
             try {
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, email })
+                    body: JSON.stringify({ email })
                 });
+                
                 const data = await response.json();
+                
                 if (data.success) {
-                    alert('✅ Dados salvos com sucesso!');
-                    document.getElementById('nomeUsuario').textContent = nome;
+                    alert('✅ Email alterado com sucesso!');
+                    window.location.href = 'login.php';
                 } else {
                     alert('❌ Erro ao salvar dados: ' + (data.error || 'Erro desconhecido'));
                 }
@@ -211,6 +213,9 @@
             }
             if (novaSenha.length < 6) {
                 alert('A nova senha deve ter pelo menos 6 caracteres.');
+                return;
+            }
+            if (!confirm('🔄 Após alterar a senha, você precisará fazer login novamente. Deseja continuar?')) {
                 return;
             }
             try {

@@ -7,7 +7,23 @@ use backend\api\config\Database;
 class ApiKeyMiddleware {
     
     public static function validateApiKey() {
-        $headers = getallheaders();
+        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        
+        if (empty($headers)) {
+            $headers = [];
+            foreach ($_SERVER as $key => $value) {
+                if (strpos($key, 'HTTP_') === 0) {
+                    $header = str_replace('_', '-', substr($key, 5));
+                    $headers[$header] = $value;
+                }
+            }
+        }
+        
+        $normalizedHeaders = [];
+        foreach ($headers as $key => $value) {
+            $normalizedHeaders[strtolower($key)] = $value;
+        }
+        $headers = array_merge($headers, $normalizedHeaders);
         
         if (!$headers) {
             self::sendError('Headers não encontrados', 401);
@@ -26,6 +42,11 @@ class ApiKeyMiddleware {
         if (!$apiKey) {
             self::sendError('API Key não fornecida', 401);
             return false;
+        }
+        
+        // Aceitar API Key genérica do frontend
+        if ($apiKey === 'frontend-gerenciamento-acc-2025') {
+            return true;
         }
         
         // Validar se a API Key existe e está ativa
@@ -51,14 +72,30 @@ class ApiKeyMiddleware {
     }
 
     public static function verificarApiKey() {
-        $headers = getallheaders();
+        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        
+        if (empty($headers)) {
+            $headers = [];
+            foreach ($_SERVER as $key => $value) {
+                if (strpos($key, 'HTTP_') === 0) {
+                    $header = str_replace('_', '-', substr($key, 5));
+                    $headers[$header] = $value;
+                }
+            }
+        }
+        
+        $normalizedHeaders = [];
+        foreach ($headers as $key => $value) {
+            $normalizedHeaders[strtolower($key)] = $value;
+        }
+        $headers = array_merge($headers, $normalizedHeaders);
         
         if (!$headers) {
             error_log("Headers não encontrados");
             return null;
         }
         
-        // Buscar header X-API-Key (suporte a diferentes formatos)
+        // Buscar header X-API-Key
         $apiKey = null;
         $possibleKeys = ['X-API-Key', 'x-api-key', 'X-Api-Key', 'HTTP_X_API_KEY'];
         
@@ -72,6 +109,12 @@ class ApiKeyMiddleware {
         if (!$apiKey) {
             error_log("API Key não encontrada nos headers");
             error_log("Headers disponíveis: " . print_r(array_keys($headers), true));
+            return null;
+        }
+        
+        // Para API Key genérica do frontend
+        if ($apiKey === 'frontend-gerenciamento-acc-2025') {
+            error_log("API Key genérica detectada, delegando para AuthMiddleware");
             return null;
         }
         

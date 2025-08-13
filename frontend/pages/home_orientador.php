@@ -34,9 +34,6 @@
         <div class="container mx-auto flex flex-col lg:flex-row p-4">
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
                 <nav class="space-y-2">
-                    <a href="#" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Início
-                    </a>
                     <a href="configuracoes_orientador.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Configurações da Conta
                     </a>
@@ -258,7 +255,7 @@
                         horasSolicitadas: atividade.carga_horaria_solicitada,
                         tipo: 'Atividade Complementar',
                         temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1,
-                        declaracao_caminho: atividade.declaracao_caminho || '', // <-- adicione isto
+                        declaracao_caminho: atividade.declaracao_caminho || '',
                     }));
                     
                     atualizarTabelaAtividades();
@@ -300,9 +297,11 @@
                         parecer: atividade.observacoes_Analise,
                         tipo: 'Atividade Complementar',
                         temDeclaracao: atividade.tem_declaracao === true || atividade.tem_declaracao === 1 || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 'true',
-                        declaracao_caminho: atividade.declaracao_caminho || '' // <-- ADICIONE ESTA LINHA
+                        declaracao_caminho: atividade.declaracao_caminho || '',
+                        certificado_caminho: atividade.certificado_caminho || ''  // Adicione esta linha para rastrear se o certificado já foi enviado
                     }));
                     
+
                     atualizarTabelaAtividadesAvaliadas();
                     atualizarEstatisticas();
                 } else {
@@ -388,13 +387,30 @@
             atividadesAvaliadas.forEach(atividade => {
                 const statusClass = atividade.status === 'Aprovada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 
-                // Opção de enviar certificado apenas para atividades aprovadas
-                const opcaoCertificado = atividade.status === 'Aprovada' ? `
-                    <button onclick="enviarCertificado(${atividade.id})" 
-                            class="text-purple-600 hover:text-purple-900">
-                        Enviar Certificado
-                    </button>
-                ` : '';
+                let acoes = '';
+                if (atividade.status === 'Aprovada') {
+                    const temCertificado = atividade.certificado_caminho && 
+                                          atividade.certificado_caminho.trim() !== '' && 
+                                          atividade.certificado_caminho !== null && 
+                                          atividade.certificado_caminho !== undefined;
+                    
+                    if (temCertificado) {
+                        acoes = `
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Certificado Enviado
+                            </span>
+                        `;
+                    } else {
+                        acoes = `
+                            <button onclick="enviarCertificado(${atividade.id})" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                                Enviar Certificado
+                            </button>
+                        `;
+                    }
+                } else {
+                    acoes = `<span class="text-gray-500 text-sm">${atividade.status}</span>`;
+                }
                 
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
@@ -418,20 +434,17 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         ${atividade.dataAvaliacao}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                        <div class="flex flex-col items-start space-y-2">
-                            <button onclick="verDetalhes(${atividade.id})" class="text-blue-600 hover:text-blue-900">
-                                Ver Detalhes
-                            </button>
-                            ${opcaoCertificado}
-                        </div>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="verDetalhes(${atividade.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                            Ver Detalhes
+                        </button>
+                        ${acoes}
                     </td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
-        // Exibir mensagem vazia
         function exibirMensagemVazia(tipo, mensagem) {
             const tbody = document.querySelector(`#tabelaAtividades${tipo === 'pendentes' ? 'Pendentes' : 'Avaliadas'} tbody`);
             if (tbody) {
@@ -573,6 +586,11 @@
                 return;
             }
             
+            // Adicionada confirmação
+            if (!confirm('Você realmente quer aprovar esta atividade?')) {
+                return;
+            }
+            
             const dadosAvaliacao = {
                 atividade_id: id,
                 status: 'Aprovada',
@@ -644,63 +662,66 @@
                 return;
             }
             
-            if (confirm('Confirma a rejeição desta atividade?')) {
-                const dadosAvaliacao = {
-                    atividade_id: id,
-                    status: 'Rejeitada',
-                    carga_horaria_aprovada: 0,
-                    observacoes_analise: parecer
-                };
+            // Confirmação atualizada para consistência
+            if (!confirm('Você realmente quer rejeitar esta atividade?')) {
+                return;
+            }
+            
+            const dadosAvaliacao = {
+                atividade_id: id,
+                status: 'Rejeitada',
+                carga_horaria_aprovada: 0,
+                observacoes_analise: parecer
+            };
 
-                console.log('=== DADOS DE REJEIÇÃO ===');
-                console.log(dadosAvaliacao);
+            console.log('=== DADOS DE REJEIÇÃO ===');
+            console.log(dadosAvaliacao);
 
-                try {
-                    const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(dadosAvaliacao)
-                    });
-                    
-                    console.log('=== RESPOSTA HTTP REJEIÇÃO ===');
-                    console.log('Status:', response.status);
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Erro HTTP:', response.status, errorText);
-                        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
-                    }
-                    
-                    const responseText = await response.text();
-                    console.log('=== RESPOSTA BRUTA REJEIÇÃO ===');
-                    console.log(responseText);
-                    
-                    let data;
-                    try {
-                        data = JSON.parse(responseText);
-                    } catch (parseError) {
-                        console.error('Erro ao fazer parse do JSON:', parseError);
-                        throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));
-                    }
-                    
-                    console.log('=== DADOS PARSEADOS REJEIÇÃO ===');
-                    console.log(data);
-                    
-                    if (data.success) {
-                        alert('❌ Atividade rejeitada com sucesso.');
-                        fecharModalAvaliacao();
-                        await carregarTodosOsDados();
-                    } else {
-                        alert('❌ Erro: ' + (data.error || 'Erro desconhecido'));
-                    }
-                    
-                } catch (error) {
-                    console.error('=== ERRO COMPLETO REJEIÇÃO ===');
-                    console.error(error);
-                    alert('❌ Erro ao rejeitar atividade: ' + error.message);
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dadosAvaliacao)
+                });
+                
+                console.log('=== RESPOSTA HTTP REJEIÇÃO ===');
+                console.log('Status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro HTTP:', response.status, errorText);
+                    throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
                 }
+                
+                const responseText = await response.text();
+                console.log('=== RESPOSTA BRUTA REJEIÇÃO ===');
+                console.log(responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Erro ao fazer parse do JSON:', parseError);
+                    throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));
+                }
+                
+                console.log('=== DADOS PARSEADOS REJEIÇÃO ===');
+                console.log(data);
+                
+                if (data.success) {
+                    alert('❌ Atividade rejeitada com sucesso.');
+                    fecharModalAvaliacao();
+                    await carregarTodosOsDados();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Erro desconhecido'));
+                }
+                
+            } catch (error) {
+                console.error('=== ERRO COMPLETO REJEIÇÃO ===');
+                console.error(error);
+                alert('❌ Erro ao rejeitar atividade: ' + error.message);
             }
         }
 
@@ -774,13 +795,30 @@
         }
 
         // Função para abrir modal de envio de certificado
-        function enviarCertificado(atividadeId) {
+        async function enviarCertificado(atividadeId) {
+            const atividade = atividadesAvaliadas.find(a => a.id === atividadeId);
+            
+            // Verificar se a atividade existe
+            if (!atividade) {
+                alert('❌ Atividade não encontrada.');
+                return;
+            }
+            
+            // Verificar se já existe certificado enviado
+            const temCertificado = atividade.certificado_caminho && 
+                                  atividade.certificado_caminho.trim() !== '' && 
+                                  atividade.certificado_caminho !== null && 
+                                  atividade.certificado_caminho !== undefined;
+            
+            if (temCertificado) {
+                alert('❌ Certificado já foi enviado para esta atividade.');
+                await carregarTodosOsDados();
+                return;
+            }
+            
             // Remover modal antigo se existir
             const modalExistente = document.getElementById('modalCertificado');
             if (modalExistente) modalExistente.remove();
-
-            // Buscar dados da atividade avaliada
-            const atividade = atividadesAvaliadas.find(a => a.id === atividadeId);
 
             // Criar modal
             const modal = document.createElement('div');
@@ -824,7 +862,6 @@
             `;
             document.body.appendChild(modal);
 
-            // Handler do submit
             document.getElementById('formCertificado').onsubmit = async function(e) {
                 e.preventDefault();
                 const form = e.target;
@@ -843,13 +880,20 @@
                     return;
                 }
 
-                try {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    const originalText = submitBtn.textContent;
+                // Adicionar confirmação antes do envio
+                if (!confirm('Tem certeza que deseja enviar este certificado?')) {
+                    return;
+                }
+
+                const submitBtn = form.querySelector('button[type="submit"]');
+                let originalText = '';
+                if (submitBtn) {
+                    originalText = submitBtn.textContent;
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Enviando...';
+                }
 
-                    // Usar a rota correta para orientador enviar certificado
+                try {
                     const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
                         method: 'POST',
                         body: formData
@@ -871,9 +915,15 @@
                     }
                 } catch (err) {
                     console.error('Erro completo:', err);
+                    if (err.message && err.message.includes('Certificado já foi enviado')) {
+                        alert('❌ Este certificado já foi enviado anteriormente. A página será atualizada.');
+                        document.getElementById('modalCertificado').remove();
+                        await carregarTodosOsDados();
+                        return;
+                    }
+                    
                     alert('❌ Erro ao enviar certificado: ' + err.message);
                 } finally {
-                    // Restaurar botão
                     const submitBtn = form.querySelector('button[type="submit"]');
                     if (submitBtn) {
                         submitBtn.disabled = false;

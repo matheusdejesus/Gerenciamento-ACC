@@ -160,7 +160,8 @@ if (!isset($atividade['requisitos'])) {
                             
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Título da Atividade</label>
-                                <input type="text" name="titulo" required class="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Ex: Participação em Workshop de IA">
+                                <input type="text" name="titulo" required class="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Ex: Palestra sobre IA">
+
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -334,7 +335,7 @@ if (!isset($atividade['requisitos'])) {
                 return;
             }
             
-            if (confirm('Deseja realmente enviar esta solicitação?\n\nApós o envio, você não poderá mais editá-la e ela será enviada para análise.')) {
+            if (confirm('Deseja realmente enviar esta solicitação?')) {
                 enviarFormulario();
             }
         });
@@ -390,7 +391,7 @@ if (!isset($atividade['requisitos'])) {
                 console.log(result);
                 
                 if (result.success) {
-                    alert('✅ Solicitação enviada com sucesso!\n\nVocê receberá uma notificação quando ela for avaliada pelo orientador selecionado.');
+                    alert('✅ Solicitação enviada com sucesso!');
                     window.location.href = 'home_aluno.php';
                 } else {
                     alert('❌ Erro: ' + (result.error || 'Erro desconhecido'));
@@ -431,7 +432,6 @@ if (!isset($atividade['requisitos'])) {
             dataFimInput.max = dataMaxima.toISOString().split('T')[0];
         });
 
-        // Exemplo de busca via JS
         document.addEventListener('DOMContentLoaded', async function() {
             if (!AuthClient.isLoggedIn()) {
                 window.location.href = 'login.php';

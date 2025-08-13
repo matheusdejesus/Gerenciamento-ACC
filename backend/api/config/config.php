@@ -1,8 +1,8 @@
 <?php
 // Configurações da API
 define('API_VERSION', '1.0.0');
-define('JWT_SECRET', 'sua_chave_secreta_aqui'); // Altere para uma chave segura em produção
-//define('JWT_SECRET', getenv('JWT_SECRET'));
+define('JWT_SECRET', '');
+// define('JWT_SECRET', getenv('JWT_SECRET'));
 define('JWT_EXPIRATION', 3600); // 1 hora em segundos
 
 // Configurações do Banco de Dados
@@ -30,5 +30,24 @@ function jsonResponse($data, $statusCode = 200) {
     header('Content-Type: application/json');
     echo json_encode($data);
     exit;
+}
+$host = 'localhost';
+$db   = 'ACC';
+$user = 'root';
+$pass = '';
+$charset = 'utf8mb4';
+
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
+
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (\PDOException $e) {
+    error_log('Erro PDO: ' . $e->getMessage());
+    die('Erro de conexão com o banco de dados');
 }
 ?>

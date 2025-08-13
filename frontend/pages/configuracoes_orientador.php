@@ -23,8 +23,6 @@
                 </div>
                 <div class="flex items-center">
                     <a href="home_orientador.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
-                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
-                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
                 </div>
             </div>
         </div>
@@ -142,7 +140,6 @@
             </main>
         </div>
     </div>
-
     <script src="../assets/js/auth.js"></script>
     <script>
         // Verificar autenticação JWT
@@ -155,11 +152,6 @@
             AuthClient.logout();
         }
         
-        // Atualizar nome do usuário na interface
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
-
         // Carregar dados do usuário
         document.addEventListener('DOMContentLoaded', function() {
             carregarDadosUsuario();
@@ -224,6 +216,12 @@
                     return;
                 }
 
+                // Confirmação antes de alterar o email
+                const confirmacao = confirm('🔄 Após alterar o email, você precisará fazer login novamente. Deseja continuar?');
+                if (!confirmacao) {
+                    return;
+                }
+
                 const dados = {
                     email: email
                 };
@@ -240,6 +238,8 @@
                 
                 if (data.success) {
                     alert('✅ E-mail atualizado com sucesso!');
+                    AuthClient.logout();
+                    window.location.href = 'login.php';
                 } else {
                     alert('❌ Erro ao salvar: ' + data.error);
                 }
@@ -269,6 +269,12 @@
                 return;
             }
 
+            // Confirmação antes de alterar a senha
+            const confirmacao = confirm('🔄 Após alterar a senha, você precisará fazer login novamente. Deseja continuar?');
+            if (!confirmacao) {
+                return;
+            }
+
             try {
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
@@ -286,10 +292,8 @@
                 
                 if (data.success) {
                     alert('✅ Senha alterada com sucesso!');
-                    // Limpar campos
-                    document.getElementById('senhaAtual').value = '';
-                    document.getElementById('novaSenha').value = '';
-                    document.getElementById('confirmarSenha').value = '';
+                    AuthClient.logout();
+                    window.location.href = 'login.php';
                 } else {
                     alert('❌ Erro ao alterar senha: ' + data.error);
                 }
@@ -298,8 +302,6 @@
                 alert('❌ Erro ao alterar senha.');
             }
         }
-
-        // Inicializar primeira aba
         mostrarAba('dados-pessoais');
     </script>
     

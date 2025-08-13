@@ -140,7 +140,7 @@ class AtividadeComplementar {
                     'orientador_nome' => $row['orientador_nome'],
                     'tem_declaracao' => (bool)$row['tem_declaracao'],
                     'declaracao_caminho' => $row['declaracao_caminho'],
-                    'certificado_caminho' => $row['certificado_caminho'] ?? null
+                    'certificado_caminho' => $row['certificado_caminho']
                 ];
             }
             
@@ -298,6 +298,7 @@ class AtividadeComplementar {
                         ac.data_avaliacao,
                         ac.observacoes_Analise,
                         ac.declaracao_caminho,
+                        ac.certificado_caminho,
                         CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         u.nome AS aluno_nome,
                         a.matricula AS aluno_matricula,
@@ -545,7 +546,9 @@ class AtividadeComplementar {
             $coordenador = $resultCurso->fetch_assoc();
             $curso_id = $coordenador['curso_id'];
 
-            // Buscar certificados pendentes do curso do coordenador
+            $atividades = [];
+
+            // Buscar certificados pendentes de atividades complementares
             $sql = "
                 SELECT 
                     ac.id,
@@ -560,7 +563,8 @@ class AtividadeComplementar {
                     c.nome as curso_nome,
                     ac.observacoes_Analise,
                     ac.categoria_id,
-                    cat.descricao as categoria_nome
+                    cat.descricao as categoria_nome,
+                    'complementar' as tipo
                 FROM AtividadeComplementar ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
@@ -571,7 +575,6 @@ class AtividadeComplementar {
                   AND (ac.status = 'Aprovada' OR ac.status = 'Pendente')
                   AND (ac.observacoes_Analise IS NULL OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%')
                   AND (ac.observacoes_Analise IS NULL OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO REJEITADO PELO COORDENADOR%')
-                ORDER BY ac.data_envio_certificado DESC
             ";
 
             $stmt = $db->prepare($sql);
@@ -579,10 +582,47 @@ class AtividadeComplementar {
             $stmt->execute();
             $result = $stmt->get_result();
 
-            $atividades = [];
             while ($row = $result->fetch_assoc()) {
                 $atividades[] = $row;
             }
+
+            // Buscar certificados avulsos pendentes
+            $sqlAvulso = "
+                SELECT 
+                    ca.id,
+                    ca.titulo,
+                    ca.horas as carga_horaria_aprovada,
+                    ca.status,
+                    ca.data_envio as data_envio,
+                    ca.caminho_arquivo as certificado_caminho,
+                    ca.aluno_id,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    ca.observacao as observacoes_Analise,
+                    NULL as categoria_id,
+                    'Certificado Avulso' as categoria_nome,
+                    'avulso' as tipo
+                FROM certificadoavulso ca
+                INNER JOIN Aluno a ON ca.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                WHERE c.id = ? AND ca.coordenador_id = ? AND ca.status = 'Pendente'
+            ";
+
+            $stmtAvulso = $db->prepare($sqlAvulso);
+            $stmtAvulso->bind_param("ii", $curso_id, $coordenador_id);
+            $stmtAvulso->execute();
+            $resultAvulso = $stmtAvulso->get_result();
+
+            while ($row = $resultAvulso->fetch_assoc()) {
+                $atividades[] = $row;
+            }
+
+            // Ordenar por data de envio
+            usort($atividades, function($a, $b) {
+                return strtotime($b['data_envio']) - strtotime($a['data_envio']);
+            });
 
             return $atividades;
         } catch (Exception $e) {
@@ -609,7 +649,9 @@ class AtividadeComplementar {
             $coordenador = $resultCurso->fetch_assoc();
             $curso_id = $coordenador['curso_id'];
     
-            // Usando observacoes_Analise para identificar aprovação
+            $atividades = [];
+
+            // Buscar certificados processados de atividades complementares
             $sql = "SELECT 
                     ac.id,
                     ac.titulo,
@@ -621,7 +663,8 @@ class AtividadeComplementar {
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ca.descricao as atividade_nome
+                    ca.descricao as atividade_nome,
+                    'complementar' as tipo
                 FROM AtividadeComplementar ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
@@ -632,15 +675,13 @@ class AtividadeComplementar {
                   AND ac.certificado_processado IS NOT NULL 
                   AND ac.certificado_processado != ''
                   AND ac.avaliador_id = ?
-                  AND ac.observacoes_Analise LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%'
-                ORDER BY ac.data_avaliacao DESC";
+                  AND ac.observacoes_Analise LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%'";
             
             $stmt = $db->prepare($sql);
             $stmt->bind_param("ii", $curso_id, $coordenador_id);
             $stmt->execute();
             $result = $stmt->get_result();
         
-            $atividades = [];
             while ($row = $result->fetch_assoc()) {
                 $atividades[] = [
                     'id' => (int)$row['id'],
@@ -652,9 +693,57 @@ class AtividadeComplementar {
                     'status' => $row['status'],
                     'data_envio' => $row['data_envio'],
                     'data_aprovacao' => $row['data_aprovacao'],
-                    'certificado_caminho' => $row['certificado_caminho']
+                    'certificado_caminho' => $row['certificado_caminho'],
+                    'tipo' => $row['tipo']
                 ];
             }
+
+            // Buscar certificados avulsos processados
+            $sqlAvulso = "SELECT 
+                    ca.id,
+                    ca.titulo,
+                    ca.horas as horas_contabilizadas,
+                    ca.status,
+                    ca.data_envio as data_envio,
+                    ca.data_avaliacao as data_aprovacao,
+                    ca.caminho_arquivo as certificado_caminho,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    'Certificado Avulso' as atividade_nome,
+                    'avulso' as tipo
+                FROM certificadoavulso ca
+                INNER JOIN Aluno a ON ca.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                WHERE c.id = ? AND ca.coordenador_id = ? 
+                  AND (ca.status = 'Aprovado' OR ca.status = 'Rejeitado')";
+            
+            $stmtAvulso = $db->prepare($sqlAvulso);
+            $stmtAvulso->bind_param("ii", $curso_id, $coordenador_id);
+            $stmtAvulso->execute();
+            $resultAvulso = $stmtAvulso->get_result();
+        
+            while ($row = $resultAvulso->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'aluno_nome' => $row['aluno_nome'],
+                    'aluno_matricula' => $row['aluno_matricula'],
+                    'curso_nome' => $row['curso_nome'],
+                    'atividade_nome' => $row['atividade_nome'],
+                    'horas_contabilizadas' => (int)$row['horas_contabilizadas'],
+                    'status' => $row['status'],
+                    'data_envio' => $row['data_envio'],
+                    'data_aprovacao' => $row['data_aprovacao'],
+                    'certificado_caminho' => $row['certificado_caminho'],
+                    'tipo' => $row['tipo']
+                ];
+            }
+
+            // Ordenar por data de aprovação
+            usort($atividades, function($a, $b) {
+                return strtotime($b['data_aprovacao']) - strtotime($a['data_aprovacao']);
+            });
         
             return $atividades;
         

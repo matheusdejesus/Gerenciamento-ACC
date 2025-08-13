@@ -20,9 +20,7 @@
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <a href="home_aluno.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
-                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
-                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
+                    <a href="home_aluno.php" class="text-white hover:text-gray-200">Voltar</a>
                 </div>
             </div>
         </div>
@@ -106,9 +104,6 @@
         if (user.tipo !== 'aluno') {
             AuthClient.logout();
         }
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
 
         // Carregar atividades via JWT
         let todasAtividades = [];
@@ -176,7 +171,6 @@
             </div>`;
         }
 
-        // Modal de detalhes
         function verDetalhes(id) {
             const atividade = todasAtividades.find(a => a.id === id);
             if (!atividade) return;

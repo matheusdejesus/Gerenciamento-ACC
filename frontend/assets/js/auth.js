@@ -23,7 +23,11 @@ class AuthClient {
 
     // Obter API Key
     static getApiKey() {
-        return localStorage.getItem(this.API_KEY_KEY);
+        let apiKey = localStorage.getItem(this.API_KEY_KEY);
+        if (!apiKey) {
+            apiKey = 'frontend-gerenciamento-acc-2025';
+        }
+        return apiKey;
     }
 
     // Verificar se está logado
@@ -51,7 +55,6 @@ class AuthClient {
     // Logout
     static async logout() {
         try {
-            // Registrar logout antes de limpar dados
             await this.registrarAcao('LOGOUT', 'Usuário fez logout');
 
             localStorage.removeItem(this.TOKEN_KEY);
@@ -90,40 +93,23 @@ class AuthClient {
     // Fazer requisição autenticada
     static async fetch(url, options = {}) {
         const defaultHeaders = this.getHeaders();
-
-        const headers = {
-            ...defaultHeaders,
-            ...(options.headers || {})
-        };
+        let headers = { ...defaultHeaders, ...(options.headers || {}) };
 
         if (options.body instanceof FormData) {
             delete headers['Content-Type'];
         }
 
-        const config = {
+        const response = await fetch(url, {
             ...options,
-            headers
-        };
+            headers: headers,
+        });
 
-        console.log('Fazendo requisição para:', url);
-        console.log('Headers enviados:', headers);
-
-        try {
-            const response = await fetch(url, config);
-
-            console.log('Response status:', response.status);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Erro na resposta:', errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            return response;
-        } catch (error) {
-            console.error('Erro na requisição:', error);
-            throw error;
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
+
+        return response;
     }
 
     // Método para fazer login

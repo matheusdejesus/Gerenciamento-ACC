@@ -30,7 +30,7 @@
 <body class="bg-pattern font-montserrat min-h-screen flex flex-col">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <span class="text-white text-xl font-semibold">SACC Admin</span>
+            <span class="text-2xl font-regular text-white">SACC Admin</span>
             <a href="home_admin.php" class="text-white text-sm">Voltar</a>
         </div>
     </nav>
@@ -89,7 +89,7 @@
     window.removerAtividade = async function(id, titulo) {
         console.log('Função removerAtividade chamada:', id, titulo);
         
-        if (!confirm(`Tem certeza que deseja remover a atividade "${titulo}"?\n\nEsta ação não pode ser desfeita.`)) {
+        if (!confirm(`Tem certeza que deseja remover a atividade "${titulo}"?`)) {
             return;
         }
 
@@ -379,46 +379,48 @@
     }
     </script>
 
-<div id="modalAdicionarAtividade" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+<div id="modalEditarAtividade" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold">Adicionar Nova Atividade</h3>
-            <button id="fecharModalAdicionar" class="text-gray-500 hover:text-gray-700">
+            <h3 class="text-lg font-semibold">Editar Atividade</h3>
+            <button id="fecharModalEditar" class="text-gray-500 hover:text-gray-700">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
         
-        <form id="formAdicionarAtividade">
+        <form id="formEditarAtividade">
+            <input type="hidden" id="edit-id" name="id">
+            
             <div class="mb-4">
-                <label for="add-titulo" class="block text-sm font-medium text-gray-700 mb-2">Título</label>
-                <input type="text" id="add-titulo" name="titulo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <label for="edit-titulo" class="block text-sm font-medium text-gray-700 mb-2">Título</label>
+                <input type="text" id="edit-titulo" name="titulo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
             </div>
             
             <div class="mb-4">
-                <label for="add-descricao" class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
-                <textarea id="add-descricao" name="descricao" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" required></textarea>
+                <label for="edit-descricao" class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                <textarea id="edit-descricao" name="descricao" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" required></textarea>
             </div>
             
             <div class="mb-4">
-                <label for="add-categoria" class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
-                <select id="add-categoria" name="categoria_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <label for="edit-categoria" class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
+                <select id="edit-categoria" name="categoria_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     <option value="">Selecione uma categoria</option>
                 </select>
             </div>
             
             <div class="mb-4">
-                <label for="add-horas" class="block text-sm font-medium text-gray-700 mb-2">Carga Horária</label>
-                <input type="number" id="add-horas" name="carga_horaria" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" required>
+                <label for="edit-horas" class="block text-sm font-medium text-gray-700 mb-2">Carga Horária</label>
+                <input type="number" id="edit-horas" name="carga_horaria" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" required>
             </div>
             
             <div class="flex justify-end space-x-3">
-                <button type="button" id="cancelarAdicionar" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                <button type="button" id="cancelarEditar" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
                     Cancelar
                 </button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Adicionar
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    Salvar Alterações
                 </button>
             </div>
         </form>

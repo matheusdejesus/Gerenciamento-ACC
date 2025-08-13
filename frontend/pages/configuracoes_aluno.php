@@ -17,13 +17,11 @@
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
-                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
+                    <a href="home_aluno.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
                 </div>
             </div>
         </div>
     </nav>
-
     <div class="flex-grow pt-24 flex" style="background-color: #0D1117">
         <div class="container mx-auto flex flex-col lg:flex-row p-4">
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
@@ -31,7 +29,7 @@
                     <a href="home_aluno.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Início
                     </a>
-                    <a href="configuracoes_aluno.php" class="block p-3 rounded bg-gray-200 text-[#0969DA] font-medium">
+                    <a href="configuracoes_aluno.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Configurações da Conta
                     </a>
                 </nav>
@@ -151,8 +149,6 @@
             </main>
         </div>
     </div>
-
-    <!-- Modal de Informações -->
     <div id="modalInfo" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 max-w-md mx-4">
             <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Informações sobre Edição de Dados</h3>
@@ -200,11 +196,6 @@
             AuthClient.logout();
         }
 
-        // Atualizar nome do usuário na interface
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
-
         // Carregar dados do usuário nos campos
         document.addEventListener('DOMContentLoaded', function() {
             carregarDadosUsuario();
@@ -250,7 +241,6 @@
                     throw new Error('Resposta vazia da API');
                 }
                 
-                // Tentar fazer parse do JSON
                 let result;
                 try {
                     result = JSON.parse(responseText);
@@ -276,7 +266,6 @@
                 } else {
                     console.error('Erro ao carregar dados:', result.error);
                     alert('❌ Erro ao carregar dados: ' + result.error);
-                    // Fallback para dados do JWT (limitados)
                     document.getElementById('nomeCompleto').value = user.nome || 'Nome não informado';
                     document.getElementById('matricula').value = 'Erro: ' + result.error;
                     document.getElementById('email').value = user.email || '';
@@ -285,7 +274,6 @@
             } catch (error) {
                 console.error('Erro ao carregar dados do aluno:', error);
                 alert('❌ Erro ao carregar dados: ' + error.message);
-                // Fallback para dados do JWT (limitados)
                 document.getElementById('nomeCompleto').value = user.nome || 'Nome não informado';
                 document.getElementById('matricula').value = 'Erro de conexão';
                 document.getElementById('email').value = user.email || '';
@@ -329,7 +317,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Email atualizado com sucesso! Redirecionando para o login...');
+                    alert('✅ Email atualizado com sucesso!');
                     
                     // Redirecionar imediatamente após o usuário clicar OK
                     AuthClient.logout();
@@ -345,7 +333,6 @@
         }
 
         function mostrarAba(abaId) {
-            // Esconder todas as abas
             document.querySelectorAll('.aba-conteudo').forEach(aba => {
                 aba.classList.add('hidden');
             });
@@ -356,7 +343,6 @@
                 btn.style.color = '#6B7280';
             });
             
-            // Mostrar aba selecionada
             document.getElementById(`aba-${abaId}`).classList.remove('hidden');
             
             // Adicionar classe active ao botão selecionado
@@ -386,6 +372,12 @@
                 return;
             }
 
+            // Confirmar a alteração
+            const confirmarAlteracao = confirm('🔄 Após alterar a senha, você precisará fazer login novamente. Deseja continuar?');
+            if (!confirmarAlteracao) {
+                return;
+            }
+
             // Implementar alteração de senha via API
             alterarSenhaAPI(senhaAtual, novaSenha);
         }
@@ -408,10 +400,11 @@
                 
                 if (result.success) {
                     alert('✅ Senha alterada com sucesso!');
-                    // Limpar campos
-                    document.getElementById('senhaAtual').value = '';
-                    document.getElementById('novaSenha').value = '';
-                    document.getElementById('confirmarSenha').value = '';
+                    
+                    // Redirecionar para login após alteração da senha
+                    AuthClient.logout();
+                    window.location.href = 'login.php';
+                    
                 } else {
                     alert('❌ Erro ao alterar senha: ' + result.error);
                 }

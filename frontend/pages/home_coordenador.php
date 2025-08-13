@@ -211,12 +211,10 @@
             AuthClient.logout();
         }
         
-        // Atualizar nome do usuário na interface
         if (user && user.nome) {
             document.getElementById('nomeUsuario').textContent = user.nome;
         }
 
-        // Variável global para armazenar o certificado atual
         let certificadoAtual = null;
 
         // Carregar dados iniciais
@@ -244,7 +242,12 @@
                         return;
                     }
                     
-                    document.getElementById('tabelaCertificadosPendentes').innerHTML = certificados.map(cert => `
+                    document.getElementById('tabelaCertificadosPendentes').innerHTML = certificados.map(cert => {
+                        const isAvulso = cert.tipo === 'avulso';
+                        const atividade = isAvulso ? 'Certificado Avulso' : (cert.atividade_nome || cert.categoria_nome || cert.titulo || 'N/A');
+                        const certificadoPath = isAvulso ? `/Gerenciamento-ACC/backend/uploads/certificados_avulsos/${cert.certificado_caminho}` : `/Gerenciamento-ACC/backend/${cert.certificado_caminho}`;
+                        
+                        return `
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 ${cert.aluno_nome || 'N/A'}
@@ -253,7 +256,7 @@
                                 ${cert.curso_nome || 'N/A'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.atividade_nome || cert.titulo || 'N/A'}
+                                ${atividade}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 ${cert.horas_aprovadas || cert.carga_horaria_aprovada || 0}h
@@ -269,12 +272,13 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 ${cert.certificado_caminho ? 
-        `<a href="/Gerenciamento-ACC/backend/${cert.certificado_caminho}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
-        'N/A'
-}
+                                    `<a href="${certificadoPath}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
+                                    'N/A'
+                                }
                             </td>
                         </tr>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
                     console.error('Erro ao carregar certificados pendentes:', data.error);
                     document.getElementById('tabelaCertificadosPendentes').innerHTML = `
@@ -307,51 +311,52 @@
                     const certificados = data.data || [];
                     if (certificados.length === 0) {
                         document.getElementById('tabelaCertificadosProcessados').innerHTML = `
-    <tr>
-        <td colspan="7" class="text-center text-gray-500 py-8">
-            Nenhum certificado processado
-        </td>
-    </tr>
-`;
+                            <tr>
+                                <td colspan="7" class="text-center text-gray-500 py-8">
+                                    Nenhum certificado processado
+                                </td>
+                            </tr>
+                        `;
                         return;
                     }
                     
                     document.getElementById('tabelaCertificadosProcessados').innerHTML = certificados.map(cert => {
-    return `
-        <tr>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                ${cert.aluno_nome || 'N/A'}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${cert.curso_nome || 'N/A'}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${cert.atividade_nome || cert.titulo || 'N/A'}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${cert.horas_contabilizadas || cert.horas_aprovadas || 0}h
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    cert.status === 'aprovado' ? 'bg-green-100 text-green-800' : 
-                    cert.status === 'rejeitado' ? 'bg-red-100 text-red-800' : 
-                    'bg-yellow-100 text-yellow-800'
-                }">
-                    ${cert.status || 'Pendente'}
-                </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${cert.data_envio ? new Date(cert.data_envio).toLocaleDateString('pt-BR') : 'N/A'}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${cert.certificado_processado || cert.certificado_caminho ? 
-                    `<a href="/Gerenciamento-ACC/backend/${cert.certificado_processado || cert.certificado_caminho}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
-                    'N/A'
-                }
-            </td>
-        </tr>
-    `;
-}).join('');
+                        const isAvulso = cert.tipo === 'avulso';
+                        const atividade = isAvulso ? 'Certificado Avulso' : (cert.atividade_nome || cert.titulo || 'N/A');
+                        const certificadoPath = isAvulso ? `/Gerenciamento-ACC/backend/uploads/certificados_avulsos/${cert.certificado_caminho}` : `/Gerenciamento-ACC/backend/${cert.certificado_processado || cert.certificado_caminho}`;
+                        const statusFormatted = cert.status === 'Aprovado' ? 'Aprovado' : cert.status === 'Rejeitado' ? 'Rejeitado' : cert.status;
+                        
+                        return `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                ${cert.aluno_nome || 'N/A'}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${cert.curso_nome || 'N/A'}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${atividade}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${cert.horas_contabilizadas || cert.horas_aprovadas || 0}h
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusFormatted === 'Aprovado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${statusFormatted}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${cert.data_aprovacao ? new Date(cert.data_aprovacao).toLocaleDateString('pt-BR') : 'N/A'}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${cert.certificado_caminho ? 
+                                    `<a href="${certificadoPath}" target="_blank" class="text-blue-600 hover:text-blue-800">Ver</a>` : 
+                                    'N/A'
+                                }
+                            </td>
+                        </tr>
+                        `;
+                    }).join('');
                 } else {
                     console.error('Erro ao carregar certificados processados:', data.error);
                     document.getElementById('tabelaCertificadosProcessados').innerHTML = `
@@ -379,6 +384,7 @@
             console.log('Abrindo detalhes do certificado:', certificado);
             
             certificadoAtual = certificado;
+            const isAvulso = certificado.tipo === 'avulso';
             
             // Preencher informações do aluno
             document.getElementById('detalheAlunoNome').textContent = certificado.aluno_nome || 'N/A';
@@ -386,7 +392,8 @@
             document.getElementById('detalheAlunoCurso').textContent = certificado.curso_nome || 'N/A';
             
             // Preencher informações da atividade
-            document.getElementById('detalheAtividadeTitulo').textContent = certificado.atividade_nome || certificado.titulo || 'N/A';
+            const tituloAtividade = isAvulso ? 'Certificado Avulso' : (certificado.atividade_nome || certificado.categoria_nome || certificado.titulo || 'N/A');
+            document.getElementById('detalheAtividadeTitulo').textContent = tituloAtividade;
             document.getElementById('detalheAtividadeHoras').textContent = (certificado.horas_aprovadas || certificado.carga_horaria_aprovada || 0) + 'h';
             document.getElementById('detalheDataEnvio').textContent = certificado.data_envio ? 
                 new Date(certificado.data_envio).toLocaleDateString('pt-BR') : 'N/A';
@@ -396,7 +403,8 @@
             const caminhoCertificado = certificado.certificado_processado || certificado.certificado_caminho;
             if (caminhoCertificado) {
                 btnVisualizarCertificado.onclick = () => {
-                    window.open(`/Gerenciamento-ACC/backend/${caminhoCertificado}`, '_blank');
+                    const certificadoPath = isAvulso ? `/Gerenciamento-ACC/backend/uploads/certificados_avulsos/${caminhoCertificado}` : `/Gerenciamento-ACC/backend/${caminhoCertificado}`;
+                    window.open(certificadoPath, '_blank');
                 };
             }
             
@@ -421,20 +429,31 @@
             }
 
             const observacoes = document.getElementById('observacoesCertificado').value.trim();
+            const isAvulso = certificadoAtual.tipo === 'avulso';
             
             if (!confirm('Tem certeza que deseja aprovar este certificado?')) {
                 return;
             }
 
             try {
-                console.log('Enviando aprovação para atividade ID:', certificadoAtual.id);
+                console.log('Enviando aprovação para certificado ID:', certificadoAtual.id, 'Tipo:', isAvulso ? 'avulso' : 'complementar');
                 
                 // Criar FormData para enviar dados POST
                 const formData = new FormData();
-                formData.append('acao', 'aprovar_certificado');
-                formData.append('atividade_id', certificadoAtual.id);
+                if (isAvulso) {
+                    formData.append('acao', 'aprovar_certificado_avulso');
+                    formData.append('certificado_id', certificadoAtual.id);
+                } else {
+                    formData.append('acao', 'aprovar_certificado');
+                    formData.append('atividade_id', certificadoAtual.id);
+                }
                 if (observacoes) {
                     formData.append('observacoes', observacoes);
+                }
+                
+                console.log('FormData contents:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key, value);
                 }
 
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
@@ -450,7 +469,6 @@
                 if (result.success) {
                     alert('✅ Certificado aprovado com sucesso!');
                     fecharModalDetalhes();
-                    // Recarregar as tabelas
                     carregarCertificadosPendentes();
                     carregarCertificadosProcessados();
                 } else {
@@ -470,6 +488,7 @@
             }
 
             const observacoes = document.getElementById('observacoesCertificado').value.trim();
+            const isAvulso = certificadoAtual.tipo === 'avulso';
             
             if (!observacoes) {
                 alert('Por favor, digite uma observação explicando o motivo da rejeição.');
@@ -481,12 +500,17 @@
             }
 
             try {
-                console.log('Enviando rejeição para atividade ID:', certificadoAtual.id);
+                console.log('Enviando rejeição para certificado ID:', certificadoAtual.id, 'Tipo:', isAvulso ? 'avulso' : 'complementar');
                 
                 // Criar FormData para enviar dados POST
                 const formData = new FormData();
-                formData.append('acao', 'rejeitar_certificado');
-                formData.append('atividade_id', certificadoAtual.id);
+                if (isAvulso) {
+                    formData.append('acao', 'rejeitar_certificado_avulso');
+                    formData.append('certificado_id', certificadoAtual.id);
+                } else {
+                    formData.append('acao', 'rejeitar_certificado');
+                    formData.append('atividade_id', certificadoAtual.id);
+                }
                 formData.append('observacoes', observacoes);
 
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
@@ -502,7 +526,6 @@
                 if (result.success) {
                     alert('✅ Certificado rejeitado com sucesso!');
                     fecharModalDetalhes();
-                    // Recarregar as tabelas
                     carregarCertificadosPendentes();
                     carregarCertificadosProcessados();
                 } else {

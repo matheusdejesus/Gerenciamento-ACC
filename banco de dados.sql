@@ -149,6 +149,21 @@ CREATE TABLE ApiKeys (
     FOREIGN KEY (usuario_id) REFERENCES Usuario(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE certificadoavulso (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    aluno_id INT NOT NULL,
+    coordenador_id INT NOT NULL,
+    titulo VARCHAR(255) NOT NULL,
+    observacao TEXT,
+    horas INT NOT NULL,
+    caminho_arquivo VARCHAR(500) NOT NULL,
+    status ENUM('Pendente', 'Aprovado', 'Rejeitado') DEFAULT 'Pendente',
+    data_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    data_avaliacao DATETIME NULL,
+    FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
+    FOREIGN KEY (coordenador_id) REFERENCES Coordenador(usuario_id) ON DELETE CASCADE
+);
+
 INSERT INTO Instituto (id, nome, sigla) VALUES
   (1, 'Instituto de Biodiversidade e Florestas', 'IBEF'),           -- :contentReference[oaicite:1]{index=1}
   (2, 'Instituto de Ciências da Educação', 'ICED'),               -- :contentReference[oaicite:2]{index=2}

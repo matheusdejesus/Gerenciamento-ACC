@@ -33,9 +33,6 @@
         <div class="container mx-auto flex flex-col lg:flex-row p-4">
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
                 <nav class="space-y-2">
-                    <a href="#" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Minhas Matrículas
-                    </a>
                     <a href="configuracoes_aluno.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Configurações da Conta
                     </a>
@@ -234,17 +231,22 @@
         
         // Função para obter status mais detalhado
         function getStatusDetalhado(atividade) {
+            const isAvulso = atividade.tipo === 'avulso';
+            
             if (atividade.status === 'Pendente') {
                 return { class: 'bg-yellow-100 text-yellow-800', text: 'Aguardando Avaliação' };
             }
 
             if (atividade.status === 'Aprovada') {
-                // Verificar se o certificado foi aprovado pelo coordenador
-                if (atividade.observacoes_Analise && 
-                    atividade.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) {
+                if (isAvulso) {
                     return { class: 'bg-green-100 text-green-800', text: 'Concluída' };
+                } else {
+                    if (atividade.observacoes_Analise && 
+                        atividade.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) {
+                        return { class: 'bg-green-100 text-green-800', text: 'Concluída' };
+                    }
+                    return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
                 }
-                return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
             }
 
             if (atividade.status === 'Rejeitada') {
@@ -269,9 +271,10 @@
             
             tbody.innerHTML = minhasAtividades.map(atividade => {
                 const statusDetalhado = getStatusDetalhado(atividade);
+                const isAvulso = atividade.tipo === 'avulso';
 
                 // Formatação das horas
-                let horasDisplay = `${atividade.carga_horaria_solicitada}h solicitadas`;
+                let horasDisplay = `${atividade.carga_horaria_solicitada}h`;
                 if (atividade.carga_horaria_aprovada !== null && atividade.carga_horaria_aprovada !== undefined) {
                     if (atividade.status === 'Aprovada') {
                         horasDisplay = `${atividade.carga_horaria_aprovada}h`;
@@ -279,45 +282,59 @@
                             horasDisplay += ` (de ${atividade.carga_horaria_solicitada}h)`;
                         }
                     } else if (atividade.status === 'Rejeitada') {
-                        horasDisplay = `0h aprovadas (de ${atividade.carga_horaria_solicitada}h)`;
+                        horasDisplay = `0h (de ${atividade.carga_horaria_solicitada}h)`;
                     }
                 }
 
-                // Botão de certificado: habilita se certificado_caminho existir
                 let certificadoBtn;
-                const hoje = new Date();
-                let dataFim = atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00') : null;
-                const concluida = atividade.status === 'Aprovada' && dataFim && dataFim <= hoje;
-
-                if (atividade.certificado_caminho) {
-                    certificadoBtn = `
-                        <button class="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition"
-                            onclick="verCertificado('${atividade.certificado_caminho}')">
-                            Ver Certificado
-                        </button>
-                    `;
-                } else if (concluida) {
-                    certificadoBtn = `
-                        <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition"
-                            onclick="solicitarCertificado(${atividade.id})">
-                            Solicitar Certificado
-                        </button>
-                    `;
+                if (isAvulso) {
+                    if (atividade.certificado_caminho) {
+                        certificadoBtn = `
+                            <button class="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition"
+                                onclick="verCertificado('${atividade.certificado_caminho}')">
+                                Ver Certificado
+                            </button>
+                        `;
+                    } else {
+                        certificadoBtn = `
+                            <span class="text-gray-500 text-sm">Certificado Anexado</span>
+                        `;
+                    }
                 } else {
-                    certificadoBtn = `
-                        <button class="bg-gray-200 text-gray-400 px-3 py-1 rounded cursor-not-allowed" disabled>
-                            Certificados
-                        </button>
-                    `;
+                    const hoje = new Date();
+                    let dataFim = atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00') : null;
+                    const concluida = atividade.status === 'Aprovada' && dataFim && dataFim <= hoje;
+
+                    if (atividade.certificado_caminho) {
+                        certificadoBtn = `
+                            <button class="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition"
+                                onclick="verCertificado('${atividade.certificado_caminho}')">
+                                Ver Certificado
+                            </button>
+                        `;
+                    } else if (concluida) {
+                        certificadoBtn = `
+                            <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition"
+                                onclick="solicitarCertificado(${atividade.id})">
+                                Solicitar Certificado
+                            </button>
+                        `;
+                    } else {
+                        certificadoBtn = `
+                            <button class="bg-gray-200 text-gray-400 px-3 py-1 rounded cursor-not-allowed" disabled>
+                                Certificados
+                            </button>
+                        `;
+                    }
                 }
 
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${atividade.titulo}
+                            <div class="font-medium">${atividade.titulo}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${atividade.categoria_nome || 'N/A'}
+                            ${isAvulso ? 'Certificado Avulso' : (atividade.categoria_nome || 'N/A')}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             ${horasDisplay}
@@ -348,25 +365,40 @@
 
         // Função para atualizar as estatísticas
         function atualizarEstatisticas() {
-            // Horas certificadas: atividades aprovadas e com certificado aprovado pelo coordenador
             const horasValidadas = minhasAtividades
-                .filter(a => a.status === 'Aprovada' && 
-                            a.observacoes_Analise && 
-                            a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR'))
+                .filter(a => {
+                    if (a.tipo === 'avulso') {
+                        return a.status === 'Aprovada';
+                    } else {
+                        return a.status === 'Aprovada' && 
+                               a.observacoes_Analise && 
+                               a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR');
+                    }
+                })
                 .reduce((total, a) => total + (a.carga_horaria_aprovada || 0), 0);
 
-            // Horas pendentes: atividades não rejeitadas e ainda sem certificado aprovado pelo coordenador
             const horasPendentes = minhasAtividades
-                .filter(a => a.status !== 'Rejeitada' && 
-                            (!a.observacoes_Analise || 
-                             !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')))
+                .filter(a => {
+                    if (a.tipo === 'avulso') {
+                        return false;
+                    } else {
+                        return a.status !== 'Rejeitada' && 
+                               (!a.observacoes_Analise || 
+                                !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR'));
+                    }
+                })
                 .reduce((total, a) => total + (a.carga_horaria_solicitada || 0), 0);
 
-            // Atividades em andamento: aprovadas mas ainda sem aprovação do coordenador
             const atividadesAndamento = minhasAtividades
-                .filter(a => a.status === 'Aprovada' && 
-                            (!a.observacoes_Analise || 
-                             !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')))
+                .filter(a => {
+                    if (a.tipo === 'avulso') {
+                        return false;
+                    } else {
+                        return a.status === 'Aprovada' && 
+                               (!a.observacoes_Analise || 
+                                !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR'));
+                    }
+                })
                 .length;
 
             document.getElementById('horasValidadas').textContent = horasValidadas;
@@ -383,19 +415,30 @@
                 return;
             }
 
+            const isAvulso = atividade.tipo === 'avulso';
+
             // Preencher os dados no modal
             document.getElementById('detalheTitulo').textContent = atividade.titulo;
-            document.getElementById('detalheCategoria').textContent = atividade.categoria_nome || 'N/A';
+            document.getElementById('detalheCategoria').textContent = 
+                isAvulso ? 'Certificado Avulso' : (atividade.categoria_nome || 'N/A');
             document.getElementById('detalheHorasSolicitadas').textContent = atividade.carga_horaria_solicitada + 'h';
             document.getElementById('detalheHorasAprovadas').textContent = 
                 atividade.carga_horaria_aprovada ? atividade.carga_horaria_aprovada + 'h' : 'Aguardando avaliação';
             document.getElementById('detalheDataSubmissao').textContent = 
                 formatarData(atividade.data_submissao);
-            document.getElementById('detalhePeriodo').textContent = 
-                `${formatarData(atividade.data_inicio)} a ${formatarData(atividade.data_fim)}`;
-            document.getElementById('detalheDescricao').textContent = atividade.descricao || 'Sem descrição';
+            
+            // Para certificados avulsos, não mostrar período
+            if (isAvulso) {
+                document.getElementById('detalhePeriodo').textContent = 'N/A (Certificado Avulso)';
+            } else {
+                document.getElementById('detalhePeriodo').textContent = 
+                    `${formatarData(atividade.data_inicio)} a ${formatarData(atividade.data_fim)}`;
+            }
+            
+            document.getElementById('detalheDescricao').textContent = 
+                isAvulso ? (atividade.observacao || 'Sem observações') : (atividade.descricao || 'Sem descrição');
             document.getElementById('detalheOrientador').textContent = 
-                atividade.orientador_nome || 'Não definido';
+                isAvulso ? (atividade.coordenador_nome || 'Não definido') : (atividade.orientador_nome || 'Não definido');
 
             // Status com informação mais detalhada
             const statusElement = document.getElementById('detalheStatus');
@@ -414,24 +457,46 @@
 
             // Documentos anexados
             const docContainer = document.getElementById('documentoDeclaracaoAluno');
-            if (atividade.tem_declaracao === true || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 1 || atividade.tem_declaracao === 'true') {
-                docContainer.innerHTML = `
-                    <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
-                        <div class="flex items-center">
-                            <svg class="w-8 h-8 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
-                            </svg>
-                            <div>
-                                <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
+            if (isAvulso) {
+                if (atividade.certificado_caminho) {
+                    docContainer.innerHTML = `
+                        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+                            <div class="flex items-center">
+                                <svg class="w-8 h-8 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900">Certificado Anexado</p>
+                                </div>
                             </div>
+                           <button onclick="verCertificado('${atividade.certificado_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                Visualizar
+                            </button>
                         </div>
-                       <button onclick="visualizarDeclaracao('${atividade.declaracao_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                            Visualizar
-                        </button>
-                    </div>
-                `;
+                    `;
+                } else {
+                    docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Certificado anexado no envio</div>`;
+                }
             } else {
-                docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Nenhum documento anexado</div>`;
+                if (atividade.tem_declaracao === true || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 1 || atividade.tem_declaracao === 'true') {
+                    docContainer.innerHTML = `
+                        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+                            <div class="flex items-center">
+                                <svg class="w-8 h-8 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
+                                </div>
+                            </div>
+                           <button onclick="visualizarDeclaracao('${atividade.declaracao_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                Visualizar
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Nenhum documento anexado</div>`;
+                }
             }
 
             // Mostrar modal

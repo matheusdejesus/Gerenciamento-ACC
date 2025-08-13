@@ -20,9 +20,7 @@
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <a href="home_coordenador.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
-                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
-                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
+                    <a href="home_coordenador.php" class="text-white hover:text-gray-200">Voltar</a>
                 </div>
             </div>
         </div>
@@ -33,7 +31,7 @@
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
                 <nav class="space-y-2">
                     <a href="home_coordenador.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
-                        Dashboard
+                        Início
                     </a>
                     <a href="configuracoes_coordenador.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Configurações da Conta
@@ -71,32 +69,34 @@
                         <h3 class="text-xl font-bold mb-6" style="color: #0969DA">Informações Pessoais</h3>
                         
                         <form id="formDadosPessoais" class="space-y-6">
-                            <div>
-                                <label class="block text-sm font-medium mb-2" style="color: #0969DA">Nome Completo</label>
-                                <input type="text" id="nomeCompleto" readonly
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
-                                <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
-                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2" style="color: #0969DA">Nome Completo</label>
+                                    <input type="text" id="nomeCompleto" readonly
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
+                                    <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
+                                </div>
 
-                            <div>
-                                <label class="block text-sm font-medium mb-2" style="color: #0969DA">SIAPE</label>
-                                <input type="text" id="siape" readonly
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
-                                <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
-                            </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2" style="color: #0969DA">SIAPE</label>
+                                    <input type="text" id="siape" readonly
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
+                                    <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
+                                </div>
 
-                            <div>
-                                <label class="block text-sm font-medium mb-2" style="color: #0969DA">E-mail</label>
-                                <input type="email" id="email" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <p class="text-xs text-gray-500 mt-1">Este campo pode ser editado</p>
-                            </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2" style="color: #0969DA">E-mail</label>
+                                    <input type="email" id="email" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-xs text-gray-500 mt-1">Este campo pode ser editado</p>
+                                </div>
 
-                            <div>
-                                <label class="block text-sm font-medium mb-2" style="color: #0969DA">Curso</label>
-                                <input type="text" id="curso" readonly
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
-                                <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2" style="color: #0969DA">Curso</label>
+                                    <input type="text" id="curso" readonly
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed">
+                                    <p class="text-xs text-gray-500 mt-1">Campo não editável</p>
+                                </div>
                             </div>
 
                             <div class="flex justify-end">
@@ -158,11 +158,6 @@
         if (user.tipo !== 'coordenador') {
             AuthClient.logout();
         }
-        
-        // Atualizar nome do usuário na interface
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
 
         // Carregar dados do usuário
         document.addEventListener('DOMContentLoaded', function() {
@@ -222,6 +217,12 @@
                     return;
                 }
 
+                // Confirmação antes de alterar o email
+                const confirmar = confirm('🔄 Após alterar o email, você precisará fazer login novamente. Deseja continuar?');
+                if (!confirmar) {
+                    return;
+                }
+
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: {
@@ -235,7 +236,10 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Dados salvos com sucesso!');
+                    alert('✅ E-mail atualizado com sucesso!');
+                    // Fazer logout e redirecionar para login
+                    AuthClient.logout();
+                    window.location.href = 'login.php';
                 } else {
                     alert('Erro ao salvar dados: ' + (data.error || 'Erro desconhecido'));
                 }
@@ -266,6 +270,12 @@
                     return;
                 }
 
+                // Confirmação antes de alterar a senha
+                const confirmar = confirm('🔄 Após alterar a senha, você precisará fazer login novamente. Deseja continuar?');
+                if (!confirmar) {
+                    return;
+                }
+
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: {
@@ -281,11 +291,9 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Senha alterada com sucesso!');
-                    // Limpar campos
-                    document.getElementById('senhaAtual').value = '';
-                    document.getElementById('novaSenha').value = '';
-                    document.getElementById('confirmarSenha').value = '';
+                    alert('✅ Senha alterada com sucesso!');
+                    AuthClient.logout();
+                    window.location.href = 'login.php';
                 } else {
                     alert('Erro ao alterar senha: ' + (data.error || 'Erro desconhecido'));
                 }
@@ -294,8 +302,6 @@
                 alert('Erro ao alterar senha');
             }
         }
-
-        // Inicializar primeira aba
         mostrarAba('dados-pessoais');
     </script>
 </body>

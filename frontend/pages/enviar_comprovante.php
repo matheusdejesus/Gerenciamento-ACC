@@ -19,7 +19,6 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <span id="nomeUsuario" class="text-white mr-4">Carregando...</span>
                     <a href="home_aluno.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
                 </div>
             </div>
@@ -38,7 +37,22 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                 
                 <div class="p-8">
                     <form id="formComprovante" enctype="multipart/form-data" class="space-y-6">
-                        <div class="bg-white p-6 rounded-lg border">
+                        <div class="bg-white p-6 rounded-lg border mb-6">
+                            <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Tipo de Envio</h3>
+                            <div class="flex gap-6">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="tipo_envio" value="atividade" checked class="form-radio text-blue-600" id="radioAtividade">
+                                    <span class="ml-2 text-sm">Enviar certificado de atividade aprovada</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="tipo_envio" value="avulso" class="form-radio text-blue-600" id="radioAvulso">
+                                    <span class="ml-2 text-sm">Enviar certificado avulso</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Escolha "Avulso" para enviar um certificado que não está vinculado a uma atividade aprovada.</p>
+                        </div>
+
+                        <div id="camposAtividade" class="bg-white p-6 rounded-lg border">
                             <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Selecionar Atividade</h3>
                             
                             <div class="mb-4">
@@ -57,6 +71,42 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                                     <option value="">-- Carregando coordenadores --</option>
                                 </select>
                                 <p class="text-xs text-gray-500 mt-1">Selecione o coordenador que validará o certificado</p>
+                            </div>
+                        </div>
+                        <div id="camposAvulso" class="bg-white p-6 rounded-lg border hidden">
+                            <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Dados do Certificado Avulso</h3>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Título da Atividade *</label>
+                                <input type="text" name="titulo_avulso" id="tituloAvulso"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="Ex: Palestra sobre IA">
+                                <p class="text-xs text-gray-500 mt-1">Digite o título da atividade realizada</p>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Carga Horária *</label>
+                                <input type="number" name="horas_avulso" id="horasAvulso" min="1" max="200"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="Ex: 20">
+                                <p class="text-xs text-gray-500 mt-1">Carga horária em horas (conforme certificado)</p>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Observações</label>
+                                <textarea name="observacao_avulso" id="observacaoAvulso" rows="3"
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="Descreva brevemente a atividade realizada"></textarea>
+                                <p class="text-xs text-gray-500 mt-1">Informações adicionais sobre a atividade (opcional)</p>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Coordenador Responsável *</label>
+                                <select name="coordenador_avulso_id" id="selectCoordenadorAvulso"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">-- Selecione um coordenador --</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Coordenador que analisará este certificado avulso</p>
                             </div>
                         </div>
 
@@ -113,8 +163,6 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
             </div>
         </div>
     </div>
-
-    <!-- Carregar os scripts necessários -->
     <script src="../assets/js/auth.js"></script>
     <script>
         // Verificar autenticação JWT
@@ -127,9 +175,7 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
             AuthClient.logout();
         }
         
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
+
 
         // Variáveis globais
         const form = document.getElementById('formComprovante');
@@ -229,52 +275,118 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
             const submitBtn = form.querySelector('button[type="submit"]');
             const btnText = submitBtn.innerHTML;
             
-            // Validações
-            const atividadeId = document.getElementById('selectAtividade').value;
-            const coordenadorId = document.getElementById('selectCoordenador').value;
+            const tipoEnvio = document.querySelector('input[name="tipo_envio"]:checked').value;
             const arquivo = inputFile.files[0];
-            
-            if (!atividadeId) {
-                alert('❌ Selecione uma atividade');
-                return;
-            }
-            
-            if (!coordenadorId) {
-                alert('❌ Selecione um coordenador');
-                return;
-            }
-            
+
             if (!arquivo) {
                 alert('❌ Selecione um arquivo');
                 return;
             }
-            
+
+            // Confirmação para certificado avulso
+            if (tipoEnvio === 'avulso' && !confirm('Tem certeza que deseja enviar este certificado?')) {
+                return;
+            }
+
+            // Confirmação para atividade aprovada
+            if (tipoEnvio === 'atividade' && !confirm('Tem certeza que deseja enviar este certificado?')) {
+                return;
+            }
+
             // Preparar FormData
             const formData = new FormData();
-            formData.append('acao', 'enviar_certificado_processado');
-            formData.append('atividade_id', atividadeId);
-            formData.append('coordenador_id', coordenadorId); // ADICIONAR ESTA LINHA
+            formData.append('acao', tipoEnvio === 'avulso' ? 'enviar_certificado_avulso' : 'enviar_certificado_processado');
             formData.append('arquivo_comprovante', arquivo);
+
+            if (tipoEnvio === 'atividade') {
+                const atividadeId = selectAtividade.value;
+                const coordenadorId = selectCoordenador.value;
+                
+                if (!atividadeId) {
+                    alert('❌ Selecione uma atividade');
+                    return;
+                }
+                if (!coordenadorId) {
+                    alert('❌ Selecione um coordenador');
+                    return;
+                }
+                
+                formData.append('atividade_id', atividadeId);
+                formData.append('coordenador_id', coordenadorId);
+            } else {
+                const titulo = document.getElementById('tituloAvulso').value.trim();
+                const horas = document.getElementById('horasAvulso').value;
+                const coordenadorAvulso = selectCoordenadorAvulso.value;
+                const observacao = document.getElementById('observacaoAvulso').value.trim();
+                
+                if (!titulo) {
+                    alert('❌ Informe o título da atividade');
+                    return;
+                }
+                if (!horas || horas <= 0) {
+                    alert('❌ Informe a carga horária válida');
+                    return;
+                }
+                if (!coordenadorAvulso) {
+                    alert('❌ Selecione um coordenador');
+                    return;
+                }
+                
+                formData.append('titulo_avulso', titulo);
+                formData.append('horas_avulso', horas);
+                formData.append('coordenador_id', coordenadorAvulso);
+                formData.append('observacao_avulso', observacao);
+            }
             
+            // Escolhe endpoint conforme tipo de envio
+            const endpoint = tipoEnvio === 'avulso'
+                ? '/Gerenciamento-ACC/backend/api/routes/enviar_certificado_avulso.php'
+                : '/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php';
+
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando…';
             
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
+                console.log('Enviando para endpoint:', endpoint);
+                console.log('FormData contents:');
+                for (let pair of formData.entries()) {
+                    console.log(pair[0] + ': ' + pair[1]);
+                }
+                
+                const response = await AuthClient.fetch(endpoint, {
                     method: 'POST',
                     body: formData
                 });
                 
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                // Verificar se a resposta é JSON válida
+                const contentType = response.headers.get('content-type');
+                console.log('Content-Type:', contentType);
+                
+                if (!contentType || !contentType.includes('application/json')) {
+                    const textResponse = await response.text();
+                    console.error('Resposta não é JSON:', textResponse);
+                    console.error('Status da resposta:', response.status);
+                    throw new Error('Erro no servidor. Resposta: ' + textResponse.substring(0, 200));
+                }
+                
                 const result = await response.json();
+                console.log('Response JSON:', result);
                 
                 if (result.success) {
                     alert('✅ ' + result.message);
                     form.reset();
                     preview.classList.add('hidden');
-                    // Redirecionar para home do aluno
+                    camposAvulso.classList.add('hidden');
                     window.location.href = 'home_aluno.php';
                 } else {
+                    console.error('Erro retornado:', result);
                     alert('❌ ' + (result.error || 'Erro desconhecido'));
+                    if (result.debug) {
+                        console.log('Debug info:', result.debug);
+                    }
                 }
             } catch (error) {
                 console.error('Erro ao enviar:', error);
@@ -284,6 +396,98 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                 submitBtn.innerHTML = btnText;
             }
         });
+
+        const radioAtividade = document.getElementById('radioAtividade');
+        const radioAvulso = document.getElementById('radioAvulso');
+        const camposAtividade = document.getElementById('camposAtividade');
+        const camposAvulso = document.getElementById('camposAvulso');
+        const selectCoordenadorAvulso = document.getElementById('selectCoordenadorAvulso');
+
+        // Função para alternar campos conforme tipo de envio
+        function alternarTipoEnvio() {
+            if (radioAvulso.checked) {
+                // Esconder seção de atividade aprovada
+                camposAtividade.classList.add('hidden');
+                selectAtividade.disabled = true;
+                selectCoordenador.disabled = true;
+                selectAtividade.value = '';
+                selectCoordenador.value = '';
+                selectAtividade.removeAttribute('required');
+                selectCoordenador.removeAttribute('required');
+                
+                // Mostrar campos avulso
+                camposAvulso.classList.remove('hidden');
+                document.getElementById('tituloAvulso').setAttribute('required', '');
+                document.getElementById('horasAvulso').setAttribute('required', '');
+                selectCoordenadorAvulso.setAttribute('required', '');
+            } else {
+                // Mostrar seção de atividade aprovada
+                camposAtividade.classList.remove('hidden');
+                selectAtividade.disabled = false;
+                selectCoordenador.disabled = false;
+                selectAtividade.setAttribute('required', '');
+                selectCoordenador.setAttribute('required', '');
+                
+                // Esconder campos avulso
+                camposAvulso.classList.add('hidden');
+                document.getElementById('tituloAvulso').removeAttribute('required');
+                document.getElementById('horasAvulso').removeAttribute('required');
+                selectCoordenadorAvulso.removeAttribute('required');
+                
+                // Limpar campos avulso
+                document.getElementById('tituloAvulso').value = '';
+                document.getElementById('horasAvulso').value = '';
+                document.getElementById('observacaoAvulso').value = '';
+                selectCoordenadorAvulso.value = '';
+            }
+        }
+
+        radioAtividade.addEventListener('change', alternarTipoEnvio);
+        radioAvulso.addEventListener('change', alternarTipoEnvio);
+
+        // Carregar coordenadores também no select avulso
+        async function carregarCoordenadores() {
+            try {
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?coordenadores=1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Preencher select original
+                    selectCoordenador.innerHTML = '<option value="">-- Selecione um coordenador --</option>';
+                    // Preencher select avulso
+                    selectCoordenadorAvulso.innerHTML = '<option value="">-- Selecione um coordenador --</option>';
+                    
+                    if (data.data.length === 0) {
+                        selectCoordenador.innerHTML = '<option value="">Nenhum coordenador encontrado</option>';
+                        selectCoordenadorAvulso.innerHTML = '<option value="">Nenhum coordenador encontrado</option>';
+                        selectCoordenador.disabled = true;
+                        selectCoordenadorAvulso.disabled = true;
+                    } else {
+                        data.data.forEach(coordenador => {
+                            // Opção para select original
+                            const option1 = document.createElement('option');
+                            option1.value = coordenador.id;
+                            option1.textContent = `${coordenador.nome} - ${coordenador.curso_nome}`;
+                            selectCoordenador.appendChild(option1);
+                            
+                            // Opção para select avulso
+                            const option2 = document.createElement('option');
+                            option2.value = coordenador.id;
+                            option2.textContent = `${coordenador.nome} - ${coordenador.curso_nome}`;
+                            selectCoordenadorAvulso.appendChild(option2);
+                        });
+                    }
+                } else {
+                    console.error('Erro ao carregar coordenadores:', data.error);
+                    selectCoordenador.innerHTML = '<option value="">Erro ao carregar coordenadores</option>';
+                    selectCoordenadorAvulso.innerHTML = '<option value="">Erro ao carregar coordenadores</option>';
+                }
+            } catch (error) {
+                console.error('Erro na requisição de coordenadores:', error);
+                selectCoordenador.innerHTML = '<option value="">Erro de conexão</option>';
+                selectCoordenadorAvulso.innerHTML = '<option value="">Erro de conexão</option>';
+            }
+        }
 
         // Carregar atividades e coordenadores ao inicializar
         document.addEventListener('DOMContentLoaded', () => {

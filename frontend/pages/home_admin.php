@@ -31,9 +31,6 @@
         <div class="container mx-auto flex flex-col lg:flex-row p-4">
             <aside class="lg:w-1/4 p-6 rounded-lg mb-4 lg:mb-0 mr-0 lg:mr-4" style="background-color: #F6F8FA">
                 <nav class="space-y-2">
-                    <a href="home_admin.php" class="block p-3 rounded bg-gray-200 text-[#0969DA] font-medium">
-                        Dashboard
-                    </a>
                     <a href="configuracoes_admin.php" class="block p-3 rounded text-[#0969DA] hover:bg-gray-200 transition duration-200">
                         Configurações da Conta
                     </a>
@@ -157,7 +154,7 @@
                                     ${logs.map(log => `
                                         <tr>
                                             <td class="border-t px-2 py-1">${log.nome_usuario || log.usuario_nome || log.usuario?.nome || '-'}</td>
-                                            <td class="border-t px-2 py-1">${log.acao}</td>
+                                            <td class="border-t px-2 py-1">${log.acao.toUpperCase()}</td>
                                             <td class="border-t px-2 py-1">${log.descricao || '-'}</td>
                                             <td class="border-t px-2 py-1">${log.data_hora}</td>
                                         </tr>

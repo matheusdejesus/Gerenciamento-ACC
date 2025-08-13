@@ -121,10 +121,24 @@ class AtividadeComplementarController extends Controller {
                 $aluno_id = $_SESSION['usuario']['id'];
             }
 
+            // Buscar atividades complementares
             $atividades = AtividadeComplementar::buscarPorAluno($aluno_id);
+            
+            // Buscar certificados avulsos
+            require_once __DIR__ . '/../models/CertificadoAvulso.php';
+            $certificadosAvulsos = \backend\api\models\CertificadoAvulso::buscarPorAluno($aluno_id);
+            
+            // Combinar as duas listas
+            $todasAtividades = array_merge($atividades, $certificadosAvulsos);
+            
+            // Ordenar por data de submissão
+            usort($todasAtividades, function($a, $b) {
+                return strtotime($b['data_submissao']) - strtotime($a['data_submissao']);
+            });
+            
             return [
                 'success' => true,
-                'data' => $atividades
+                'data' => $todasAtividades
             ];
         } catch (\Exception $e) {
             error_log("Erro em AtividadeComplementarController::listarPorAluno: " . $e->getMessage());
@@ -345,6 +359,12 @@ class AtividadeComplementarController extends Controller {
                 return;
             }
             
+            // Verificar se já existe um certificado enviado
+            if (!empty($atividade['certificado_caminho'])) {
+                $this->sendJsonResponse(['error' => 'Certificado já foi enviado para esta atividade. Não é possível enviar novamente.'], 400);
+                return;
+            }
+            
             // Verificar se há arquivo enviado
             if (!isset($_FILES['certificado']) || $_FILES['certificado']['error'] !== UPLOAD_ERR_OK) {
                 error_log("Erro no arquivo: " . ($_FILES['certificado']['error'] ?? 'arquivo não encontrado'));
@@ -523,8 +543,8 @@ class AtividadeComplementarController extends Controller {
         }
         
         // Validar observacoes_analise
-        if (empty($dados['observacoes_analise']) || strlen(trim($dados['observacoes_analise'])) < 10) {
-            $erros[] = 'Observações da análise são obrigatórias e devem ter pelo menos 10 caracteres';
+        if (empty(trim($dados['observacoes_analise']))) {
+            $erros[] = 'Observações da análise são obrigatórias';
         }
         
         // Validar status
