@@ -124,7 +124,7 @@ Antes de acessar qualquer página do sistema, é necessário criar uma conta no 
 1. Acesse: `http://localhost/Gerenciamento-ACC/frontend/pages/cadastro.php`
 2. Preencha todos os campos obrigatórios:
    - Nome completo
-   - E-mail institucional
+   - E-mail
    - Senha (mínimo 6 caracteres, com letra maiúscula, número e símbolo)
    - Confirmação de senha
    - Tipo de usuário (Aluno, Orientador ou Coordenador)
