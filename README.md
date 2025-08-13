@@ -83,7 +83,7 @@ O projeto Gerenciamento-ACC é um sistema web desenvolvido para gerenciar Ativid
    - Registro das ações dos usuários no banco de dados, incluindo alterações de senha e acessos a páginas.
    - Logs detalhados para monitoramento de atividades suspeitas.
 
-## Instalação e Setup
+## ⚙️ Instalação e Setup
 
 Siga os passos abaixo para colocar o projeto em funcionamento na sua máquina local:
 
