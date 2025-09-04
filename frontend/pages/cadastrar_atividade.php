@@ -113,9 +113,7 @@ if (!isset($atividade['requisitos'])) {
                     <span class="text-2xl font-regular text-white">SACC</span>
                 </div>
                 <div class="flex items-center">
-                    <a href="nova_atividade.php" class="text-white hover:text-gray-200 mr-4">Voltar</a>
-                    <span id="nomeUsuario" class="text-white mr-4 font-extralight">Carregando...</span>
-                    <button onclick="AuthClient.logout()" class="text-white hover:text-gray-200">Logout</button>
+                    <a href="nova_atividade.php" class="text-white hover:text-gray-200">Voltar</a>
                 </div>
             </div>
         </div>
@@ -281,9 +279,7 @@ if (!isset($atividade['requisitos'])) {
             AuthClient.logout();
         }
         
-        if (user && user.nome) {
-            document.getElementById('nomeUsuario').textContent = user.nome;
-        }
+        // Elemento nomeUsuario removido da interface
 
         // Manipulação do upload de arquivo
         document.getElementById('declaracao').addEventListener('change', function(e) {
@@ -438,7 +434,6 @@ if (!isset($atividade['requisitos'])) {
                 return;
             }
             const user = AuthClient.getUser();
-            document.getElementById('nomeUsuario').textContent = user.nome;
 
             // Buscar dados da atividade
             const atividadeId = <?= json_encode($atividade_id) ?>;
