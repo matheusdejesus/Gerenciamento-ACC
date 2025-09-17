@@ -14,10 +14,10 @@ class AtividadesDisponiveis {
             $sql = "SELECT 
                         ad.id,
                         ad.titulo as nome,
-                        ad.descricao,
-                        ad.carga_horaria as horas_max,
+                        ad.carga_horaria_maxima_por_atividade as horas_max,
                         ca.descricao as categoria,
-                        'Atividade Complementar' as tipo
+                        'Atividade Complementar' as tipo,
+                        ad.observacoes as descricao
                     FROM AtividadesDisponiveis ad
                     INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
                     ORDER BY ca.descricao, ad.titulo";
@@ -33,10 +33,10 @@ class AtividadesDisponiveis {
                 $atividades[] = [
                     'id' => (int)$row['id'],
                     'nome' => $row['nome'],
-                    'descricao' => $row['descricao'],
                     'horas_max' => (int)$row['horas_max'],
                     'categoria' => $row['categoria'],
-                    'tipo' => $row['tipo']
+                    'tipo' => $row['tipo'],
+                    'descricao' => $row['descricao'] ?? ''
                 ];
             }
             
@@ -77,8 +77,7 @@ class AtividadesDisponiveis {
             $sql = "SELECT 
                         ad.id,
                         ad.titulo as nome,
-                        ad.descricao,
-                        ad.carga_horaria as horas_max,
+                        ad.carga_horaria_maxima_por_atividade as horas_max,
                         ca.descricao as categoria,
                         'Atividade Complementar' as tipo
                     FROM AtividadesDisponiveis ad
@@ -117,11 +116,11 @@ class AtividadesDisponiveis {
             $db = Database::getInstance()->getConnection();
             
             $sql = "UPDATE AtividadesDisponiveis 
-                    SET titulo = ?, descricao = ?, categoria_id = ?, carga_horaria = ?
+                    SET titulo = ?, categoria_id = ?, carga_horaria_maxima_por_atividade = ?, observacoes = ?
                     WHERE id = ?";
             
             $stmt = $db->prepare($sql);
-            $stmt->bind_param("ssiii", $titulo, $descricao, $categoria_id, $carga_horaria, $id);
+            $stmt->bind_param("siis", $titulo, $categoria_id, $carga_horaria, $descricao, $id);
             
             return $stmt->execute();
             
@@ -151,10 +150,10 @@ class AtividadesDisponiveis {
         }
     }
     
-    public static function adicionar($titulo, $descricao, $categoria_id, $carga_horaria) {
+    public static function adicionar($titulo, $categoria_id, $carga_horaria) {
         try {
             error_log("=== AtividadesDisponiveis::adicionar ===");
-            error_log("Parâmetros: título=$titulo, descrição=$descricao, categoria_id=$categoria_id, carga_horaria=$carga_horaria");
+            error_log("Parâmetros: título=$titulo, categoria_id=$categoria_id, carga_horaria=$carga_horaria");
             
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
@@ -166,8 +165,8 @@ class AtividadesDisponiveis {
                 throw new \Exception("Categoria não encontrada: $categoria_id");
             }
             
-            $stmt = $db->prepare("INSERT INTO AtividadesDisponiveis (titulo, descricao, categoria_id, carga_horaria) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("ssii", $titulo, $descricao, $categoria_id, $carga_horaria);
+            $stmt = $db->prepare("INSERT INTO AtividadesDisponiveis (titulo, categoria_id, carga_horaria_maxima_por_atividade) VALUES (?, ?, ?)");
+            $stmt->bind_param("sii", $titulo, $categoria_id, $carga_horaria);
             
             if (!$stmt->execute()) {
                 throw new \Exception("Erro ao inserir atividade: " . $stmt->error);

@@ -112,7 +112,7 @@
             // Buscar estatísticas
             async function carregarEstatisticas() {
                 try {
-                    const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_usuarios.php');
+                    const response = await AuthClient.fetch('../../backend/api/routes/listar_usuarios.php');
                     const data = await response.json();
                     if (data.success && Array.isArray(data.data)) {
                         document.getElementById('totalUsuarios').textContent = data.data.length;

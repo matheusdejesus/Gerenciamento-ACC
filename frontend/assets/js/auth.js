@@ -104,18 +104,49 @@ class AuthClient {
             headers: headers,
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        // Sempre tentar fazer o parsing do JSON, independente do status
+        try {
+            const responseText = await response.text();
+            console.log('Response status:', response.status);
+            console.log('Response text:', responseText);
+            
+            // Se a resposta estiver vazia, retornar erro específico
+            if (!responseText.trim()) {
+                throw new Error('Resposta vazia do servidor');
+            }
+            
+            // Fazer parse do JSON
+            const jsonData = JSON.parse(responseText);
+            
+            // Se não foi bem-sucedido, lançar erro com a mensagem do servidor
+            if (!response.ok) {
+                throw new Error(jsonData.error || jsonData.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            // Retornar um objeto que simula a interface Response mas com json() já processado
+            return {
+                ok: response.ok,
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers,
+                json: async () => jsonData,
+                // Adicionar os dados diretamente para compatibilidade
+                data: jsonData
+            };
+            
+        } catch (parseError) {
+            console.error('Erro ao fazer parse da resposta:', parseError);
+            if (parseError.message.includes('Unexpected')) {
+                throw new Error('Erro de comunicação com o servidor - resposta inválida');
+            }
+            throw parseError;
         }
-
-        return response;
     }
 
     // Método para fazer login
     static async login(email, senha) {
         try {
-            const response = await fetch('/Gerenciamento-ACC/backend/api/routes/login.php', {
+            const response = await fetch('../../backend/api/routes/login.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -189,7 +220,7 @@ function requireAuth() {
     console.log('Verificando autenticação na página:', window.location.pathname);
     if (!AuthClient.isLoggedIn()) {
         console.log('Usuário não autenticado, redirecionando para login');
-        window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
+        window.location.href = 'login.php';
         return false;
     }
     return true;
@@ -198,7 +229,6 @@ function requireAuth() {
 // Auto-verificação
 setInterval(() => {
     if (!AuthClient.isLoggedIn() &&
-        window.location.pathname !== '/Gerenciamento-ACC/frontend/pages/login.php' &&
         !window.location.pathname.includes('login.php')) {
         console.log('Token expirado, fazendo logout automático');
         AuthClient.logout();

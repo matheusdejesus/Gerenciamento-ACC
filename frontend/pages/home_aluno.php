@@ -302,7 +302,9 @@
                     }
                 } else {
                     const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0); // Zerar horas para comparar apenas a data
                     let dataFim = atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00') : null;
+                    if (dataFim) dataFim.setHours(0, 0, 0, 0);
                     const concluida = atividade.status === 'Aprovada' && dataFim && dataFim <= hoje;
 
                     if (atividade.certificado_caminho) {

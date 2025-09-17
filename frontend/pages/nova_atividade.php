@@ -38,16 +38,14 @@
             <main class="lg:w-3/4 p-6 rounded-lg" style="background-color: #F6F8FA">
                 <div class="mb-8">
                     <h2 class="text-3xl font-extralight mb-2" style="color: #0969DA">
-                        Escolher Nova Atividade
+                        Escolher Categoria de Atividade
                     </h2>
-                    <p class="text-gray-600">Selecione uma atividade para se cadastrar</p>
-                    <div id="alertaAtividades" class="mt-4 hidden p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p class="text-yellow-800">⚠️ Não foi possível carregar as atividades. Verifique a conexão com o banco de dados.</p>
+                    <p class="text-gray-600">Selecione uma categoria para ver as atividades disponíveis</p>
+                    <div id="alertaCategorias" class="mt-4 hidden p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p class="text-yellow-800">⚠️ Não foi possível carregar as categorias. Verifique a conexão com o banco de dados.</p>
                     </div>
                 </div>
-                <form id="formFiltro" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                </form>
-                <div id="atividadesContainer"></div>
+                <div id="categoriasContainer"></div>
                 
                 <div class="mt-8 p-6 rounded-lg" style="background-color: #E6F3FF; border-left: 4px solid #0969DA">
                     <h4 class="font-bold mb-2" style="color: #0969DA">Informações Importantes</h4>
@@ -97,119 +95,105 @@
     <script src="../assets/js/auth.js"></script>
     <script>
         // Verificar autenticação JWT
-        if (!AuthClient.isLoggedIn()) {
-            window.location.href = 'login.php';
+        function verificarAutenticacao() {
+            if (!AuthClient.isLoggedIn()) {
+                window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
+                return false;
+            }
+            const user = AuthClient.getUser();
+            if (!user || user.tipo !== 'aluno') {
+                AuthClient.logout();
+                return false;
+            }
+            return true;
         }
-        const user = AuthClient.getUser();
-        if (user.tipo !== 'aluno') {
-            AuthClient.logout();
-        }
+        
+        verificarAutenticacao();
 
-        // Carregar atividades via JWT
-        let todasAtividades = [];
+        // Carregar categorias via JWT
+        let todasCategorias = [];
 
-        async function carregarAtividades() {
+        async function carregarCategorias() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php');
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_categorias.php', {
+                    method: 'POST'
+                });
                 const data = await response.json();
                 if (data.success) {
-                    todasAtividades = data.data || [];
-                    renderizarAtividades();
-                    document.getElementById('alertaAtividades').classList.add('hidden');
+                    todasCategorias = data.data || [];
+                    renderizarCategorias();
+                    document.getElementById('alertaCategorias').classList.add('hidden');
                 } else {
-                    document.getElementById('alertaAtividades').classList.remove('hidden');
+                    document.getElementById('alertaCategorias').classList.remove('hidden');
                 }
             } catch (e) {
-                document.getElementById('alertaAtividades').classList.remove('hidden');
+                document.getElementById('alertaCategorias').classList.remove('hidden');
             }
         }
 
-        function renderizarAtividades() {
-            const container = document.getElementById('atividadesContainer');
-            if (!todasAtividades.length) {
+        function renderizarCategorias() {
+            const container = document.getElementById('categoriasContainer');
+            if (!todasCategorias.length) {
                 container.innerHTML = `<div class="text-center py-12">
-                    <p class="text-gray-500 text-lg">Nenhuma atividade encontrada.</p>
+                    <p class="text-gray-500 text-lg">Nenhuma categoria encontrada.</p>
                 </div>`;
                 return;
             }
-            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${todasAtividades.map(atividade => `
-                    <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-                        <div class="p-4" style="background-color: #151B23">
-                            <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
-                            <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 mt-2">
-                                ${atividade.categoria}
-                            </span>
-                        </div>
-                        <div class="p-4">
-                            <p class="text-gray-600 text-sm mb-4">${atividade.descricao}</p>
-                            <div class="space-y-2 mb-4">
-                                <div class="flex justify-between text-sm">
-                                    <span class="font-medium" style="color: #0969DA">Tipo:</span>
-                                    <span class="text-gray-600">${atividade.tipo}</span>
-                                </div>
-                                <div class="flex justify-between text-sm">
-                                    <span class="font-medium" style="color: #0969DA">Horas Máximas:</span>
-                                    <span class="text-gray-600">${atividade.horas_max}h</span>
+
+            // Definir cores e ícones para cada categoria
+            const categoriaConfig = {
+                'Ensino': { cor: '#1A7F37', icone: '📚' },
+                'Pesquisa': { cor: '#0969DA', icone: '🔬' },
+                'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
+                'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
+                'Estágio': { cor: '#F59E0B', icone: '💼' }
+            };
+
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                ${todasCategorias.map(categoria => {
+                    const config = categoriaConfig[categoria.nome] || { cor: '#6B7280', icone: '📋' };
+                    return `
+                        <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
+                             onclick="selecionarCategoria('${categoria.nome}')">
+                            <div class="p-6 text-center" style="background: linear-gradient(135deg, ${config.cor}, ${config.cor}dd)">
+                                <div class="text-4xl mb-3">${config.icone}</div>
+                                <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
+                            </div>
+                            <div class="p-4 text-center">
+                                <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
+                                <div class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition duration-200"
+                                     style="background-color: ${config.cor}20; color: ${config.cor}">
+                                    Ver Atividades
+                                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
                                 </div>
                             </div>
-                            <div class="flex gap-2">
-                                <button onclick="verDetalhes(${atividade.id})"
-                                        class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
-                                        style="color: #0969DA">
-                                    Ver Detalhes
-                                </button>
-                                <a href="cadastrar_atividade.php?id=${atividade.id}"
-                                   class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200 text-center"
-                                   style="background-color: #1A7F37">
-                                    Selecionar
-                                </a>
-                            </div>
                         </div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>`;
         }
 
-        function verDetalhes(id) {
-            const atividade = todasAtividades.find(a => a.id === id);
-            if (!atividade) return;
-            const detalhes = `
-                <h4 class="text-xl font-bold mb-4" style="color: #0969DA">${atividade.nome}</h4>
-                <div class="space-y-3">
-                    <div>
-                        <span class="font-medium" style="color: #0969DA">Categoria:</span>
-                        <span class="ml-2">${atividade.categoria}</span>
-                    </div>
-                    <div>
-                        <span class="font-medium" style="color: #0969DA">Tipo:</span>
-                        <span class="ml-2">${atividade.tipo}</span>
-                    </div>
-                    <div>
-                        <span class="font-medium" style="color: #0969DA">Horas Máximas:</span>
-                        <span class="ml-2">${atividade.horas_max} horas</span>
-                    </div>
-                    <div>
-                        <span class="font-medium" style="color: #0969DA">Descrição:</span>
-                        <p class="mt-1 text-gray-600">${atividade.descricao}</p>
-                    </div>
-                </div>
-            `;
-            document.getElementById('conteudoDetalhes').innerHTML = detalhes;
-            document.getElementById('btnSelecionarModal').onclick = () => selecionarAtividade(id);
-            document.getElementById('modalDetalhes').classList.remove('hidden');
-            document.getElementById('modalDetalhes').classList.add('flex');
-        }
-        function fecharModal() {
-            document.getElementById('modalDetalhes').classList.add('hidden');
-            document.getElementById('modalDetalhes').classList.remove('flex');
-        }
-        function selecionarAtividade(id) {
-            window.location.href = `cadastrar_atividade.php?id=${id}`;
-            fecharModal();
+        function selecionarCategoria(nomeCategoria) {
+            // Redirecionar para a página específica da categoria
+            const paginasCategoria = {
+                'Ensino': 'atividades_ensino.php',
+                'Pesquisa': 'atividades_pesquisa.php',
+                'Atividades extracurriculares': 'atividades_extensao.php',
+                'Atividades Extracurriculares': 'atividades_extensao.php',
+                'Estágio': 'atividades_estagio.php'
+            };
+            
+            const pagina = paginasCategoria[nomeCategoria];
+            if (pagina) {
+                window.location.href = pagina;
+            } else {
+                alert('Página não encontrada para esta categoria.');
+            }
         }
 
-        carregarAtividades();
+        carregarCategorias();
     </script>
 </body>
 </html>

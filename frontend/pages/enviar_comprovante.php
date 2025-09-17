@@ -56,7 +56,7 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                             <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Selecionar Atividade</h3>
                             
                             <div class="mb-4">
-                                <label class="block text-sm font-medium mb-2">Atividade Aprovada *</label>
+                                <label class="block text-sm font-medium mb-2">Atividade *</label>
                                 <select name="atividade_id" id="selectAtividade" required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     <option value="">-- Carregando atividades --</option>
@@ -64,14 +64,7 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                                 <p class="text-xs text-gray-500 mt-1">Apenas atividades aprovadas aparecem na lista</p>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium mb-2">Coordenador Responsável *</label>
-                                <select name="coordenador_id" id="selectCoordenador" required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">-- Carregando coordenadores --</option>
-                                </select>
-                                <p class="text-xs text-gray-500 mt-1">Selecione o coordenador que validará o certificado</p>
-                            </div>
+
                         </div>
                         <div id="camposAvulso" class="bg-white p-6 rounded-lg border hidden">
                             <h3 class="text-lg font-bold mb-4" style="color: #0969DA">Dados do Certificado Avulso</h3>
@@ -100,14 +93,7 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                                 <p class="text-xs text-gray-500 mt-1">Informações adicionais sobre a atividade (opcional)</p>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium mb-2">Coordenador Responsável *</label>
-                                <select name="coordenador_avulso_id" id="selectCoordenadorAvulso"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">-- Selecione um coordenador --</option>
-                                </select>
-                                <p class="text-xs text-gray-500 mt-1">Coordenador que analisará este certificado avulso</p>
-                            </div>
+
                         </div>
 
                         <div class="bg-white p-6 rounded-lg border">
@@ -183,13 +169,12 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
         const preview = document.getElementById('arquivo-selecionado');
         const nomeArquivo = document.getElementById('nome-arquivo');
         const selectAtividade = document.getElementById('selectAtividade');
-        const selectCoordenador = document.getElementById('selectCoordenador');
 
         // Carregar atividades aprovadas
         async function carregarAtividadesAprovadas() {
             try {
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
-                const data = await response.json();
+                const data = response.data;
                 
                 if (data.success) {
                     const atividadesAprovadas = data.data.filter(a => a.status === 'Aprovada');
@@ -214,36 +199,6 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
             } catch (error) {
                 console.error('Erro na requisição:', error);
                 selectAtividade.innerHTML = '<option value="">Erro de conexão</option>';
-            }
-        }
-
-        // Carregar coordenadores
-        async function carregarCoordenadores() {
-            try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?coordenadores=1');
-                const data = await response.json();
-                
-                if (data.success) {
-                    selectCoordenador.innerHTML = '<option value="">-- Selecione um coordenador --</option>';
-                    
-                    if (data.data.length === 0) {
-                        selectCoordenador.innerHTML = '<option value="">Nenhum coordenador encontrado</option>';
-                        selectCoordenador.disabled = true;
-                    } else {
-                        data.data.forEach(coordenador => {
-                            const option = document.createElement('option');
-                            option.value = coordenador.id;
-                            option.textContent = `${coordenador.nome} - ${coordenador.curso_nome}`;
-                            selectCoordenador.appendChild(option);
-                        });
-                    }
-                } else {
-                    console.error('Erro ao carregar coordenadores:', data.error);
-                    selectCoordenador.innerHTML = '<option value="">Erro ao carregar coordenadores</option>';
-                }
-            } catch (error) {
-                console.error('Erro na requisição de coordenadores:', error);
-                selectCoordenador.innerHTML = '<option value="">Erro de conexão</option>';
             }
         }
 
@@ -300,23 +255,16 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
 
             if (tipoEnvio === 'atividade') {
                 const atividadeId = selectAtividade.value;
-                const coordenadorId = selectCoordenador.value;
                 
                 if (!atividadeId) {
                     alert('❌ Selecione uma atividade');
                     return;
                 }
-                if (!coordenadorId) {
-                    alert('❌ Selecione um coordenador');
-                    return;
-                }
                 
                 formData.append('atividade_id', atividadeId);
-                formData.append('coordenador_id', coordenadorId);
             } else {
                 const titulo = document.getElementById('tituloAvulso').value.trim();
                 const horas = document.getElementById('horasAvulso').value;
-                const coordenadorAvulso = selectCoordenadorAvulso.value;
                 const observacao = document.getElementById('observacaoAvulso').value.trim();
                 
                 if (!titulo) {
@@ -327,14 +275,9 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
                     alert('❌ Informe a carga horária válida');
                     return;
                 }
-                if (!coordenadorAvulso) {
-                    alert('❌ Selecione um coordenador');
-                    return;
-                }
                 
                 formData.append('titulo_avulso', titulo);
                 formData.append('horas_avulso', horas);
-                formData.append('coordenador_id', coordenadorAvulso);
                 formData.append('observacao_avulso', observacao);
             }
             
@@ -401,98 +344,46 @@ require_once __DIR__ . '/../../backend/api/config/config.php';
         const radioAvulso = document.getElementById('radioAvulso');
         const camposAtividade = document.getElementById('camposAtividade');
         const camposAvulso = document.getElementById('camposAvulso');
-        const selectCoordenadorAvulso = document.getElementById('selectCoordenadorAvulso');
 
         // Função para alternar campos conforme tipo de envio
         function alternarTipoEnvio() {
-            if (radioAvulso.checked) {
+            const tipoSelecionado = document.querySelector('input[name="tipo_envio"]:checked').value;
+            
+            if (tipoSelecionado === 'avulso') {
                 // Esconder seção de atividade aprovada
                 camposAtividade.classList.add('hidden');
                 selectAtividade.disabled = true;
-                selectCoordenador.disabled = true;
                 selectAtividade.value = '';
-                selectCoordenador.value = '';
                 selectAtividade.removeAttribute('required');
-                selectCoordenador.removeAttribute('required');
                 
                 // Mostrar campos avulso
                 camposAvulso.classList.remove('hidden');
                 document.getElementById('tituloAvulso').setAttribute('required', '');
                 document.getElementById('horasAvulso').setAttribute('required', '');
-                selectCoordenadorAvulso.setAttribute('required', '');
             } else {
                 // Mostrar seção de atividade aprovada
                 camposAtividade.classList.remove('hidden');
                 selectAtividade.disabled = false;
-                selectCoordenador.disabled = false;
                 selectAtividade.setAttribute('required', '');
-                selectCoordenador.setAttribute('required', '');
                 
                 // Esconder campos avulso
                 camposAvulso.classList.add('hidden');
                 document.getElementById('tituloAvulso').removeAttribute('required');
                 document.getElementById('horasAvulso').removeAttribute('required');
-                selectCoordenadorAvulso.removeAttribute('required');
                 
                 // Limpar campos avulso
                 document.getElementById('tituloAvulso').value = '';
                 document.getElementById('horasAvulso').value = '';
                 document.getElementById('observacaoAvulso').value = '';
-                selectCoordenadorAvulso.value = '';
             }
         }
 
         radioAtividade.addEventListener('change', alternarTipoEnvio);
         radioAvulso.addEventListener('change', alternarTipoEnvio);
 
-        // Carregar coordenadores também no select avulso
-        async function carregarCoordenadores() {
-            try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?coordenadores=1');
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Preencher select original
-                    selectCoordenador.innerHTML = '<option value="">-- Selecione um coordenador --</option>';
-                    // Preencher select avulso
-                    selectCoordenadorAvulso.innerHTML = '<option value="">-- Selecione um coordenador --</option>';
-                    
-                    if (data.data.length === 0) {
-                        selectCoordenador.innerHTML = '<option value="">Nenhum coordenador encontrado</option>';
-                        selectCoordenadorAvulso.innerHTML = '<option value="">Nenhum coordenador encontrado</option>';
-                        selectCoordenador.disabled = true;
-                        selectCoordenadorAvulso.disabled = true;
-                    } else {
-                        data.data.forEach(coordenador => {
-                            // Opção para select original
-                            const option1 = document.createElement('option');
-                            option1.value = coordenador.id;
-                            option1.textContent = `${coordenador.nome} - ${coordenador.curso_nome}`;
-                            selectCoordenador.appendChild(option1);
-                            
-                            // Opção para select avulso
-                            const option2 = document.createElement('option');
-                            option2.value = coordenador.id;
-                            option2.textContent = `${coordenador.nome} - ${coordenador.curso_nome}`;
-                            selectCoordenadorAvulso.appendChild(option2);
-                        });
-                    }
-                } else {
-                    console.error('Erro ao carregar coordenadores:', data.error);
-                    selectCoordenador.innerHTML = '<option value="">Erro ao carregar coordenadores</option>';
-                    selectCoordenadorAvulso.innerHTML = '<option value="">Erro ao carregar coordenadores</option>';
-                }
-            } catch (error) {
-                console.error('Erro na requisição de coordenadores:', error);
-                selectCoordenador.innerHTML = '<option value="">Erro de conexão</option>';
-                selectCoordenadorAvulso.innerHTML = '<option value="">Erro de conexão</option>';
-            }
-        }
-
-        // Carregar atividades e coordenadores ao inicializar
+        // Carregar atividades ao inicializar
         document.addEventListener('DOMContentLoaded', () => {
-            carregarAtividadesAprovadas();
-            carregarCoordenadores();
+            carregarAtividades();
         });
     </script>
 </body>

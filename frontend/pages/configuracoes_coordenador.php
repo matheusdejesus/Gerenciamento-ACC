@@ -166,7 +166,7 @@
 
         async function carregarDadosUsuario() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php');
+                const response = await AuthClient.fetch('../../backend/api/routes/configuracoes_usuarios.php');
                 const data = await response.json();
                 
                 console.log('Dados recebidos:', data);
@@ -223,7 +223,7 @@
                     return;
                 }
 
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                const response = await AuthClient.fetch('../../backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -276,7 +276,7 @@
                     return;
                 }
 
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php', {
+                const response = await AuthClient.fetch('../../backend/api/routes/configuracoes_usuarios.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

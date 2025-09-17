@@ -224,7 +224,7 @@
             
             try {
                 console.log('Fazendo requisição para a API...');
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/configuracoes_usuarios.php');
+                const response = await AuthClient.fetch('../../backend/api/routes/configuracoes_usuarios.php');
                 
                 console.log('Response status:', response.status);
                 

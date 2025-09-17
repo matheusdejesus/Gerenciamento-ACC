@@ -226,8 +226,8 @@
         // Carregar certificados pendentes
         async function carregarCertificadosPendentes() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?acao=certificados_pendentes');
-                const data = await response.json();
+                const response = await AuthClient.fetch('../../backend/api/routes/avaliar_atividade.php?acao=certificados_pendentes');
+                const data = response.data;
                 
                 if (data.success) {
                     const certificados = data.data || [];
@@ -245,7 +245,7 @@
                     document.getElementById('tabelaCertificadosPendentes').innerHTML = certificados.map(cert => {
                         const isAvulso = cert.tipo === 'avulso';
                         const atividade = isAvulso ? 'Certificado Avulso' : (cert.atividade_nome || cert.categoria_nome || cert.titulo || 'N/A');
-                        const certificadoPath = isAvulso ? `/Gerenciamento-ACC/backend/uploads/certificados_avulsos/${cert.certificado_caminho}` : `/Gerenciamento-ACC/backend/${cert.certificado_caminho}`;
+                        const certificadoPath = isAvulso ? `../../backend/uploads/certificados_avulsos/${cert.certificado_caminho}` : `../../backend/${cert.certificado_caminho}`;
                         
                         return `
                         <tr>
@@ -304,8 +304,8 @@
         // Carregar certificados processados
         async function carregarCertificadosProcessados() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?acao=certificados_processados');
-                const data = await response.json();
+                const response = await AuthClient.fetch('../../backend/api/routes/avaliar_atividade.php?acao=certificados_processados');
+                const data = response.data;
                 
                 if (data.success) {
                     const certificados = data.data || [];
@@ -323,7 +323,7 @@
                     document.getElementById('tabelaCertificadosProcessados').innerHTML = certificados.map(cert => {
                         const isAvulso = cert.tipo === 'avulso';
                         const atividade = isAvulso ? 'Certificado Avulso' : (cert.atividade_nome || cert.titulo || 'N/A');
-                        const certificadoPath = isAvulso ? `/Gerenciamento-ACC/backend/uploads/certificados_avulsos/${cert.certificado_caminho}` : `/Gerenciamento-ACC/backend/${cert.certificado_processado || cert.certificado_caminho}`;
+                        const certificadoPath = isAvulso ? `../../backend/uploads/certificados_avulsos/${cert.certificado_caminho}` : `../../backend/${cert.certificado_processado || cert.certificado_caminho}`;
                         const statusFormatted = cert.status === 'Aprovado' ? 'Aprovado' : cert.status === 'Rejeitado' ? 'Rejeitado' : cert.status;
                         
                         return `

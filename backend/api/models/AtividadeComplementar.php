@@ -11,27 +11,29 @@ class AtividadeComplementar {
     public static function create($dados) {
         try {
             // Validar dados obrigatórios
-            $camposObrigatorios = ['aluno_id', 'categoria_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada'];
+            $camposObrigatorios = ['aluno_id', 'atividade_disponivel_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada'];
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
                     throw new Exception("Campo obrigatório não informado: $campo");
                 }
             }
+            /*
             if (empty($dados['orientador_id']) && empty($dados['avaliador_id'])) {
                 throw new Exception("É obrigatório informar um orientador ou um avaliador (coordenador)");
             }
+            */
 
             $db = Database::getInstance()->getConnection();
             $db->autocommit(false);
             $db->begin_transaction();
 
             // Montar SQL para orientador_id ou avaliador_id
-            $campos = "aluno_id, categoria_id, titulo, descricao, data_inicio, data_fim, carga_horaria_solicitada, declaracao_caminho";
+            $campos = "aluno_id, atividade_disponivel_id, titulo, descricao, data_inicio, data_fim, carga_horaria_solicitada, declaracao_caminho";
             $placeholders = "?, ?, ?, ?, ?, ?, ?, ?";
             $tipos = "iissssis";
             $valores = [
                 $dados['aluno_id'],
-                $dados['categoria_id'],
+                $dados['atividade_disponivel_id'],
                 $dados['titulo'],
                 $dados['descricao'],
                 $dados['data_inicio'],
@@ -52,7 +54,7 @@ class AtividadeComplementar {
                 $valores[] = $dados['avaliador_id'];
             }
 
-            $sql = "INSERT INTO AtividadeComplementar ($campos) VALUES ($placeholders)";
+            $sql = "INSERT INTO atividadecomplementaracc ($campos) VALUES ($placeholders)";
 
             $stmt = $db->prepare($sql);
             if (!$stmt) {
@@ -105,7 +107,7 @@ class AtividadeComplementar {
                         CASE WHEN ac.declaracao_caminho IS NOT NULL AND ac.declaracao_caminho != '' THEN 1 ELSE 0 END as tem_declaracao,
                         ca.descricao AS categoria_nome,
                         u.nome AS orientador_nome
-                    FROM AtividadeComplementar ac
+                    FROM atividadecomplementaracc ac
                     INNER JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
                     LEFT JOIN Usuario u ON ac.orientador_id = u.id
                     WHERE ac.aluno_id = ?
@@ -202,6 +204,7 @@ class AtividadeComplementar {
                 while ($row = $result->fetch_assoc()) {
                     $coordenadores[] = [
                         'id' => (int)$row['id'],
+                        'usuario_id' => (int)$row['id'],
                         'nome' => $row['nome'],
                         'email' => $row['email'],
                         'siape' => $row['siape'] ?? null,
@@ -236,7 +239,7 @@ class AtividadeComplementar {
                         a.matricula AS aluno_matricula,
                         u.email AS aluno_email,
                         c.nome AS curso_nome
-                    FROM AtividadeComplementar ac
+                    FROM atividadecomplementaracc ac
                     INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                     INNER JOIN Usuario u ON a.usuario_id = u.id
                     INNER JOIN Curso c ON a.curso_id = c.id
@@ -304,7 +307,7 @@ class AtividadeComplementar {
                         a.matricula AS aluno_matricula,
                         u.email AS aluno_email,
                         c.nome AS curso_nome
-                    FROM AtividadeComplementar ac
+                    FROM atividadecomplementaracc ac
                     INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                     INNER JOIN Usuario u ON a.usuario_id = u.id
                     INNER JOIN Curso c ON a.curso_id = c.id
@@ -356,7 +359,7 @@ class AtividadeComplementar {
         try {
             $db = Database::getInstance()->getConnection();
 
-            $sql = "UPDATE AtividadeComplementar 
+            $sql = "UPDATE atividadecomplementaracc 
                     SET status = ?, 
                         carga_horaria_aprovada = ?, 
                         observacoes_analise = ?, 
@@ -385,7 +388,7 @@ class AtividadeComplementar {
         try {
             $db = Database::getInstance()->getConnection();
             
-            $sql = "SELECT * FROM AtividadeComplementar WHERE id = ?";
+            $sql = "SELECT * FROM atividadecomplementaracc WHERE id = ?";
             $stmt = $db->prepare($sql);
             $stmt->bind_param("i", $id);
             $stmt->execute();
@@ -409,7 +412,7 @@ class AtividadeComplementar {
                 $observacao_aprovacao .= "\nObservações do coordenador: " . $observacoes;
             }
             
-            $sql = "UPDATE AtividadeComplementar 
+            $sql = "UPDATE atividadecomplementaracc 
                     SET observacoes_Analise = CONCAT(
                         COALESCE(observacoes_Analise, ''), 
                         ?
@@ -445,7 +448,7 @@ class AtividadeComplementar {
             $observacao_rejeicao .= "\nMotivo da rejeição: " . $observacoes;
             
             // Remove o certificado processado e adiciona a observação
-            $sql = "UPDATE AtividadeComplementar 
+            $sql = "UPDATE atividadecomplementaracc 
                     SET certificado_processado = NULL,
                         observacoes_Analise = CONCAT(
                             COALESCE(observacoes_Analise, ''), 
@@ -477,7 +480,7 @@ class AtividadeComplementar {
             $db = Database::getInstance()->getConnection();
 
             // Verificar qual coluna usar para certificado
-            $sql = "SHOW COLUMNS FROM AtividadeComplementar LIKE 'certificado%'";
+            $sql = "SHOW COLUMNS FROM atividadecomplementaracc LIKE 'certificado%'";
             $result = $db->query($sql);
             
             $coluna_certificado = 'certificado';
@@ -488,7 +491,7 @@ class AtividadeComplementar {
                 }
             }
 
-            $sql = "UPDATE AtividadeComplementar 
+            $sql = "UPDATE atividadecomplementaracc 
                     SET {$coluna_certificado} = ? 
                     WHERE id = ?";
             $stmt = $db->prepare($sql);
@@ -515,7 +518,7 @@ class AtividadeComplementar {
         try {
             $db = Database::getInstance()->getConnection();
             
-            $stmt = $db->prepare("SELECT avaliador_id FROM AtividadeComplementar WHERE id = ? AND avaliador_id IS NOT NULL");
+            $stmt = $db->prepare("SELECT avaliador_id FROM atividadecomplementaracc WHERE id = ? AND avaliador_id IS NOT NULL");
             $stmt->bind_param("i", $atividade_id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -562,14 +565,15 @@ class AtividadeComplementar {
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
                     ac.observacoes_Analise,
+                    ac.atividade_disponivel_id,
                     ac.categoria_id,
                     cat.descricao as categoria_nome,
                     'complementar' as tipo
-                FROM AtividadeComplementar ac
+                FROM atividadecomplementaracc ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN CategoriaAtividade cat ON ac.categoria_id = cat.id
+                LEFT JOIN CategoriaAtividade cat ON ac.categoria_id = cat.id
                 WHERE c.id = ?
                   AND ac.certificado_processado IS NOT NULL
                   AND (ac.status = 'Aprovada' OR ac.status = 'Pendente')
@@ -665,7 +669,7 @@ class AtividadeComplementar {
                     c.nome as curso_nome,
                     ca.descricao as atividade_nome,
                     'complementar' as tipo
-                FROM AtividadeComplementar ac
+                FROM atividadecomplementaracc ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
@@ -758,13 +762,13 @@ class AtividadeComplementar {
             $db = Database::getInstance()->getConnection();
 
             if ($avaliador_id) {
-                $sql = "UPDATE AtividadeComplementar 
+                $sql = "UPDATE atividadecomplementaracc 
                         SET certificado_processado = ?, avaliador_id = ?, data_envio_certificado = NOW()
                         WHERE id = ?";
                 $stmt = $db->prepare($sql);
                 $stmt->bind_param("sii", $certificado_caminho, $avaliador_id, $atividade_id);
             } else {
-                $sql = "UPDATE AtividadeComplementar 
+                $sql = "UPDATE atividadecomplementaracc 
                         SET certificado_processado = ?, data_envio_certificado = NOW()
                         WHERE id = ?";
                 $stmt = $db->prepare($sql);
@@ -813,7 +817,7 @@ class AtividadeComplementar {
     public static function contarPorAtividadeDisponivel($atividade_disponivel_id) {
         try {
             $db = \backend\api\config\Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT COUNT(*) as total FROM AtividadeComplementar WHERE categoria_id = ?");
+            $stmt = $db->prepare("SELECT COUNT(*) as total FROM atividadecomplementaracc WHERE atividade_disponivel_id = ?");
             $stmt->bind_param("i", $atividade_disponivel_id);
             $stmt->execute();
             
@@ -833,7 +837,7 @@ class AtividadeComplementar {
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
             // Remover todas as atividades complementares vinculadas à atividade disponível
-            $stmt = $db->prepare("DELETE FROM AtividadeComplementar WHERE categoria_id = ?");
+            $stmt = $db->prepare("DELETE FROM atividadecomplementaracc WHERE atividade_disponivel_id = ?");
             $stmt->bind_param("i", $atividade_disponivel_id);
             
             $sucesso = $stmt->execute();
@@ -853,14 +857,14 @@ class AtividadeComplementar {
     {
         try {
             $db = Database::getInstance()->getConnection();
-            $sql = "INSERT INTO AtividadeComplementar 
-                (aluno_id, categoria_id, titulo, descricao, carga_horaria_solicitada, status, certificado_caminho, avaliador_id, data_submissao)
+            $sql = "INSERT INTO atividadecomplementaracc 
+                (aluno_id, atividade_disponivel_id, titulo, descricao, carga_horaria_solicitada, status, certificado_caminho, avaliador_id, data_submissao)
                 VALUES (?, ?, ?, ?, ?, 'Pendente', ?, ?, NOW())";
             $stmt = $db->prepare($sql);
             $stmt->bind_param(
                 "iissisi",
                 $dados['aluno_id'],
-                $dados['categoria_id'],
+                $dados['atividade_disponivel_id'],
                 $dados['titulo'],
                 $dados['descricao'],
                 $dados['carga_horaria_solicitada'],

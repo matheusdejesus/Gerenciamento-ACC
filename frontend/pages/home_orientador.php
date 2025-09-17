@@ -235,7 +235,7 @@
         // Carregar atividades pendentes usando JWT
         async function carregarAtividadesPendentes() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/atividades_pendentes.php');
+                const response = await AuthClient.fetch('../../backend/api/routes/atividades_pendentes.php');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -273,7 +273,7 @@
         // Carregar atividades avaliadas usando JWT
         async function carregarAtividadesAvaliadas() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php');
+                const response = await AuthClient.fetch('../../backend/api/routes/avaliar_atividade.php');
                 const data = await response.json();
                 
                 if (data.success) {

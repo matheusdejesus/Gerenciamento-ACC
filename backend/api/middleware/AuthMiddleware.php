@@ -14,7 +14,24 @@ class AuthMiddleware {
     
     public static function validateToken() {
         try {
-            $headers = getallheaders();
+            $headers = function_exists('getallheaders') ? getallheaders() : [];
+            
+            if (empty($headers)) {
+                // Fallback para servidores sem getallheaders (ex.: PHP built-in)
+                foreach ($_SERVER as $key => $value) {
+                    if (strpos($key, 'HTTP_') === 0) {
+                        $header = str_replace('_', '-', substr($key, 5));
+                        $headers[$header] = $value;
+                    }
+                }
+            }
+            
+            // Normalizar chaves dos headers (case-insensitive)
+            $normalizedHeaders = [];
+            foreach ($headers as $key => $value) {
+                $normalizedHeaders[strtolower($key)] = $value;
+            }
+            $headers = array_merge($headers, $normalizedHeaders);
             
             if (!$headers) {
                 error_log("Headers não encontrados");

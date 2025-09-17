@@ -6,7 +6,7 @@ class JWTService {
     private static $algorithm = 'HS256';
     
     public static function init() {
-        self::$secret = $_ENV['JWT_SECRET'] ?? '';
+        self::$secret = defined('JWT_SECRET') ? JWT_SECRET : ($_ENV['JWT_SECRET'] ?? '');
     }
     
     public static function encode($payload) {

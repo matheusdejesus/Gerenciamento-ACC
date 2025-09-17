@@ -3,7 +3,7 @@
 $atividade_id = $_GET['id'] ?? 1;
 
 function buscarAtividade($id) {
-    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/listar_atividades.php';
+    $url = 'http://localhost:8000/../../backend/api/routes/listar_atividades.php';
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
@@ -37,7 +37,7 @@ function buscarAtividade($id) {
 
 // Função para buscar orientadores
 function buscarOrientadores() {
-    $url = 'http://localhost/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
+    $url = 'http://localhost:8000/../../backend/api/routes/cadastrar_atividade_complementar.php?orientadores=1';
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -325,6 +325,8 @@ if (!isset($atividade['requisitos'])) {
             // Verificar se a data de término não é superior a 1 ano
             const limiteFuturo = new Date();
             limiteFuturo.setFullYear(limiteFuturo.getFullYear() + 1);
+            limiteFuturo.setHours(0, 0, 0, 0); // Zerar horas para comparar apenas a data
+            dataFim.setHours(0, 0, 0, 0);
             
             if (dataFim > limiteFuturo) {
                 alert('A data de término não pode ser superior a 1 ano no futuro.');
@@ -356,7 +358,7 @@ if (!isset($atividade['requisitos'])) {
                     console.log(key + ':', value);
                 }
                 
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividade_complementar.php', {
+                const response = await AuthClient.fetch('../../backend/api/routes/cadastrar_atividade_complementar.php', {
                     method: 'POST',
                     body: formData,
                 });
@@ -437,8 +439,8 @@ if (!isset($atividade['requisitos'])) {
 
             // Buscar dados da atividade
             const atividadeId = <?= json_encode($atividade_id) ?>;
-            const response = await AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/listar_atividades.php?id=${atividadeId}`);
-            const result = await response.json();
+            const response = await AuthClient.fetch(`../../backend/api/routes/listar_atividades.php?id=${atividadeId}`);
+            const result = response.data;
             if (result.success) {
                 const data = Array.isArray(result.data) ? result.data[0] : result.data;
                 document.getElementById('atividade-nome').textContent = data.nome || data.titulo;

@@ -67,36 +67,33 @@ create table AtividadesDisponiveis(
     id int auto_increment primary key,
     categoria_id INT NOT NULL,
     titulo varchar(255) not null,
-    descricao text,
-    carga_horaria int,
+    carga_horaria_maxima_por_atividade int,
+    observacoes TEXT,
     FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 8. Tabela AtividadeComplementar
-CREATE TABLE AtividadeComplementar (
+-- 8. Tabela AtividadeComplementarEnsino
+CREATE TABLE AtividadeComplementarEnsino (
   id INT AUTO_INCREMENT PRIMARY KEY,
   aluno_id INT NOT NULL,
   categoria_id INT NOT NULL,
-  titulo VARCHAR(255) NOT NULL,
-  descricao TEXT,
-  data_inicio DATE,
-  data_fim DATE,
-  carga_horaria_solicitada INT,
-  carga_horaria_aprovada INT,
-  status ENUM('Pendente','Aprovada','Rejeitada','Revisar') DEFAULT 'Pendente',
-  data_submissao DATETIME DEFAULT CURRENT_TIMESTAMP,
-  data_avaliacao DATETIME NULL,
-  orientador_id INT NULL,
-  avaliador_id INT NULL,
-  observacoes_Analise TEXT,
+  
+  -- Campos específicos para Disciplinas em outras IES
+  nome_disciplina VARCHAR(255) NULL,
+  nome_instituicao VARCHAR(255) NULL,
+  carga_horaria INT NULL,
+  
+  -- Campos específicos para Monitoria
+  nome_disciplina_laboratorio VARCHAR(255) NULL,
+  monitor VARCHAR(255) NULL,
+  data_inicio DATE NULL,
+  data_fim DATE NULL,
+  
+  -- Campos para arquivos
   declaracao_caminho VARCHAR(255) NULL,
-  certificado_caminho VARCHAR(255) NULL,
-  certificado_processado VARCHAR(255) NULL,
-  data_envio_certificado DATETIME NULL,
+  
   FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
-  FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT,
-  FOREIGN KEY (orientador_id) REFERENCES Orientador(usuario_id) ON DELETE SET NULL,
-  FOREIGN KEY (avaliador_id) REFERENCES Coordenador(usuario_id) ON DELETE SET NULL
+  FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 9. Tabela LogAcoes
@@ -164,6 +161,31 @@ CREATE TABLE certificadoavulso (
     FOREIGN KEY (coordenador_id) REFERENCES Coordenador(usuario_id) ON DELETE CASCADE
 );
 
+-- Tabela para armazenar atividades complementares
+CREATE TABLE atividadecomplementaracc (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    aluno_id INT NOT NULL,
+    atividade_disponivel_id INT NOT NULL,
+    categoria_id INT NULL,
+    curso_nome VARCHAR(255) NULL,
+    evento_nome VARCHAR(255) NULL,
+    horas_realizadas INT NOT NULL,
+    data_inicio DATE NOT NULL,
+    data_fim DATE NOT NULL,
+    local_instituicao VARCHAR(255) NOT NULL,
+    observacoes TEXT NULL,
+    declaracao_caminho VARCHAR(500) NOT NULL,
+    status ENUM('pendente', 'aprovada', 'rejeitada') DEFAULT 'pendente',
+    data_submissao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    data_avaliacao DATETIME NULL,
+    observacoes_avaliacao TEXT NULL,
+    avaliador_id INT NULL,
+    FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
+    FOREIGN KEY (atividade_disponivel_id) REFERENCES AtividadesDisponiveis(id) ON DELETE RESTRICT,
+    FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE SET NULL,
+    FOREIGN KEY (avaliador_id) REFERENCES Coordenador(usuario_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO Instituto (id, nome, sigla) VALUES
   (1, 'Instituto de Biodiversidade e Florestas', 'IBEF'),           -- :contentReference[oaicite:1]{index=1}
   (2, 'Instituto de Ciências da Educação', 'ICED'),               -- :contentReference[oaicite:2]{index=2}
@@ -210,7 +232,7 @@ INSERT INTO Curso (id, nome, codigo, instituto_id, campus) VALUES
   (26, 'Bacharelado Interdisciplinar em Ciência da Terra',                       'BIT',      5, 'Santarém'),  -- :contentReference[oaicite:33]{index=33}
   (27, 'Bacharelado Profissional em Ciência da Computação',                      'BCC',      5, 'Santarém'),  -- :contentReference[oaicite:34]{index=34}
   (28, 'Bacharelado em Ciência e Tecnologia',                                    'CT',       5, 'Santarém'),  -- :contentReference[oaicite:35]{index=35}
-  (29, 'Bacharelado em Sistemas de Informações',                                 'SI',       5, 'Santarém'),  -- :contentReference[oaicite:36]{index=36}
+  (29, 'Bacharelado em Sistemas de Informação',                                 'SI',       5, 'Santarém'),  -- :contentReference[oaicite:36]{index=36}
 
   -- Cursos do Instituto de Saúde Coletiva (ISCO)
   (30, 'Bacharelado em Farmácia',                                               'FAR',      6, 'Santarém'),  -- :contentReference[oaicite:37]{index=37}
@@ -218,17 +240,35 @@ INSERT INTO Curso (id, nome, codigo, instituto_id, campus) VALUES
   (32, 'Bacharelado Profissional em Farmácia',                                   'PFAR',     6, 'Santarém');  -- :contentReference[oaicite:39]{index=39}
 
 -- Inserindo dados na tabela CategoriaAtividade
-INSERT INTO categoriaatividade (id, descricao, carga_horaria_maxima, observacoes) VALUES
-(1, 'Ensino', 80, 'Atividades relacionadas ao ensino e educação'),
-(2, 'Pesquisa', 60, 'Atividades de pesquisa científica e acadêmica'),
-(3, 'Extensão', 60, 'Atividades de extensão universitária e comunitária'),
-(4, 'Estágio', 100, 'Atividades de estágio supervisionado');
-
+INSERT INTO categoriaatividade (id, descricao, carga_horaria_maxima) VALUES
+(1, 'Ensino', 40),
+(2, 'Pesquisa', 40),
+(3, 'Atividades extracurriculares', 40),
+(4, 'Estágio', 90);
 
 -- Inserindo atividades na tabela AtividadesDisponiveis
-INSERT INTO atividadesdisponiveis (titulo, descricao, categoria_id, carga_horaria) VALUES
-('Monitoria em Disciplinas', 'Atividade de monitoria em disciplinas', 1, 60),
-('Monitoria em Laboratórios', 'Atividade de monitoria em laboratórios', 1, 60),
-('Iniciação Científica', 'Participação em projetos de iniciação científica', 2, 100),
-('Projetos Sociais', 'Participação em projetos de responsabilidade social', 3, 80),
-('Estágio', 'Estágio extracurricular', 4, 100);
+INSERT INTO atividadesdisponiveis (titulo, categoria_id, carga_horaria_maxima_por_atividade, observacoes) VALUES
+
+-- Atividades de Ensino
+('Disciplinas em áreas correlatas cursadas em outras IES', 1, 15, ''),
+('Disciplinas em áreas correlatas cursadas na UFOPA', 1, 30, ''),
+('Monitoria em disciplina de graduação ou laboratório', 1, 40, ''),
+
+-- Atividades de Pesquisa
+('Apresentação em eventos científicos (por trabalho)', 2, 9, ''),
+('Publicação de artigo em anais, periódicos ou capítulo de livro (por trabalho)', 2, 10, ''),
+('Membro efetivo e/ou assistente em eventos científicos e profissionais', 2, 40, 'Carga horária contabilizada conforme a carga horária do evento'),
+('Participação em projeto de Iniciação Científica', 2, 40, ''),
+
+-- Atividades extracurriculares
+('Curso de extensão em áreas afins', 3, 10,'No máximo 10 horas contabilizadas por certificado apresentado'),
+('Curso de extensão na área específica', 3, 20, 'No máximo 20 horas contabilizadas por certificado apresentado'),
+('Curso de língua estrangeira', 3, 25, 'Limitada a uma validação por idioma.'),
+('Participação em seminários, simpósios, convenções, conferências, palestras, congressos, jornadas, fóruns, debates, visitas técnicas, viagens de estudos, workshops, programas de treinamento e eventos promovidos pela UFOPA e/ou outras IES', 3, 40, 'Carga horária contabilizada conforme carga horária do evento'),
+('Missões nacionais e internacionais', 3, 15, ''),
+('Eventos e ações relacionados à educação ambiental e diversidade cultural.', 3, 40, 'Carga horária contabilizada conforme a carga horária do evento'),
+('Membro efetivo e/ou assistente em eventos de extensão e profissionais.', 3, 40, 'Carga horária contabilizada conforme a carga horária do evento'),
+('PET – Programa de Educação Tutorial', 3, 40, ''),
+
+-- Atividades de Estágio
+('Estágio curricular não obrigatório', 4, 40, '')

@@ -36,8 +36,15 @@ class AtividadeComplementarController extends Controller {
                 throw new Exception("Carga horária solicitada deve ser maior que zero");
             }
             
+            // REMOVIDO: Validação obrigatória de orientador
+            /*
             if (empty($dados['orientador_id']) || !is_numeric($dados['orientador_id'])) {
                 throw new Exception("Orientador deve ser selecionado");
+            }
+            */
+            // Se orientador não enviado, definir como NULL
+            if (empty($dados['orientador_id']) || !is_numeric($dados['orientador_id'])) {
+                $dados['orientador_id'] = null;
             }
             
             $atividade_id = AtividadeComplementar::create($dados);
