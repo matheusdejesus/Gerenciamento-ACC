@@ -14,7 +14,7 @@ class AtividadeComplementarACC {
     public static function create($dados) {
         try {
             // Validar dados obrigatórios
-            $camposObrigatorios = ['aluno_id', 'atividade_disponivel_id', 'horas_realizadas', 'data_inicio', 'data_fim', 'local_instituicao', 'declaracao_caminho'];
+            $camposObrigatorios = ['aluno_id', 'atividade_disponivel_id', 'horas_realizadas', 'data_inicio', 'data_fim', 'local_instituicao', 'declaracao_caminho', 'curso_evento_nome'];
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
                     throw new Exception("Campo obrigatório não informado: $campo");
@@ -26,25 +26,47 @@ class AtividadeComplementarACC {
             $db->begin_transaction();
 
             $sql = "INSERT INTO atividadecomplementaracc 
-                    (aluno_id, atividade_disponivel_id, curso_nome, horas_realizadas, data_inicio, data_fim, local_instituicao, observacoes, declaracao_caminho) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    (aluno_id, atividade_disponivel_id, categoria_id, curso_evento_nome, horas_realizadas, data_inicio, data_fim, local_instituicao, observacoes, declaracao_caminho) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $db->prepare($sql);
             if (!$stmt) {
                 throw new Exception("Erro ao preparar query: " . $db->error);
             }
 
+            // Buscar categoria_id da atividade disponível
+            $stmt_categoria = $db->prepare("SELECT categoria_id FROM AtividadesDisponiveis WHERE id = ?");
+            $stmt_categoria->bind_param("i", $dados['atividade_disponivel_id']);
+            $stmt_categoria->execute();
+            $result_categoria = $stmt_categoria->get_result();
+            $categoria_data = $result_categoria->fetch_assoc();
+            $categoria_id = $categoria_data ? $categoria_data['categoria_id'] : null;
+            
+            // Preparar variáveis para bind_param (não pode passar expressões por referência)
+            $aluno_id = $dados['aluno_id'];
+            $atividade_disponivel_id = $dados['atividade_disponivel_id'];
+            $horas_realizadas = $dados['horas_realizadas'];
+            $data_inicio = $dados['data_inicio'];
+            $data_fim = $dados['data_fim'];
+            $local_instituicao = $dados['local_instituicao'];
+            $observacoes = $dados['observacoes'] ?? null;
+            $declaracao_caminho = $dados['declaracao_caminho'];
+            
+            // Usar campo unificado curso_evento_nome
+            $curso_evento_nome = $dados['curso_evento_nome'] ?? null;
+
             $stmt->bind_param(
-                "iisisssss",
-                $dados['aluno_id'],
-                $dados['atividade_disponivel_id'],
-                $dados['curso_nome'] ?? null,
-                $dados['horas_realizadas'],
-                $dados['data_inicio'],
-                $dados['data_fim'],
-                $dados['local_instituicao'],
-                $dados['observacoes'] ?? null,
-                $dados['declaracao_caminho']
+                "iissssssss",
+                $aluno_id,
+                $atividade_disponivel_id,
+                $categoria_id,
+                $curso_evento_nome,
+                $horas_realizadas,
+                $data_inicio,
+                $data_fim,
+                $local_instituicao,
+                $observacoes,
+                $declaracao_caminho
             );
 
             if (!$stmt->execute()) {
@@ -79,7 +101,7 @@ class AtividadeComplementarACC {
             
             $sql = "SELECT 
                         acc.id,
-                        acc.curso_nome,
+                        acc.curso_evento_nome,
                         acc.horas_realizadas,
                         acc.data_inicio,
                         acc.data_fim,
@@ -211,7 +233,7 @@ class AtividadeComplementarACC {
             
             $sql = "SELECT 
                         acc.id,
-                        acc.curso_nome,
+                        acc.curso_evento_nome,
                         acc.horas_realizadas,
                         acc.data_inicio,
                         acc.data_fim,

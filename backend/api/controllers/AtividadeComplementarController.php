@@ -27,9 +27,9 @@ class AtividadeComplementarController extends Controller {
                 throw new Exception("Datas de início e fim são obrigatórias");
             }
             
-            // Validar se data_fim > data_inicio
-            if (strtotime($dados['data_fim']) <= strtotime($dados['data_inicio'])) {
-                throw new Exception("Data de término deve ser posterior à data de início");
+            // Validar se data_fim >= data_inicio
+            if (strtotime($dados['data_fim']) < strtotime($dados['data_inicio'])) {
+                throw new Exception("Data de término deve ser igual ou posterior à data de início");
             }
             
             if (empty($dados['carga_horaria_solicitada']) || $dados['carga_horaria_solicitada'] <= 0) {

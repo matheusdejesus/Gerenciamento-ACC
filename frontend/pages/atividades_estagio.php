@@ -94,6 +94,96 @@
         </div>
     </div>
 
+    <!-- Modal de Seleção/Cadastro -->
+    <div id="modalSelecao" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold" style="color: #F59E0B">Cadastrar Atividade de Estágio</h3>
+                <button onclick="fecharModalSelecao()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="formCadastro" class="space-y-4">
+                <input type="hidden" id="atividadeId">
+                
+                <div class="bg-yellow-50 p-4 rounded-lg mb-4">
+                    <h4 class="font-semibold text-yellow-800">Atividade Selecionada:</h4>
+                    <p id="nomeAtividade" class="text-yellow-700"></p>
+                    <p class="text-sm text-yellow-600">Horas máximas: <span id="horasMaximas"></span></p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="empresa" class="block text-sm font-medium text-gray-700 mb-1">
+                            Empresa *
+                        </label>
+                        <input type="text" id="empresa" name="empresa" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                               placeholder="Nome da empresa onde realizou o estágio">
+                    </div>
+
+                    <div>
+                        <label for="area" class="block text-sm font-medium text-gray-700 mb-1">
+                            Área *
+                        </label>
+                        <input type="text" id="area" name="area" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                               placeholder="Área de atuação do estágio">
+                    </div>
+
+                    <div>
+                        <label for="dataInicio" class="block text-sm font-medium text-gray-700 mb-1">
+                            Data de Início *
+                        </label>
+                        <input type="date" id="dataInicio" name="dataInicio" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    </div>
+
+                    <div>
+                        <label for="dataFim" class="block text-sm font-medium text-gray-700 mb-1">
+                            Data de Fim *
+                        </label>
+                        <input type="date" id="dataFim" name="dataFim" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="horas" class="block text-sm font-medium text-gray-700 mb-1">
+                            Horas *
+                        </label>
+                        <input type="number" id="horas" name="horas" required min="1" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                               placeholder="Total de horas do estágio">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="declaracao" class="block text-sm font-medium text-gray-700 mb-1">
+                        Declaração/Certificado *
+                    </label>
+                    <input type="file" id="declaracao" name="declaracao" required accept=".pdf,.jpg,.jpeg,.png" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <p class="text-xs text-gray-500 mt-1">Formatos aceitos: PDF, JPG, PNG</p>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="fecharModalSelecao()" 
+                            class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btnSubmit" 
+                            class="px-6 py-2 text-white rounded-md transition-colors" 
+                            style="background-color: #F59E0B; hover:background-color: #D97706">
+                        Cadastrar Atividade
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Rodapé -->
     <footer class="bg-white border-t mt-12">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
@@ -123,14 +213,17 @@
 
         async function carregarAtividades() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php', {
-                    method: 'GET'
+                const response = await fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php', {
+                    method: 'GET',
+                    headers: {
+                        'X-API-Key': 'frontend-gerenciamento-acc-2025'
+                    }
                 });
                 const data = await response.json();
                 if (data.success) {
                     // Filtrar apenas atividades de estágio
                     todasAtividades = (data.data || []).filter(atividade => 
-                        atividade.categoria && atividade.categoria.toLowerCase() === 'estágio'
+                        atividade.categoria && atividade.categoria.toLowerCase().includes('estágio')
                     );
                     renderizarAtividades();
                     document.getElementById('alertaAtividades').classList.add('hidden');
@@ -180,11 +273,11 @@
                                         style="color: #F59E0B">
                                     Ver Detalhes
                                 </button>
-                                <a href="cadastrar_atividade.php?id=${atividade.id}"
-                                   class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200 text-center"
-                                   style="background-color: #F59E0B">
+                                <button onclick="abrirModalSelecao(${atividade.id}, '${atividade.nome}', ${atividade.horas_max})"
+                                        class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200"
+                                        style="background-color: #F59E0B">
                                     Selecionar
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -229,10 +322,107 @@
             document.getElementById('modalDetalhes').classList.remove('flex');
         }
 
-        function selecionarAtividade(id) {
-            window.location.href = `cadastrar_atividade.php?id=${id}`;
-            fecharModal();
+        // Função para abrir modal de seleção de atividade
+        function abrirModalSelecao(id, nome, horasMaximas) {
+            document.getElementById('atividadeId').value = id;
+            document.getElementById('nomeAtividade').textContent = nome;
+            document.getElementById('horasMaximas').textContent = horasMaximas + 'h';
+            
+            // Limpar formulário
+            document.getElementById('formCadastro').reset();
+            document.getElementById('atividadeId').value = id; // Manter o ID após reset
+            
+            // Abrir modal
+            document.getElementById('modalSelecao').classList.remove('hidden');
         }
+
+        function selecionarAtividade(id) {
+            // Armazenar o ID da atividade selecionada
+            document.getElementById('atividadeId').value = id;
+            
+            // Buscar dados da atividade para preencher o formulário
+            const atividade = todasAtividades.find(a => a.id == id);
+            if (atividade) {
+                document.getElementById('nomeAtividade').textContent = atividade.nome;
+                document.getElementById('horasMaximas').textContent = atividade.horas_max;
+            }
+            
+            fecharModal();
+            document.getElementById('modalSelecao').classList.remove('hidden');
+        }
+
+        function fecharModalSelecao() {
+            document.getElementById('modalSelecao').classList.add('hidden');
+            // Limpar formulário
+            document.getElementById('formCadastro').reset();
+        }
+
+        // Função para submeter o formulário de cadastro
+        document.getElementById('formCadastro').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Validar se todos os campos obrigatórios estão preenchidos
+            const empresa = document.getElementById('empresa').value.trim();
+            const area = document.getElementById('area').value.trim();
+            const dataInicio = document.getElementById('dataInicio').value;
+            const dataFim = document.getElementById('dataFim').value;
+            const horas = document.getElementById('horas').value;
+            const declaracao = document.getElementById('declaracao').files[0];
+            
+            if (!empresa || !area || !dataInicio || !dataFim || !horas || !declaracao) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                return;
+            }
+            
+            // Validar se data fim não é anterior à data início
+            if (new Date(dataFim) < new Date(dataInicio)) {
+                alert('A data de fim não pode ser anterior à data de início.');
+                return;
+            }
+            
+            // Validar se as horas são positivas
+            if (parseInt(horas) <= 0) {
+                alert('O número de horas deve ser maior que zero.');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('empresa', empresa);
+            formData.append('area', area);
+            formData.append('data_inicio', dataInicio);
+            formData.append('data_fim', dataFim);
+            formData.append('horas', parseInt(horas));
+            formData.append('declaracao', declaracao);
+            
+            // Desabilitar botão de submit para evitar duplo envio
+            const btnSubmit = document.getElementById('btnSubmit');
+            const textoOriginal = btnSubmit.textContent;
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'Cadastrando...';
+            
+            try {
+                // Enviar via AuthClient para garantir cabeçalhos corretos
+                const resp = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/atividades_estagio.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await resp.json();
+                if (result.success) {
+                    alert('Atividade de estágio cadastrada com sucesso!');
+                    fecharModalSelecao();
+                } else {
+                    alert('Erro ao cadastrar atividade: ' + (result.message || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao cadastrar atividade: ' + error.message);
+            } finally {
+                // Reabilitar botão de submit
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = textoOriginal;
+            }
+        });
 
         // Carregar atividades ao inicializar a página
         carregarAtividades();

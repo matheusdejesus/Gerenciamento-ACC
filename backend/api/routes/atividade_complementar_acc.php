@@ -1,17 +1,23 @@
 <?php
-// Configurar output buffering para evitar saída prematura
+// Configurar output buffering e headers
 ob_start();
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Key');
+header('Access-Control-Allow-Credentials: true');
+
+// Log de debug - início do script
+error_log("[DEBUG] atividade_complementar_acc.php - Início do script. Método: " . $_SERVER['REQUEST_METHOD']);
+error_log("[DEBUG] Headers recebidos: " . json_encode(getallheaders()));
+error_log("[DEBUG] POST data: " . json_encode($_POST));
+error_log("[DEBUG] FILES data: " . json_encode($_FILES));
 
 // Limpar qualquer output anterior
 ob_clean();
 
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -28,29 +34,43 @@ use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
 
 function enviarErro($mensagem, $codigo = 400) {
+    error_log("[DEBUG] enviarErro chamada - Código: $codigo, Mensagem: $mensagem");
     // Limpar qualquer output anterior
     ob_clean();
     http_response_code($codigo);
-    echo json_encode([
+    $response = [
         'success' => false,
         'error' => $mensagem
-    ]);
+    ];
+    $json = json_encode($response);
+    error_log("[DEBUG] JSON de erro: " . $json);
+    echo $json;
+    error_log("[DEBUG] Resposta de erro enviada, saindo...");
     exit;
 }
 
 function enviarSucesso($dados, $mensagem = null) {
+    error_log("[DEBUG] enviarSucesso chamada - Mensagem: $mensagem");
+    error_log("[DEBUG] Dados: " . json_encode($dados));
     // Limpar qualquer output anterior
     ob_clean();
-    echo json_encode([
+    http_response_code(200);
+    $response = [
         'success' => true,
         'data' => $dados,
         'message' => $mensagem
-    ]);
+    ];
+    $json = json_encode($response);
+    error_log("[DEBUG] JSON de sucesso: " . $json);
+    echo $json;
+    error_log("[DEBUG] Resposta de sucesso enviada, saindo...");
     exit;
 }
 
 try {
-    ApiKeyMiddleware::validateApiKey();
+    // Nota: A validação de API Key será feita pelo AuthMiddleware quando necessário
+    error_log("[DEBUG] Iniciando processamento da requisição...");
+    
     $controller = new AtividadeComplementarACCController();
     
     // GET - Listar atividades
@@ -139,49 +159,98 @@ try {
     
     // POST - Cadastrar nova atividade
     elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Verificar autenticação JWT
+        error_log("[DEBUG] Verificando autenticação JWT...");
         $usuario = AuthMiddleware::requireAluno();
+        if (!$usuario) {
+            error_log("[DEBUG] Token JWT inválido");
+            enviarErro('Token de acesso inválido', 401);
+        }
+        error_log("[DEBUG] Usuário autenticado: " . json_encode($usuario));
         
         // Upload da declaração/certificado
-        $declaracaoCaminho = null;
-        if (isset($_FILES['declaracao']) && $_FILES['declaracao']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/../../uploads/declaracoes_acc/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-
-            $fileName = uniqid() . '_' . basename($_FILES['declaracao']['name']);
-            $filePath = $uploadDir . $fileName;
-
-            if (!move_uploaded_file($_FILES['declaracao']['tmp_name'], $filePath)) {
-                enviarErro('Erro ao salvar o arquivo de declaração.');
-            }
-
-            // Caminho relativo para salvar no banco
-            $declaracaoCaminho = 'uploads/declaracoes_acc/' . $fileName;
-        }
-        
-        if (!$declaracaoCaminho) {
+        error_log("[DEBUG] Verificando upload de arquivo...");
+        if (!isset($_FILES['declaracao']) || $_FILES['declaracao']['error'] !== UPLOAD_ERR_OK) {
+            error_log("[DEBUG] Erro no upload: " . ($_FILES['declaracao']['error'] ?? 'arquivo não enviado'));
             enviarErro('Declaração/Certificado é obrigatório');
         }
+        error_log("[DEBUG] Arquivo recebido: " . $_FILES['declaracao']['name']);
+        
+        // Validar tipo de arquivo
+        error_log("[DEBUG] Validando tipo de arquivo...");
+        $tiposPermitidos = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+        $tipoArquivo = $_FILES['declaracao']['type'];
+        error_log("[DEBUG] Tipo de arquivo: " . $tipoArquivo);
+        
+        if (!in_array($tipoArquivo, $tiposPermitidos)) {
+            error_log("[DEBUG] Tipo de arquivo não permitido: " . $tipoArquivo);
+            enviarErro('Tipo de arquivo não permitido. Use PDF, JPG ou PNG');
+        }
+        
+        $uploadDir = __DIR__ . '/../../uploads/declaracoes_acc/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
 
-        // Dados da atividade
+        $fileName = uniqid() . '_' . basename($_FILES['declaracao']['name']);
+        $filePath = $uploadDir . $fileName;
+
+        if (!move_uploaded_file($_FILES['declaracao']['tmp_name'], $filePath)) {
+            enviarErro('Erro ao salvar o arquivo de declaração.');
+        }
+
+        // Caminho relativo para salvar no banco
+        $caminhoArquivo = 'uploads/declaracoes_acc/' . $fileName;
+
+        // Processar dados do formulário
+        error_log("[DEBUG] Processando dados do formulário...");
+        
+        // Capturar todos os campos possíveis e consolidar em curso_evento_nome
+        $curso_nome = $_POST['curso_nome'] ?? null;
+        $evento_nome = $_POST['evento_nome'] ?? null;
+        $projeto_nome = $_POST['projeto_nome'] ?? null;
+        
+        // Determinar o valor para curso_evento_nome baseado nos campos disponíveis
+        $curso_evento_nome = null;
+        if (!empty($curso_nome)) {
+            $curso_evento_nome = $curso_nome;
+        } elseif (!empty($evento_nome)) {
+            $curso_evento_nome = $evento_nome;
+        } elseif (!empty($projeto_nome)) {
+            $curso_evento_nome = $projeto_nome;
+        } else {
+            // Para atividades como "Missões nacionais e internacionais" que não têm campo específico
+            $curso_evento_nome = 'Não especificado';
+        }
+        
+        error_log("[DEBUG] Campos capturados - curso_nome: $curso_nome, evento_nome: $evento_nome, projeto_nome: $projeto_nome");
+        error_log("[DEBUG] curso_evento_nome consolidado: $curso_evento_nome");
+        
         $dados = [
             'aluno_id' => $usuario['id'],
             'atividade_disponivel_id' => $_POST['atividade_disponivel_id'] ?? null,
-            'curso_nome' => $_POST['curso_nome'] ?? null, // Corrigido: era 'curso' mas o modelo espera 'curso_nome'
+            'curso_evento_nome' => $curso_evento_nome,
             'horas_realizadas' => $_POST['horas_realizadas'] ?? null,
             'data_inicio' => $_POST['data_inicio'] ?? null,
             'data_fim' => $_POST['data_fim'] ?? null,
             'local_instituicao' => $_POST['local_instituicao'] ?? null,
             'observacoes' => $_POST['observacoes'] ?? null,
-            'declaracao_caminho' => $declaracaoCaminho
+            'declaracao_caminho' => $caminhoArquivo
         ];
+        error_log("[DEBUG] Dados processados: " . json_encode($dados));
 
         try {
-            $atividade_id = $controller->cadastrarComJWT($dados);
+            // Cadastrar atividade
+            error_log("[DEBUG] Chamando controller->cadastrarComJWT...");
+            $atividadeId = $controller->cadastrarComJWT($dados);
+            error_log("[DEBUG] Atividade cadastrada com ID: " . $atividadeId);
+            
+            error_log("[DEBUG] Enviando resposta de sucesso...");
             enviarSucesso([
-                'atividade_id' => $atividade_id
-            ], 'Atividade de extensão cadastrada com sucesso');
+                'message' => 'Atividade cadastrada com sucesso',
+                'id' => $atividadeId
+            ]);
+            error_log("[DEBUG] Resposta enviada com sucesso");
         } catch (Exception $e) {
             enviarErro($e->getMessage());
         }
@@ -239,14 +308,16 @@ try {
     }
     
 } catch (Exception $e) {
-    // Limpar qualquer output anterior antes de enviar erro
-    ob_clean();
-    error_log("Erro na rota atividade_complementar_acc: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Erro interno do servidor: ' . $e->getMessage()
-    ]);
-    exit;
+    error_log("[DEBUG] Exceção capturada no catch principal: " . $e->getMessage());
+    error_log("[DEBUG] Stack trace: " . $e->getTraceAsString());
+    error_log("Erro em atividade_complementar_acc.php: " . $e->getMessage());
+    enviarErro('Erro interno do servidor: ' . $e->getMessage(), 500);
+} catch (Error $e) {
+    error_log("[DEBUG] Erro fatal capturado: " . $e->getMessage());
+    error_log("[DEBUG] Stack trace: " . $e->getTraceAsString());
+    enviarErro('Erro fatal do servidor: ' . $e->getMessage(), 500);
 }
+
+// Log final - se chegou até aqui sem enviar resposta
+error_log("[DEBUG] Script chegou ao final sem enviar resposta - isso não deveria acontecer");
 ?>

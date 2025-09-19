@@ -163,11 +163,12 @@ try {
         $dados = [
             'aluno_id' => $usuario['id'],
             'categoria_id' => $_POST['categoria_id'] ?? null,
+            'atividade_disponivel_id' => $_POST['atividade_id'] ?? null,
             'titulo' => $_POST['titulo'] ?? null,
             'descricao' => $_POST['descricao_atividades'] ?? null,
             'data_inicio' => $_POST['data_inicio'] ?? null,
             'data_fim' => $_POST['data_fim'] ?? null,
-            'carga_horaria_solicitada' => $_POST['horas_realizadas'] ?? null,
+            'carga_horaria_solicitada' => $_POST['horas_solicitadas'] ?? null,
             'orientador_id' => $_POST['orientador_id'] ?? null,
             'declaracao_caminho' => $declaracaoCaminho
         ];

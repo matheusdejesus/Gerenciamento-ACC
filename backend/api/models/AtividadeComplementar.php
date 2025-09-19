@@ -11,7 +11,7 @@ class AtividadeComplementar {
     public static function create($dados) {
         try {
             // Validar dados obrigatórios
-            $camposObrigatorios = ['aluno_id', 'atividade_disponivel_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada'];
+            $camposObrigatorios = ['aluno_id', 'titulo', 'data_inicio', 'data_fim', 'carga_horaria_solicitada'];
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
                     throw new Exception("Campo obrigatório não informado: $campo");
@@ -27,13 +27,12 @@ class AtividadeComplementar {
             $db->autocommit(false);
             $db->begin_transaction();
 
-            // Montar SQL para orientador_id ou avaliador_id
-            $campos = "aluno_id, atividade_disponivel_id, titulo, descricao, data_inicio, data_fim, carga_horaria_solicitada, declaracao_caminho";
-            $placeholders = "?, ?, ?, ?, ?, ?, ?, ?";
-            $tipos = "iissssis";
+            // Montar SQL base
+            $campos = "aluno_id, titulo, descricao, data_inicio, data_fim, carga_horaria_solicitada, declaracao_caminho";
+            $placeholders = "?, ?, ?, ?, ?, ?, ?";
+            $tipos = "issssss";
             $valores = [
                 $dados['aluno_id'],
-                $dados['atividade_disponivel_id'],
                 $dados['titulo'],
                 $dados['descricao'],
                 $dados['data_inicio'],
@@ -41,6 +40,22 @@ class AtividadeComplementar {
                 $dados['carga_horaria_solicitada'],
                 $dados['declaracao_caminho']
             ];
+
+            // Adicionar atividade_disponivel_id se fornecido
+            if (!empty($dados['atividade_disponivel_id'])) {
+                $campos .= ", atividade_disponivel_id";
+                $placeholders .= ", ?";
+                $tipos .= "i";
+                $valores[] = $dados['atividade_disponivel_id'];
+            }
+
+            // Adicionar categoria_id se fornecido
+            if (!empty($dados['categoria_id'])) {
+                $campos .= ", categoria_id";
+                $placeholders .= ", ?";
+                $tipos .= "i";
+                $valores[] = $dados['categoria_id'];
+            }
 
             if (!empty($dados['orientador_id'])) {
                 $campos .= ", orientador_id";

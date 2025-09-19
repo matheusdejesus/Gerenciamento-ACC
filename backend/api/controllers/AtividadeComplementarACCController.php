@@ -34,7 +34,7 @@ class AtividadeComplementarACCController extends Controller {
                 throw new Exception("Datas de início e fim são obrigatórias");
             }
             
-            // Validar se data_fim >= data_inicio
+            // Validar se data_fim >= data_inicio (permitir datas iguais para atividades de um dia)
             if (strtotime($dados['data_fim']) < strtotime($dados['data_inicio'])) {
                 throw new Exception("A data de fim não pode ser anterior à data de início.");
             }
@@ -61,6 +61,24 @@ class AtividadeComplementarACCController extends Controller {
             
             if ($dados['horas_realizadas'] > $atividade_disponivel['carga_horaria_maxima_por_atividade']) {
                 throw new Exception("Horas realizadas não podem exceder {$atividade_disponivel['carga_horaria_maxima_por_atividade']} horas");
+            }
+            
+            // Garantir que curso_evento_nome seja sempre preenchido
+            if (empty($dados['curso_evento_nome'])) {
+                // Tentar obter de diferentes campos possíveis
+                $curso_evento_nome = $dados['curso_nome'] ?? 
+                                   $dados['evento_nome'] ?? 
+                                   $dados['projeto_nome'] ?? 
+                                   $_POST['curso_nome'] ?? 
+                                   $_POST['evento_nome'] ?? 
+                                   $_POST['projeto_nome'] ?? 
+                                   null;
+                
+                if (empty($curso_evento_nome)) {
+                    throw new Exception("Nome do curso/evento/projeto é obrigatório");
+                }
+                
+                $dados['curso_evento_nome'] = $curso_evento_nome;
             }
             
             $atividade_id = AtividadeComplementarACC::create($dados);

@@ -118,14 +118,44 @@
 
                     <!-- Campos do Formulário -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Nome do Curso -->
+                        <!-- Nome do Curso/Evento -->
                         <div id="campoCurso">
                             <label for="cursoNome" class="block text-sm font-medium text-gray-700 mb-2">
-                                Curso *
+                                Curso/Evento *
                             </label>
                             <input type="text" id="cursoNome" name="cursoNome"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                   placeholder="Digite o nome do curso" required>
+                                   placeholder="Digite o nome do curso ou evento" required>
+                        </div>
+                        
+                        <!-- Campo Projeto (para PET) -->
+                        <div id="campoProjeto" class="hidden">
+                            <label for="projetoNome" class="block text-sm font-medium text-gray-700 mb-2">
+                                Projeto *
+                            </label>
+                            <input type="text" id="projetoNome" name="projetoNome"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="Digite o nome do projeto">
+                        </div>
+                        
+                        <!-- Nome do Curso (apenas para atividades específicas de curso) -->
+                        <div id="campoCursoEspecifico" class="hidden">
+                            <label for="cursoEspecificoNome" class="block text-sm font-medium text-gray-700 mb-2">
+                                Curso *
+                            </label>
+                            <input type="text" id="cursoEspecificoNome" name="cursoEspecificoNome"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="Digite o nome do curso">
+                        </div>
+                        
+                        <!-- Nome do Evento (apenas para atividades específicas) -->
+                        <div id="campoEvento" class="hidden">
+                            <label for="eventoNome" class="block text-sm font-medium text-gray-700 mb-2">
+                                Evento *
+                            </label>
+                            <input type="text" id="eventoNome" name="eventoNome"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="Digite o nome do evento">
                         </div>
                         
                         <!-- Horas Realizadas -->
@@ -381,25 +411,80 @@
             inputHoras.max = atividadeSelecionada.horas_max;
             spanMaxHoras.textContent = atividadeSelecionada.horas_max;
             
-            // Ajustar rótulo e placeholder conforme o tipo de atividade
-            const labelCurso = document.querySelector('label[for="cursoNome"]');
-            const inputCurso = document.getElementById('cursoNome');
+            // Detectar atividades específicas
+            const isPET = atividadeSelecionada.nome.toLowerCase().includes('pet – programa de educação tutorial');
+            const isMissoes = atividadeSelecionada.nome.toLowerCase().includes('missões nacionais e internacionais');
+            
+            // Detectar se é uma das atividades específicas que precisam do campo "Evento"
+            const atividadesComEvento = [
+                'Eventos e ações relacionados à educação ambiental e diversidade cultural',
+                'Membro efetivo e/ou assistente em eventos de extensão e profissionais'
+            ];
+            
+            // Detectar se é uma das atividades específicas que precisam do campo "Curso"
+            const atividadesComCurso = [
+                'Curso de extensão em áreas afins',
+                'Curso de extensão na área específica',
+                'Curso de língua estrangeira'
+            ];
+            
+            const precisaEvento = atividadesComEvento.some(nomeAtividade => 
+                atividadeSelecionada.nome.toLowerCase().includes(nomeAtividade.toLowerCase())
+            );
+            
+            const precisaCurso = atividadesComCurso.some(nomeAtividade => 
+                atividadeSelecionada.nome.toLowerCase().includes(nomeAtividade.toLowerCase())
+            );
+            
             const campoCurso = document.getElementById('campoCurso');
-            // determinar se há necessidade do campo curso
-            if (atividadeSelecionada.nome && atividadeSelecionada.nome.toLowerCase().includes('missões')) {
-                // Esconde o campo de curso para missões
-                campoCurso.classList.add('hidden');
-                inputCurso.required = false;
-            } else if (atividadeSelecionada.nome && /(evento|eventos|semin[áa]rio|simp[óo]sio|confer[êe]ncia|congresso|jornada|f[óo]rum|debate|visita|workshop|palestra|treinamento)/i.test(atividadeSelecionada.nome)) {
-                campoCurso.classList.remove('hidden');
-                labelCurso.textContent = 'Evento *';
-                inputCurso.placeholder = 'Digite o nome do evento';
-                inputCurso.required = true;
+            const inputCurso = document.getElementById('cursoNome');
+            const campoProjeto = document.getElementById('campoProjeto');
+            const inputProjeto = document.getElementById('projetoNome');
+            const campoCursoEspecifico = document.getElementById('campoCursoEspecifico');
+            const inputCursoEspecifico = document.getElementById('cursoEspecificoNome');
+            const campoEvento = document.getElementById('campoEvento');
+            const inputEvento = document.getElementById('eventoNome');
+            
+            // Ocultar todos os campos primeiro
+            campoCurso.classList.add('hidden');
+            inputCurso.required = false;
+            inputCurso.value = '';
+            
+            campoProjeto.classList.add('hidden');
+            inputProjeto.required = false;
+            inputProjeto.value = '';
+            
+            campoCursoEspecifico.classList.add('hidden');
+            inputCursoEspecifico.required = false;
+            inputCursoEspecifico.value = '';
+            
+            campoEvento.classList.add('hidden');
+            inputEvento.required = false;
+            inputEvento.value = '';
+            
+            if (isPET) {
+                // Para PET: mostrar apenas campo projeto
+                campoProjeto.classList.remove('hidden');
+                inputProjeto.required = true;
+                inputProjeto.value = '';
+            } else if (isMissoes) {
+                // Para Missões: não mostrar nenhum campo de curso/evento/projeto
+                // Todos os campos já foram ocultados acima
+            } else if (precisaCurso) {
+                // Para atividades específicas de curso: mostrar campo curso específico
+                campoCursoEspecifico.classList.remove('hidden');
+                inputCursoEspecifico.required = true;
+                inputCursoEspecifico.value = '';
+            } else if (precisaEvento) {
+                // Para atividades específicas de evento: mostrar campo evento
+                campoEvento.classList.remove('hidden');
+                inputEvento.required = true;
+                inputEvento.value = '';
             } else {
+                // Para outras atividades: mostrar campo curso/evento padrão
                 campoCurso.classList.remove('hidden');
-                labelCurso.textContent = 'Curso *';
-                inputCurso.placeholder = 'Digite o nome do curso';
                 inputCurso.required = true;
+                inputCurso.value = '';
             }
             
             // Limpar formulário
@@ -467,10 +552,47 @@
             const local = document.getElementById('local').value;
             const declaracao = document.getElementById('declaracao').files[0];
             const cursoNome = document.getElementById('cursoNome').value.trim();
+            const projetoNome = document.getElementById('projetoNome').value.trim();
+            const cursoEspecificoNome = document.getElementById('cursoEspecificoNome').value.trim();
+            const eventoNome = document.getElementById('eventoNome').value.trim();
+            
+            // Verificar qual tipo de campo está sendo usado
+            const campoProjeto = document.getElementById('campoProjeto');
+            const campoEvento = document.getElementById('campoEvento');
+            const campoCursoEspecifico = document.getElementById('campoCursoEspecifico');
             const campoCurso = document.getElementById('campoCurso');
             
-            if (!horasRealizadas || !dataInicio || !dataFim || !local || !declaracao || (!campoCurso.classList.contains('hidden') && !cursoNome)) {
-                alert('Por favor, preencha todos os campos obrigatórios.');
+            const precisaProjeto = !campoProjeto.classList.contains('hidden');
+            const precisaEvento = !campoEvento.classList.contains('hidden');
+            const precisaCursoEspecifico = !campoCursoEspecifico.classList.contains('hidden');
+            const precisaCurso = !campoCurso.classList.contains('hidden');
+            
+            // Detectar se é Missões (não precisa de campo obrigatório adicional)
+            const isMissoes = atividadeSelecionada.nome.toLowerCase().includes('missões nacionais e internacionais');
+            
+            // Validar campos obrigatórios baseado no tipo de atividade
+            let campoObrigatorioFaltando = false;
+            let mensagemErro = 'Por favor, preencha todos os campos obrigatórios.';
+            
+            if (!horasRealizadas || !dataInicio || !dataFim || !local || !declaracao) {
+                campoObrigatorioFaltando = true;
+            } else if (precisaProjeto && !projetoNome) {
+                campoObrigatorioFaltando = true;
+                mensagemErro = 'Por favor, preencha o campo Projeto.';
+            } else if (precisaCursoEspecifico && !cursoEspecificoNome) {
+                campoObrigatorioFaltando = true;
+                mensagemErro = 'Por favor, preencha o campo Curso.';
+            } else if (precisaEvento && !eventoNome) {
+                campoObrigatorioFaltando = true;
+                mensagemErro = 'Por favor, preencha o campo Evento.';
+            } else if (precisaCurso && !cursoNome) {
+                campoObrigatorioFaltando = true;
+                mensagemErro = 'Por favor, preencha o campo Curso/Evento.';
+            }
+            // Para Missões, não há campo adicional obrigatório
+            
+            if (campoObrigatorioFaltando) {
+                alert(mensagemErro);
                 return;
             }
             
@@ -496,9 +618,19 @@
             formData.append('data_fim', dataFim);
             formData.append('local_instituicao', local);
             formData.append('observacoes', document.getElementById('observacoes').value);
-            if (!campoCurso.classList.contains('hidden')) {
+            
+            // Enviar o campo apropriado baseado no tipo de atividade
+            if (precisaProjeto) {
+                formData.append('projeto_nome', projetoNome);
+            } else if (precisaCursoEspecifico) {
+                formData.append('curso_nome', cursoEspecificoNome);
+            } else if (precisaEvento) {
+                formData.append('evento_nome', eventoNome);
+            } else if (precisaCurso) {
                 formData.append('curso_nome', cursoNome);
             }
+            // Para Missões, não enviamos campo adicional
+            
             formData.append('declaracao', declaracao);
             
             // Desabilitar botão de envio

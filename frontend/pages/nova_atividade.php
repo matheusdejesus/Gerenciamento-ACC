@@ -180,8 +180,7 @@
             const paginasCategoria = {
                 'Ensino': 'atividades_ensino.php',
                 'Pesquisa': 'atividades_pesquisa.php',
-                'Atividades extracurriculares': 'atividades_extensao.php',
-                'Atividades Extracurriculares': 'atividades_extensao.php',
+                'Atividades extracurriculares': 'atividades_extracurriculares.php',
                 'Estágio': 'atividades_estagio.php'
             };
             

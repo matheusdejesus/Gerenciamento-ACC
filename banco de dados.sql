@@ -167,8 +167,7 @@ CREATE TABLE atividadecomplementaracc (
     aluno_id INT NOT NULL,
     atividade_disponivel_id INT NOT NULL,
     categoria_id INT NULL,
-    curso_nome VARCHAR(255) NULL,
-    evento_nome VARCHAR(255) NULL,
+    curso_evento_nome VARCHAR(255) NULL,
     horas_realizadas INT NOT NULL,
     data_inicio DATE NOT NULL,
     data_fim DATE NOT NULL,
@@ -183,6 +182,25 @@ CREATE TABLE atividadecomplementaracc (
     FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
     FOREIGN KEY (atividade_disponivel_id) REFERENCES AtividadesDisponiveis(id) ON DELETE RESTRICT,
     FOREIGN KEY (categoria_id) REFERENCES CategoriaAtividade(id) ON DELETE SET NULL,
+    FOREIGN KEY (avaliador_id) REFERENCES Coordenador(usuario_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela para armazenar atividades complementares de estágio
+CREATE TABLE atividadecomplementarestagio (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    aluno_id INT NOT NULL,
+    empresa VARCHAR(255) NOT NULL,
+    data_inicio DATE NOT NULL,
+    data_fim DATE NOT NULL,
+    horas INT NOT NULL,
+    area VARCHAR(255) NOT NULL,
+    declaracao_caminho VARCHAR(500) NOT NULL,
+    status ENUM('pendente', 'aprovada', 'rejeitada') DEFAULT 'pendente',
+    data_submissao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    data_avaliacao DATETIME NULL,
+    observacoes_avaliacao TEXT NULL,
+    avaliador_id INT NULL,
+    FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
     FOREIGN KEY (avaliador_id) REFERENCES Coordenador(usuario_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -271,4 +289,4 @@ INSERT INTO atividadesdisponiveis (titulo, categoria_id, carga_horaria_maxima_po
 ('PET – Programa de Educação Tutorial', 3, 40, ''),
 
 -- Atividades de Estágio
-('Estágio curricular não obrigatório', 4, 40, '')
+('Estágio curricular não obrigatório', 4, 90, '')
