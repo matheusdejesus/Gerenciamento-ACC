@@ -650,6 +650,10 @@
                 
                 if (result.success) {
                     alert('Atividade cadastrada com sucesso!');
+                    
+                    // Atualizar automaticamente a seção "Minhas Atividades"
+                    await atualizarMinhasAtividades();
+                    
                     fecharModalSelecao();
                     // Redirecionar para página de atividades do aluno
                     window.location.href = 'home_aluno.php';
@@ -669,6 +673,24 @@
         // Removida validação que definia data mínima do campo dataFim
         
         // Removida validação que impedia data fim anterior à data início no evento change
+
+        // Função para atualizar a seção "Minhas Atividades"
+        async function atualizarMinhasAtividades() {
+            try {
+                const response = await AuthClient.request('/api/atividades/aluno', {
+                    method: 'GET'
+                });
+                
+                if (response.success && response.data) {
+                    // Aqui você pode atualizar a seção "Minhas Atividades" se ela existir na página
+                    console.log('Atividades atualizadas:', response.data);
+                    // Se houver uma função específica para atualizar a seção, chame-a aqui
+                    // Por exemplo: atualizarSecaoMinhasAtividades(response.data);
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar Minhas Atividades:', error);
+            }
+        }
 
         // Carregar atividades ao inicializar a página
         carregarAtividades();

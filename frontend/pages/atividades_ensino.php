@@ -616,6 +616,10 @@
                 if (response.ok && resultado.sucesso) {
                     alert('Atividade complementar cadastrada com sucesso!');
                     fecharModalSelecao();
+                    
+                    // Atualizar automaticamente a seção "Minhas Atividades"
+                    await atualizarMinhasAtividades();
+                    
                     // Recarregar a página para mostrar a nova atividade
                     window.location.reload();
                 } else {
@@ -645,6 +649,25 @@
                 submitBtn.textContent = originalText;
             }
         });
+
+        // Função para atualizar "Minhas Atividades" automaticamente
+        async function atualizarMinhasAtividades() {
+            try {
+                // Fazer requisição para buscar as atividades atualizadas do aluno
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Atividades atualizadas automaticamente:', data.data);
+                    // Aqui você pode adicionar lógica adicional se necessário
+                    // Por exemplo, mostrar uma notificação de que as atividades foram atualizadas
+                } else {
+                    console.error('Erro ao atualizar atividades:', data.error);
+                }
+            } catch (error) {
+                console.error('Erro na requisição de atualização:', error);
+            }
+        }
 
         // Carregar atividades ao inicializar a página
         carregarAtividades();

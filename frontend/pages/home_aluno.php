@@ -209,22 +209,113 @@
 
         let minhasAtividades = [];
 
-        // Função para carregar atividades
+        // Função para carregar atividades de todas as categorias
         async function carregarMinhasAtividades() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
-                const data = await response.json();
+                console.log('Iniciando carregamento de atividades...');
                 
-                if (data.success) {
-                    minhasAtividades = data.data || [];
-                    atualizarTabelaAtividades();
-                    atualizarEstatisticas();
-                } else {
-                    console.error('Erro ao carregar atividades:', data.error);
-                    exibirMensagemErro('Erro ao carregar suas atividades');
+                // Obter ID do usuário logado
+                const usuario = AuthClient.getUser();
+                const alunoId = usuario ? usuario.id : null;
+                
+                if (!alunoId) {
+                    console.error('Usuário não logado ou ID não encontrado');
+                    exibirMensagemErro('Erro de autenticação');
+                    return;
                 }
+
+                // Fazer requisições paralelas para todas as categorias
+                const promises = [
+                    // Atividades ACC (extracurriculares) - CORRIGIDO: usar rota específica
+                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividade_complementar_acc.php?aluno_id=${alunoId}`)
+                        .then(response => response.json())
+                        .catch(error => {
+                            console.warn('Erro ao carregar atividades ACC:', error);
+                            return { success: false, data: [] };
+                        }),
+                    
+                    // Atividades de Ensino
+                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividade_complementar_ensino.php?aluno_id=${alunoId}`)
+                        .then(response => response.json())
+                        .catch(error => {
+                            console.warn('Erro ao carregar atividades de Ensino:', error);
+                            return { success: false, data: [] };
+                        }),
+                    
+                    // Atividades de Estágio
+                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividades_estagio.php?aluno_id=${alunoId}`)
+                        .then(response => response.json())
+                        .catch(error => {
+                            console.warn('Erro ao carregar atividades de Estágio:', error);
+                            return { success: false, data: [] };
+                        }),
+                    
+                    // Atividades de Pesquisa
+                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividade_complementar_pesquisa.php?aluno_id=${alunoId}`)
+                        .then(response => response.json())
+                        .catch(error => {
+                            console.warn('Erro ao carregar atividades de Pesquisa:', error);
+                            return { success: false, data: [] };
+                        })
+                ];
+
+                const resultados = await Promise.all(promises);
+                console.log('Resultados das requisições:', resultados);
+
+                // Consolidar todas as atividades
+                let todasAtividades = [];
+                
+                resultados.forEach((resultado, index) => {
+                    if (resultado.success && resultado.data) {
+                        const categoria = ['ACC', 'Ensino', 'Estágio', 'Pesquisa'][index];
+                        console.log(`Atividades de ${categoria}:`, resultado.data);
+                        
+                        // Normalizar dados para cada categoria
+                        const atividadesNormalizadas = resultado.data.map(atividade => {
+                            let titulo, cargaHoraria;
+                            
+                            // Mapear campos específicos por categoria
+                            if (categoria === 'ACC') {
+                                titulo = atividade.curso_evento_nome || 'Sem título';
+                                cargaHoraria = atividade.horas_realizadas || 0;
+                            } else {
+                                titulo = atividade.titulo || atividade.nome_disciplina || atividade.empresa || atividade.tema || 'Sem título';
+                                cargaHoraria = atividade.carga_horaria_solicitada || atividade.carga_horaria || atividade.horas || atividade.horas_realizadas || 0;
+                            }
+                            
+                            return {
+                                ...atividade,
+                                categoria_origem: categoria,
+                                // Garantir campos obrigatórios
+                                titulo: titulo,
+                                categoria_nome: atividade.categoria_nome || categoria,
+                                carga_horaria_solicitada: cargaHoraria,
+                                carga_horaria_aprovada: atividade.carga_horaria_aprovada || atividade.horas_aprovadas || null,
+                                status: atividade.status || 'Pendente',
+                                data_submissao: atividade.data_submissao || atividade.data_inicio || new Date().toISOString().split('T')[0]
+                            };
+                        });
+                        
+                        todasAtividades = todasAtividades.concat(atividadesNormalizadas);
+                    }
+                });
+
+                // Ordenar por data de submissão (mais recente primeiro)
+                todasAtividades.sort((a, b) => {
+                    const dataA = new Date(a.data_submissao);
+                    const dataB = new Date(b.data_submissao);
+                    return dataB - dataA;
+                });
+
+                console.log('Total de atividades carregadas:', todasAtividades.length);
+                console.log('Atividades consolidadas:', todasAtividades);
+
+                minhasAtividades = todasAtividades;
+                atualizarTabelaAtividades();
+                atualizarEstatisticas();
+
             } catch (error) {
-                console.error('Erro na requisição:', error);
+                console.error('Erro geral no carregamento:', error);
                 exibirMensagemErro('Erro de conexão ao carregar atividades');
             }
         }

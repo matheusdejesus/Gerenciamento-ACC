@@ -72,7 +72,7 @@ try {
         $data = json_decode(file_get_contents('php://input'), true);
         
         if ($usuario['tipo'] === 'admin') {
-            $controller->registrarAcao();
+            $controller->registrarAcaoUsuario($usuario['id'], $data['acao'], $data['detalhes']);
         } else {
             $controller->registrarAcaoUsuario($usuario['id'], $data['acao'], $data['detalhes']);
         }
@@ -89,7 +89,7 @@ try {
                 enviarErro('Acesso negado. Apenas administradores podem ver estatísticas.', 403);
             }
             
-            $controller->buscarEstatisticas();
+            $controller->getStatistics();
             exit;
         }
         

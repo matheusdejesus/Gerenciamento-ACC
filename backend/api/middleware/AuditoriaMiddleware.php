@@ -25,7 +25,7 @@ class AuditoriaMiddleware {
             
             return LogAcoesController::registrar($usuario_id, $acao, $descricaoCompleta);
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log("Erro no AuditoriaMiddleware: " . $e->getMessage());
             return false;
         }

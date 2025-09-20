@@ -134,8 +134,6 @@ try {
         
         error_log("Processando aprovação do certificado avulso ID: " . $certificado_id);
         
-        require_once __DIR__ . '/../models/CertificadoAvulso.php';
-        $resultado = CertificadoAvulso::aprovar($certificado_id, $usuario['id'], $observacoes);
         
         if ($resultado) {
             while (ob_get_level()) {
@@ -171,11 +169,7 @@ try {
             error_log("Observações não fornecidas");
             enviarErro('Observações são obrigatórias para rejeição', 400);
         }
-        
-        error_log("Processando rejeição do certificado avulso ID: " . $certificado_id);
-        
-        require_once __DIR__ . '/../models/CertificadoAvulso.php';
-        $resultado = CertificadoAvulso::rejeitar($certificado_id, $usuario['id'], $observacoes);
+                
         
         if ($resultado) {
             while (ob_get_level()) {

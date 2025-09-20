@@ -2,7 +2,9 @@
 
 namespace backend\api\services;
 
-use backend\api\models\Usuario;
+require_once __DIR__ . '/../models/Usuario.php';
+require_once __DIR__ . '/../models/RecuperarSenha.php';
+
 use backend\api\models\RecuperarSenha;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -12,7 +14,8 @@ class RecuperarSenhaService {
     private $recuperarSenhaModel;
     
     public function __construct() {
-        $this->usuarioModel = new Usuario();
+        // Usuario class is not namespaced, so we use it directly
+        $this->usuarioModel = new \Usuario();
         $this->recuperarSenhaModel = new RecuperarSenha();
     }
     
@@ -28,7 +31,7 @@ class RecuperarSenhaService {
         }
         
         // Verificar se usuário existe
-        $usuario = $this->usuarioModel->buscarPorEmail($email);
+        $usuario = $this->usuarioModel->findByEmail($email);
         if (!$usuario) {
             throw new \Exception('Email não encontrado');
         }
@@ -76,9 +79,17 @@ class RecuperarSenhaService {
         // Validar token
         $recovery = $this->validarToken($token);
         
-        // Atualizar senha
+        // Atualizar senha - need to check if this method exists in Usuario class
         $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-        if (!$this->usuarioModel->atualizarSenha($recovery['usuario_id'], $senha_hash)) {
+        
+        // Use static method or create instance method for updating password
+        require_once __DIR__ . '/../config/Database.php';
+        $db = \backend\api\config\Database::getInstance()->getConnection();
+        $stmt = $db->prepare("UPDATE Usuario SET senha = ? WHERE id = ?");
+        $stmt->bind_param("si", $senha_hash, $recovery['usuario_id']);
+        $resultado = $stmt->execute();
+        
+        if (!$resultado) {
             throw new \Exception('Erro ao atualizar senha');
         }
         

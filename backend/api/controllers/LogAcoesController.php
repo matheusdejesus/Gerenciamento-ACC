@@ -135,5 +135,48 @@ class LogAcoesController extends Controller {
             return 0;
         }
     }
+    
+    // Método para registrar ação de usuário (usado pela rota auditoria.php)
+    public function registrarAcaoUsuario($usuario_id, $acao, $detalhes = null) {
+        try {
+            $resultado = self::registrar($usuario_id, $acao, $detalhes);
+            if ($resultado) {
+                $this->sendJsonResponse([
+                    'success' => true,
+                    'message' => 'Ação registrada com sucesso'
+                ]);
+            } else {
+                $this->sendJsonResponse([
+                    'success' => false,
+                    'error' => 'Erro ao registrar ação'
+                ], 500);
+            }
+        } catch (Exception $e) {
+            error_log("Erro em LogAcoesController::registrarAcaoUsuario: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro interno do servidor'
+            ], 500);
+        }
+    }
+    
+    // Método para obter estatísticas (usado pela rota auditoria.php)
+    public function getStatistics() {
+        try {
+            require_once __DIR__ . '/../models/LogAcoes.php';
+            $estatisticas = \backend\api\models\LogAcoes::buscarEstatisticas();
+            
+            $this->sendJsonResponse([
+                'success' => true,
+                'data' => $estatisticas
+            ]);
+        } catch (Exception $e) {
+            error_log("Erro em LogAcoesController::getStatistics: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro ao buscar estatísticas'
+            ], 500);
+        }
+    }
 }
 ?>

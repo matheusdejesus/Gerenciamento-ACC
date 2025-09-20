@@ -204,6 +204,33 @@ CREATE TABLE atividadecomplementarestagio (
     FOREIGN KEY (avaliador_id) REFERENCES Coordenador(usuario_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Tabela para armazenar atividades complementares de pesquisa
+CREATE TABLE atividadecomplementarpesquisa (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    aluno_id INT NOT NULL,
+    atividade_disponivel_id INT NOT NULL,
+    tipo_atividade ENUM('apresentacao_evento', 'membro_evento', 'iniciacao_cientifica', 'publicacao_artigo') NOT NULL,
+    horas_realizadas INT NOT NULL,
+    local_instituicao VARCHAR(255) NULL,
+    declaracao_caminho VARCHAR(500) NOT NULL,
+    tema VARCHAR(255) NULL,
+    quantidade_apresentacoes INT NULL,
+    nome_evento VARCHAR(255) NULL,
+    nome_projeto VARCHAR(255) NULL,
+    data_inicio DATE NULL,
+    data_fim DATE NULL,
+    nome_artigo VARCHAR(255) NULL,
+    quantidade_publicacoes INT NULL,
+    status ENUM('pendente', 'aprovada', 'rejeitada') DEFAULT 'pendente',
+    data_submissao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    data_avaliacao DATETIME NULL,
+    observacoes_avaliacao TEXT NULL,
+    avaliador_id INT NULL,
+    FOREIGN KEY (aluno_id) REFERENCES Aluno(usuario_id) ON DELETE CASCADE,
+    FOREIGN KEY (atividade_disponivel_id) REFERENCES AtividadesDisponiveis(id) ON DELETE RESTRICT,
+    FOREIGN KEY (avaliador_id) REFERENCES Coordenador(usuario_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO Instituto (id, nome, sigla) VALUES
   (1, 'Instituto de Biodiversidade e Florestas', 'IBEF'),           -- :contentReference[oaicite:1]{index=1}
   (2, 'Instituto de Ciências da Educação', 'ICED'),               -- :contentReference[oaicite:2]{index=2}
@@ -273,8 +300,8 @@ INSERT INTO atividadesdisponiveis (titulo, categoria_id, carga_horaria_maxima_po
 ('Monitoria em disciplina de graduação ou laboratório', 1, 40, ''),
 
 -- Atividades de Pesquisa
-('Apresentação em eventos científicos (por trabalho)', 2, 9, ''),
-('Publicação de artigo em anais, periódicos ou capítulo de livro (por trabalho)', 2, 10, ''),
+('Apresentação em eventos científicos (por trabalho)', 2, 9, 'Cada apresentação equivale a 5 (cinco) horas para eventos locais, regionais e nacionais, e 7 (sete) horas para internacionais'),
+('Publicação de artigo em anais, periódicos ou capítulo de livro (por trabalho)', 2, 10, 'Cada publicação equivale a 10 horas'),
 ('Membro efetivo e/ou assistente em eventos científicos e profissionais', 2, 40, 'Carga horária contabilizada conforme a carga horária do evento'),
 ('Participação em projeto de Iniciação Científica', 2, 40, ''),
 

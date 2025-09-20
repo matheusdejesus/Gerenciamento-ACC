@@ -566,8 +566,8 @@ class AtividadeComplementar {
 
             $atividades = [];
 
-            // Buscar certificados pendentes de atividades complementares
-            $sql = "
+            // 1. Buscar atividades complementares (ACC) pendentes
+            $sqlACC = "
                 SELECT 
                     ac.id,
                     ac.titulo,
@@ -583,20 +583,18 @@ class AtividadeComplementar {
                     ac.atividade_disponivel_id,
                     ac.categoria_id,
                     cat.descricao as categoria_nome,
-                    'complementar' as tipo
+                    'acc' as tipo,
+                    ac.data_submissao
                 FROM atividadecomplementaracc ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
                 LEFT JOIN CategoriaAtividade cat ON ac.categoria_id = cat.id
                 WHERE c.id = ?
-                  AND ac.certificado_processado IS NOT NULL
-                  AND (ac.status = 'Aprovada' OR ac.status = 'Pendente')
-                  AND (ac.observacoes_Analise IS NULL OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%')
-                  AND (ac.observacoes_Analise IS NULL OR ac.observacoes_Analise NOT LIKE '%[CERTIFICADO REJEITADO PELO COORDENADOR%')
+                  AND ac.status = 'pendente'
             ";
 
-            $stmt = $db->prepare($sql);
+            $stmt = $db->prepare($sqlACC);
             $stmt->bind_param("i", $curso_id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -605,7 +603,118 @@ class AtividadeComplementar {
                 $atividades[] = $row;
             }
 
-            // Buscar certificados avulsos pendentes
+            // 2. Buscar atividades de Ensino pendentes
+            $sqlEnsino = "
+                SELECT 
+                    ae.id,
+                    ad.titulo,
+                    ae.horas_realizadas as carga_horaria_aprovada,
+                    ae.status,
+                    ae.data_submissao as data_envio,
+                    ae.declaracao_caminho as certificado_caminho,
+                    ae.aluno_id,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    ae.observacoes_avaliacao as observacoes_Analise,
+                    ae.atividade_disponivel_id,
+                    1 as categoria_id,
+                    'Ensino' as categoria_nome,
+                    'ensino' as tipo,
+                    ae.data_submissao
+                FROM atividadecomplementarensino ae
+                INNER JOIN Aluno a ON ae.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                INNER JOIN AtividadesDisponiveis ad ON ae.atividade_disponivel_id = ad.id
+                WHERE c.id = ?
+                  AND ae.status = 'pendente'
+            ";
+
+            $stmt = $db->prepare($sqlEnsino);
+            $stmt->bind_param("i", $curso_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = $row;
+            }
+
+            // 3. Buscar atividades de Estágio pendentes
+            $sqlEstagio = "
+                SELECT 
+                    aes.id,
+                    ad.titulo,
+                    aes.horas_realizadas as carga_horaria_aprovada,
+                    aes.status,
+                    aes.data_submissao as data_envio,
+                    aes.declaracao_caminho as certificado_caminho,
+                    aes.aluno_id,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    aes.observacoes_avaliacao as observacoes_Analise,
+                    aes.atividade_disponivel_id,
+                    4 as categoria_id,
+                    'Estágio' as categoria_nome,
+                    'estagio' as tipo,
+                    aes.data_submissao
+                FROM atividadecomplementarestagio aes
+                INNER JOIN Aluno a ON aes.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                INNER JOIN AtividadesDisponiveis ad ON aes.atividade_disponivel_id = ad.id
+                WHERE c.id = ?
+                  AND aes.status = 'pendente'
+            ";
+
+            $stmt = $db->prepare($sqlEstagio);
+            $stmt->bind_param("i", $curso_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = $row;
+            }
+
+            // 4. Buscar atividades de Pesquisa pendentes
+            $sqlPesquisa = "
+                SELECT 
+                    ap.id,
+                    ad.titulo,
+                    ap.horas_realizadas as carga_horaria_aprovada,
+                    ap.status,
+                    ap.data_submissao as data_envio,
+                    ap.declaracao_caminho as certificado_caminho,
+                    ap.aluno_id,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    ap.observacoes_avaliacao as observacoes_Analise,
+                    ap.atividade_disponivel_id,
+                    2 as categoria_id,
+                    'Pesquisa' as categoria_nome,
+                    'pesquisa' as tipo,
+                    ap.data_submissao
+                FROM atividadecomplementarpesquisa ap
+                INNER JOIN Aluno a ON ap.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                INNER JOIN AtividadesDisponiveis ad ON ap.atividade_disponivel_id = ad.id
+                WHERE c.id = ?
+                  AND ap.status = 'pendente'
+            ";
+
+            $stmt = $db->prepare($sqlPesquisa);
+            $stmt->bind_param("i", $curso_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = $row;
+            }
+
+            // 5. Buscar certificados avulsos pendentes
             $sqlAvulso = "
                 SELECT 
                     ca.id,
@@ -621,7 +730,8 @@ class AtividadeComplementar {
                     ca.observacao as observacoes_Analise,
                     NULL as categoria_id,
                     'Certificado Avulso' as categoria_nome,
-                    'avulso' as tipo
+                    'avulso' as tipo,
+                    ca.data_envio as data_submissao
                 FROM certificadoavulso ca
                 INNER JOIN Aluno a ON ca.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
@@ -638,9 +748,11 @@ class AtividadeComplementar {
                 $atividades[] = $row;
             }
 
-            // Ordenar por data de envio
+            // Ordenar por data de submissão (mais recente primeiro)
             usort($atividades, function($a, $b) {
-                return strtotime($b['data_envio']) - strtotime($a['data_envio']);
+                $dataA = $a['data_submissao'] ?? $a['data_envio'];
+                $dataB = $b['data_submissao'] ?? $b['data_envio'];
+                return strtotime($dataB) - strtotime($dataA);
             });
 
             return $atividades;

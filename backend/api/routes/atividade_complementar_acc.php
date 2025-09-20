@@ -28,10 +28,12 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../controllers/AtividadeComplementarACCController.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
+require_once __DIR__ . '/../services/JWTService.php';
 
 use backend\api\controllers\AtividadeComplementarACCController;
 use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
+use backend\api\services\JWTService;
 
 function enviarErro($mensagem, $codigo = 400) {
     error_log("[DEBUG] enviarErro chamada - Código: $codigo, Mensagem: $mensagem");
@@ -78,8 +80,22 @@ try {
         
         // Listar por aluno específico
         if (isset($_GET['aluno_id'])) {
-            $usuario = AuthMiddleware::validateToken();
-            if (!$usuario || ($usuario['tipo'] !== 'coordenador' && $usuario['id'] != $_GET['aluno_id'])) {
+            // Primeiro tentar API Key, depois JWT
+            $usuario = ApiKeyMiddleware::verificarApiKey();
+            if (!$usuario) {
+                $usuario = AuthMiddleware::validateToken();
+            }
+            
+            error_log("[DEBUG] Usuário validado: " . json_encode($usuario));
+            error_log("[DEBUG] Aluno ID solicitado: " . $_GET['aluno_id']);
+            
+            if (!$usuario) {
+                error_log("[DEBUG] Token inválido ou não fornecido");
+                enviarErro('Token de acesso inválido', 401);
+            }
+            
+            if ($usuario['tipo'] !== 'coordenador' && $usuario['id'] != $_GET['aluno_id']) {
+                error_log("[DEBUG] Acesso negado - Tipo: " . $usuario['tipo'] . ", ID: " . $usuario['id'] . ", Solicitado: " . $_GET['aluno_id']);
                 enviarErro('Acesso negado', 403);
             }
             
@@ -93,7 +109,12 @@ try {
         
         // Buscar por ID específico
         elseif (isset($_GET['id'])) {
-            $usuario = AuthMiddleware::validateToken();
+            // Primeiro tentar API Key, depois JWT
+            $usuario = ApiKeyMiddleware::verificarApiKey();
+            if (!$usuario) {
+                $usuario = AuthMiddleware::validateToken();
+            }
+            
             if (!$usuario) {
                 enviarErro('Acesso negado', 403);
             }
@@ -113,7 +134,12 @@ try {
         
         // Obter estatísticas
         elseif (isset($_GET['estatisticas'])) {
-            $usuario = AuthMiddleware::validateToken();
+            // Primeiro tentar API Key, depois JWT
+            $usuario = ApiKeyMiddleware::verificarApiKey();
+            if (!$usuario) {
+                $usuario = AuthMiddleware::validateToken();
+            }
+            
             if (!$usuario) {
                 enviarErro('Acesso negado', 403);
             }
@@ -135,7 +161,12 @@ try {
         
         // Listar todas (apenas coordenadores)
         else {
-            $usuario = AuthMiddleware::validateToken();
+            // Primeiro tentar API Key, depois JWT
+            $usuario = ApiKeyMiddleware::verificarApiKey();
+            if (!$usuario) {
+                $usuario = AuthMiddleware::validateToken();
+            }
+            
             if (!$usuario || $usuario['tipo'] !== 'coordenador') {
                 enviarErro('Acesso negado', 403);
             }

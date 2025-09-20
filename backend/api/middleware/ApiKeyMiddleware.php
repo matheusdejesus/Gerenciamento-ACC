@@ -64,7 +64,7 @@ class ApiKeyMiddleware {
             
             return true;
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log("Erro ao validar API Key: " . $e->getMessage());
             self::sendError('Erro interno na validação da API Key', 500);
             return false;
@@ -149,7 +149,7 @@ class ApiKeyMiddleware {
                 'tipo' => $userData['tipo']
             ];
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log("Erro ao verificar API Key: " . $e->getMessage());
             return null;
         }

@@ -17,7 +17,7 @@ class Controller {
     protected function validateRequiredFields($data, $requiredFields) {
         foreach ($requiredFields as $field) {
             if (!isset($data[$field]) || empty($data[$field])) {
-                throw new Exception("Campo obrigatório: $field");
+                throw new \Exception("Campo obrigatório: $field");
             }
         }
     }

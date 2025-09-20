@@ -154,14 +154,38 @@ if ($tipo_atividade === 'Outras IES') {
             }
 
             echo json_encode([
-                'sucesso' => true,
-                'atividades' => $atividades
+                'success' => true,
+                'data' => $atividades
             ]);
 
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementarEnsinoController::listar: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['erro' => 'Erro interno do servidor']);
+        }
+    }
+    
+    public function listarPorAluno() {
+        try {
+            $aluno_id = $_GET['aluno_id'] ?? null;
+            
+            if (empty($aluno_id)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'ID do aluno é obrigatório']);
+                return;
+            }
+
+            $atividades = AtividadeComplementarEnsino::buscarPorAluno($aluno_id);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $atividades
+            ]);
+
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementarEnsinoController::listarPorAluno: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro interno do servidor']);
         }
     }
     

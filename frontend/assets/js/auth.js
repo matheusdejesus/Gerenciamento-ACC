@@ -107,8 +107,6 @@ class AuthClient {
         // Sempre tentar fazer o parsing do JSON, independente do status
         try {
             const responseText = await response.text();
-            console.log('Response status:', response.status);
-            console.log('Response text:', responseText);
             
             // Se a resposta estiver vazia, retornar erro específico
             if (!responseText.trim()) {
@@ -207,7 +205,6 @@ class AuthClient {
 
     // Método para registrar ações do frontend
     static async registrarAcao(acao, detalhes) {
-        console.log(`Ação registrada: ${acao} - ${detalhes}`);
         return { success: true };
     }
 }

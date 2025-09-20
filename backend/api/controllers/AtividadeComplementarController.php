@@ -12,6 +12,7 @@ use backend\api\models\AtividadeComplementar;
 use backend\api\models\AtividadesDisponiveis;
 use backend\api\controllers\Controller;
 use backend\api\controllers\LogAcoesController;
+use Exception;
 
 class AtividadeComplementarController extends Controller {
     
@@ -131,12 +132,26 @@ class AtividadeComplementarController extends Controller {
             // Buscar atividades complementares
             $atividades = AtividadeComplementar::buscarPorAluno($aluno_id);
             
-            // Buscar certificados avulsos
-            require_once __DIR__ . '/../models/CertificadoAvulso.php';
-            $certificadosAvulsos = \backend\api\models\CertificadoAvulso::buscarPorAluno($aluno_id);
+            // Buscar atividades de Ensino
+            require_once __DIR__ . '/../models/AtividadeComplementarEnsino.php';
+            $atividadesEnsino = \backend\api\models\AtividadeComplementarEnsino::buscarPorAluno($aluno_id);
             
-            // Combinar as duas listas
-            $todasAtividades = array_merge($atividades, $certificadosAvulsos);
+            // Buscar atividades de Estágio
+            require_once __DIR__ . '/../models/AtividadeComplementarEstagio.php';
+            $atividadesEstagio = \backend\api\models\AtividadeComplementarEstagio::buscarPorAluno($aluno_id);
+            
+            // Buscar atividades de Pesquisa
+            require_once __DIR__ . '/../models/AtividadeComplementarPesquisa.php';
+            $atividadesPesquisa = \backend\api\models\AtividadeComplementarPesquisa::buscarPorAluno($aluno_id);
+            
+            // Combinar todas as listas
+            $todasAtividades = array_merge(
+                $atividades, 
+                $certificadosAvulsos, 
+                $atividadesEnsino, 
+                $atividadesEstagio, 
+                $atividadesPesquisa
+            );
             
             // Ordenar por data de submissão
             usort($todasAtividades, function($a, $b) {

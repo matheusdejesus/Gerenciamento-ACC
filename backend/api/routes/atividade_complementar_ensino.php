@@ -47,7 +47,12 @@ try {
             
         case 'GET':
             if ($path === '/' || $path === '/listar') {
-                $controller->listar();
+                // Verificar se é busca por aluno específico
+                if (isset($_GET['aluno_id'])) {
+                    $controller->listarPorAluno();
+                } else {
+                    $controller->listar();
+                }
             } elseif (preg_match('/^\/([0-9]+)$/', $path, $matches)) {
                 // Rota para buscar por ID: /123
                 $id = (int)$matches[1];

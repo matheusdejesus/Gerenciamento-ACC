@@ -175,8 +175,8 @@
                         Cancelar
                     </button>
                     <button type="submit" id="btnSubmit" 
-                            class="px-6 py-2 text-white rounded-md transition-colors" 
-                            style="background-color: #F59E0B; hover:background-color: #D97706">
+                            class="px-6 py-2 text-white rounded-md transition-colors hover:bg-yellow-600" 
+                            style="background-color: #F59E0B">
                         Cadastrar Atividade
                     </button>
                 </div>
@@ -410,6 +410,10 @@
                 const result = await resp.json();
                 if (result.success) {
                     alert('Atividade de estágio cadastrada com sucesso!');
+                    
+                    // Atualizar automaticamente a seção "Minhas Atividades"
+                    await atualizarMinhasAtividades();
+                    
                     fecharModalSelecao();
                 } else {
                     alert('Erro ao cadastrar atividade: ' + (result.message || 'Erro desconhecido'));
@@ -423,6 +427,25 @@
                 btnSubmit.textContent = textoOriginal;
             }
         });
+
+        // Função para atualizar "Minhas Atividades" automaticamente
+        async function atualizarMinhasAtividades() {
+            try {
+                // Fazer requisição para buscar as atividades atualizadas do aluno
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Atividades atualizadas automaticamente:', data.data);
+                    // Aqui você pode adicionar lógica adicional se necessário
+                    // Por exemplo, mostrar uma notificação de que as atividades foram atualizadas
+                } else {
+                    console.error('Erro ao atualizar atividades:', data.error);
+                }
+            } catch (error) {
+                console.error('Erro na requisição de atualização:', error);
+            }
+        }
 
         // Carregar atividades ao inicializar a página
         carregarAtividades();

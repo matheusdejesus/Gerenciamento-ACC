@@ -13,6 +13,7 @@ use backend\api\models\AtividadesDisponiveis;
 use backend\api\controllers\Controller;
 use backend\api\controllers\LogAcoesController;
 use Exception;
+use DateTime;
 
 class AtividadeComplementarACCController extends Controller {
     
@@ -34,9 +35,20 @@ class AtividadeComplementarACCController extends Controller {
                 throw new Exception("Datas de início e fim são obrigatórias");
             }
             
-            // Validar se data_fim >= data_inicio (permitir datas iguais para atividades de um dia)
-            if (strtotime($dados['data_fim']) < strtotime($dados['data_inicio'])) {
-                throw new Exception("A data de fim não pode ser anterior à data de início.");
+            // Validar se data_fim >= data_inicio usando DateTime para maior precisão
+            try {
+                $dataInicio = new DateTime($dados['data_inicio']);
+                $dataFim = new DateTime($dados['data_fim']);
+                
+                // Permitir datas iguais para atividades de um dia
+                if ($dataFim < $dataInicio) {
+                    throw new Exception("A data de fim não pode ser anterior à data de início.");
+                }
+            } catch (Exception $e) {
+                if (strpos($e->getMessage(), 'data de fim') !== false) {
+                    throw $e; // Re-lançar nossa exceção personalizada
+                }
+                throw new Exception("Formato de data inválido. Use o formato YYYY-MM-DD.");
             }
             
             // Remover validação que impede datas futuras - atividades podem ser planejadas para o futuro
