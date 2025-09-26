@@ -7,6 +7,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="../assets/js/auth.js"></script>
     <link rel="stylesheet" href="../css/style.css">
+    <script>
+        // Verificar autenticação ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Verificando autenticação...');
+            console.log('Token:', AuthClient.getToken());
+            console.log('Usuário:', AuthClient.getUser());
+            console.log('Está logado:', AuthClient.isLoggedIn());
+            
+            if (!AuthClient.isLoggedIn()) {
+                alert('Você precisa estar logado para acessar esta página.');
+                window.location.href = 'login.php';
+                return;
+            }
+        });
+    </script>
 </head>
 <body class="bg-gray-50">
     <!-- Navegação -->
@@ -37,23 +52,18 @@
                     <div class="text-4xl mr-4">🎓</div>
                     <div>
                         <h2 class="text-3xl font-bold" style="color: #8B5CF6">Atividades Extracurriculares</h2>
-                        <p class="text-gray-600 mt-2">Selecione uma atividade para enviar seu certificado</p>
+                        <p class="text-gray-600 mt-2">Selecione uma atividade extracurricular para cadastrar</p>
                     </div>
                 </div>
-            </div>
-
-            <!-- Alerta de erro -->
-            <div id="alertaAtividades" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <h3 class="text-sm font-medium text-red-800">Erro ao carregar atividades</h3>
-                        <p class="text-sm text-red-700 mt-1">Não foi possível carregar as atividades de extensão. Tente novamente.</p>
-                    </div>
+                
+                <!-- Alerta de erro para categorias -->
+                <div id="alertaCategorias" class="hidden mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p class="text-yellow-800">⚠️ Não foi possível carregar as categorias. Verifique a conexão com o banco de dados.</p>
+                </div>
+                
+                <!-- Alerta de erro para atividades -->
+                <div id="alertaAtividades" class="hidden mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p class="text-yellow-800">⚠️ Não foi possível carregar as atividades. Verifique a conexão com o banco de dados.</p>
                 </div>
             </div>
 
@@ -264,7 +274,7 @@
         // Verificar autenticação
         function verificarAutenticacao() {
             if (!AuthClient.isLoggedIn()) {
-                window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
+                window.location.href = 'login.php';
                 return false;
             }
             const user = AuthClient.getUser();
@@ -277,26 +287,165 @@
         
         verificarAutenticacao();
 
-        // Carregar atividades de extensão via JWT
+        // Variáveis globais
+        let todasCategorias = [];
         let todasAtividades = [];
+        let categoriaAtual = null;
 
-        async function carregarAtividades() {
+        // Carregar categorias via JWT
+        async function carregarCategorias() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php', {
-                    method: 'GET'
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_categorias.php', {
+                    method: 'POST'
                 });
                 const data = await response.json();
                 if (data.success) {
-                    // Filtrar apenas atividades extracurriculares
-                    todasAtividades = (data.data || []).filter(atividade => 
-                        atividade.categoria && atividade.categoria.toLowerCase() === 'atividades extracurriculares'
-                    );
+                    todasCategorias = data.data || [];
+                    renderizarCategorias();
+                    document.getElementById('alertaCategorias').classList.add('hidden');
+                } else {
+                    document.getElementById('alertaCategorias').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('alertaCategorias').classList.remove('hidden');
+            }
+        }
+
+        function renderizarCategorias() {
+            const container = document.getElementById('categoriasContainer');
+            if (!todasCategorias.length) {
+                container.innerHTML = `<div class="text-center py-12">
+                    <p class="text-gray-500 text-lg">Nenhuma categoria encontrada.</p>
+                </div>`;
+                return;
+            }
+
+            // Definir cores e ícones para cada categoria
+            const categoriaConfig = {
+                'Ensino': { cor: '#1A7F37', icone: '📚' },
+                'Pesquisa': { cor: '#0969DA', icone: '🔬' },
+                'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
+                'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
+                'Estágio': { cor: '#F59E0B', icone: '💼' }
+            };
+
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                ${todasCategorias.map(categoria => {
+                    const config = categoriaConfig[categoria.nome] || { cor: '#6B7280', icone: '📋' };
+                    return `
+                        <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
+                             onclick="selecionarCategoria('${categoria.nome}')">
+                            <div class="p-6 text-center" style="background: linear-gradient(135deg, ${config.cor}, ${config.cor}dd)">
+                                <div class="text-4xl mb-3">${config.icone}</div>
+                                <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
+                            </div>
+                            <div class="p-4 text-center">
+                                <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
+                                <div class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition duration-200"
+                                     style="background-color: ${config.cor}20; color: ${config.cor}">
+                                    Ver Atividades
+                                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>`;
+        }
+
+        function selecionarCategoria(nomeCategoria) {
+            categoriaAtual = nomeCategoria;
+            
+            // Ocultar categorias e mostrar atividades
+            document.getElementById('categoriasContainer').classList.add('hidden');
+            document.getElementById('atividadesContainer').classList.remove('hidden');
+            
+            // Atualizar título
+            const titulo = document.querySelector('h2');
+            titulo.textContent = `Atividades - ${nomeCategoria}`;
+            
+            // Adicionar botão voltar
+            const cabecalho = document.querySelector('.flex.items-center.mb-4');
+            if (!document.getElementById('btnVoltar')) {
+                const btnVoltar = document.createElement('button');
+                btnVoltar.id = 'btnVoltar';
+                btnVoltar.className = 'ml-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200';
+                btnVoltar.textContent = '← Voltar às Categorias';
+                btnVoltar.onclick = voltarCategorias;
+                cabecalho.appendChild(btnVoltar);
+            }
+            
+            // Carregar atividades da categoria
+            carregarAtividades(nomeCategoria);
+        }
+
+        function voltarCategorias() {
+            // Mostrar categorias e ocultar atividades
+            document.getElementById('categoriasContainer').classList.remove('hidden');
+            document.getElementById('atividadesContainer').classList.add('hidden');
+            
+            // Restaurar título
+            const titulo = document.querySelector('h2');
+            titulo.textContent = 'Escolher Categoria de Atividade';
+            
+            // Remover botão voltar
+            const btnVoltar = document.getElementById('btnVoltar');
+            if (btnVoltar) {
+                btnVoltar.remove();
+            }
+            
+            categoriaAtual = null;
+        }
+
+        // Carregar atividades de uma categoria específica via JWT
+        async function carregarAtividades(categoria) {
+            try {
+                console.log('🔍 Carregando atividades para categoria:', categoria);
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades.php', {
+                    method: 'GET'
+                });
+                const data = await response.json();
+                console.log('📊 Resposta da API:', data);
+                
+                if (data.success) {
+                    console.log('✅ Total de atividades recebidas:', data.data?.length || 0);
+                    
+                    // Log de todas as categorias disponíveis
+                    const categoriasDisponiveis = [...new Set((data.data || []).map(a => a.categoria))];
+                    console.log('📋 Categorias disponíveis no banco:', categoriasDisponiveis);
+                    
+                    // Filtrar atividades da categoria selecionada - melhorar o filtro
+                    todasAtividades = (data.data || []).filter(atividade => {
+                        if (!atividade.categoria) return false;
+                        
+                        const categoriaAtividade = atividade.categoria.toLowerCase().trim();
+                        const categoriaBusca = categoria.toLowerCase().trim();
+                        
+                        // Verificar correspondência exata ou parcial
+                        const match = categoriaAtividade === categoriaBusca || 
+                                     categoriaAtividade.includes(categoriaBusca) ||
+                                     categoriaBusca.includes(categoriaAtividade);
+                        
+                        if (match) {
+                            console.log(`✅ Atividade encontrada: "${atividade.nome}" - Categoria: "${atividade.categoria}"`);
+                        }
+                        
+                        return match;
+                    });
+                    
+                    console.log('🎯 Atividades filtradas para categoria "' + categoria + '":', todasAtividades.length);
+                    console.log('📝 Atividades encontradas:', todasAtividades.map(a => a.nome));
+                    
                     renderizarAtividades();
                     document.getElementById('alertaAtividades').classList.add('hidden');
                 } else {
+                    console.error('❌ Erro na resposta da API:', data.error || 'Erro desconhecido');
                     document.getElementById('alertaAtividades').classList.remove('hidden');
                 }
             } catch (e) {
+                console.error('💥 Erro ao carregar atividades:', e);
                 document.getElementById('alertaAtividades').classList.remove('hidden');
             }
         }
@@ -640,15 +789,49 @@
             btnSubmit.textContent = 'Enviando...';
             
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/atividade_complementar_acc.php', {
+                console.log('=== DEBUG REQUISIÇÃO ===');
+                console.log('Enviando dados:', formData);
+                console.log('URL:', '../../backend/api/routes/atividade_complementar_acc.php');
+                console.log('Token disponível:', AuthClient.getToken());
+                console.log('Usuário logado:', AuthClient.getUser());
+                
+                // Log detalhado do FormData
+                console.log('=== CONTEÚDO DO FORMDATA ===');
+                for (let [key, value] of formData.entries()) {
+                    if (value instanceof File) {
+                        console.log(`${key}: [File] ${value.name} (${value.size} bytes, ${value.type})`);
+                    } else {
+                        console.log(`${key}: ${value}`);
+                    }
+                }
+                
+                // Verificar se o usuário está logado
+                if (!AuthClient.isLoggedIn()) {
+                    alert('Você precisa estar logado para cadastrar uma atividade.');
+                    window.location.href = 'login.php';
+                    return;
+                }
+                
+                // Log dos headers que serão enviados
+                console.log('=== HEADERS DA REQUISIÇÃO ===');
+                const headers = AuthClient.getHeaders();
+                console.log('Headers:', headers);
+                
+                console.log('=== INICIANDO REQUISIÇÃO ===');
+                const response = await AuthClient.fetch('../../backend/api/routes/atividade_complementar_acc.php', {
                     method: 'POST',
                     body: formData
                 });
                 
+                console.log('=== RESPOSTA RECEBIDA ===');
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                console.log('Response data:', response.data);
+                
                 // Não precisamos chamar response.json() novamente, pois o AuthClient.fetch já retorna os dados processados
                 const result = response.data;
                 
-                if (result.success) {
+                if (result && result.success) {
                     alert('Atividade cadastrada com sucesso!');
                     
                     // Atualizar automaticamente a seção "Minhas Atividades"
@@ -658,11 +841,22 @@
                     // Redirecionar para página de atividades do aluno
                     window.location.href = 'home_aluno.php';
                 } else {
-                    alert('Erro ao cadastrar atividade: ' + (result.message || 'Erro desconhecido'));
+                    console.error('Erro na resposta:', result);
+                    alert('Erro ao cadastrar atividade: ' + (result?.message || result?.error || 'Erro desconhecido'));
                 }
             } catch (error) {
-                console.error('Erro:', error);
-                alert('Erro ao enviar dados. Tente novamente.');
+                console.error('=== ERRO CAPTURADO ===');
+                console.error('Tipo do erro:', error.constructor.name);
+                console.error('Mensagem do erro:', error.message);
+                console.error('Stack trace:', error.stack);
+                console.error('Erro completo:', error);
+                
+                // Tentar extrair mais informações do erro
+                if (error.response) {
+                    console.error('Response do erro:', error.response);
+                }
+                
+                alert('Erro ao enviar dados: ' + error.message + '\nVerifique o console para mais detalhes.');
             } finally {
                 // Reabilitar botão
                 btnSubmit.disabled = false;
@@ -677,7 +871,7 @@
         // Função para atualizar a seção "Minhas Atividades"
         async function atualizarMinhasAtividades() {
             try {
-                const response = await AuthClient.request('/api/atividades/aluno', {
+                const response = await AuthClient.request('../../backend/api/routes/listar_atividades_aluno.php', {
                     method: 'GET'
                 });
                 
@@ -692,8 +886,8 @@
             }
         }
 
-        // Carregar atividades ao inicializar a página
-        carregarAtividades();
+        // Inicializar página - carregar diretamente as atividades extracurriculares
+        carregarAtividades('extracurriculares');
     </script>
 </body>
 </html>

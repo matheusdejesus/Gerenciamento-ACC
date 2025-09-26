@@ -11,6 +11,7 @@ class AtividadesDisponiveis {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT 
                         ad.id,
                         ad.titulo as nome,
@@ -18,13 +19,48 @@ class AtividadesDisponiveis {
                         ca.descricao as categoria,
                         'Atividade Complementar' as tipo,
                         ad.observacoes as descricao
-                    FROM AtividadesDisponiveis ad
-                    INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    FROM atividadesdisponiveisbcc23 ad
+                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     ORDER BY ca.descricao, ad.titulo";
             
             $result = $db->query($sql);
             
+            // Se a query falhar, tentar a tabela padrão AtividadesDisponiveis
             if (!$result) {
+                error_log("Tabela atividadesdisponiveisbcc23 não encontrada, usando AtividadesDisponiveis");
+                $sql = "SELECT 
+                            ad.id,
+                            ad.titulo as nome,
+                            ad.carga_horaria_maxima_por_atividade as horas_max,
+                            ca.descricao as categoria,
+                            'Atividade Complementar' as tipo,
+                            ad.observacoes as descricao
+                        FROM AtividadesDisponiveis ad
+                        INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                        ORDER BY ca.descricao, ad.titulo";
+                
+                $result = $db->query($sql);
+                
+                // Se ainda falhar, tentar com categoriaatividade
+                if (!$result) {
+                    error_log("Usando tabela categoriaatividade como fallback");
+                    $sql = "SELECT 
+                                ad.id,
+                                ad.titulo as nome,
+                                ad.carga_horaria_maxima_por_atividade as horas_max,
+                                ca.descricao as categoria,
+                                'Atividade Complementar' as tipo,
+                                ad.observacoes as descricao
+                            FROM AtividadesDisponiveis ad
+                            INNER JOIN categoriaatividade ca ON ad.categoria_id = ca.id
+                            ORDER BY ca.descricao, ad.titulo";
+                    
+                    $result = $db->query($sql);
+                }
+            }
+            
+            if (!$result) {
+                error_log("Erro na consulta SQL: " . $db->error);
                 throw new Exception("Erro na consulta: " . $db->error);
             }
             
@@ -40,6 +76,7 @@ class AtividadesDisponiveis {
                 ];
             }
             
+            error_log("AtividadesDisponiveis::listarTodas - Encontradas " . count($atividades) . " atividades");
             return $atividades;
             
         } catch (Exception $e) {
@@ -52,9 +89,10 @@ class AtividadesDisponiveis {
         try {
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
+            // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT ad.*, ca.descricao as categoria_nome 
-                    FROM AtividadesDisponiveis ad
-                    LEFT JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    FROM atividadesdisponiveisbcc23 ad
+                    LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     WHERE ad.id = ?";
             
             $stmt = $db->prepare($sql);
@@ -62,7 +100,41 @@ class AtividadesDisponiveis {
             $stmt->execute();
             
             $result = $stmt->get_result();
-            return $result->fetch_assoc();
+            $atividade = $result->fetch_assoc();
+            
+            // Se não encontrou, tentar com AtividadesDisponiveis
+            if (!$atividade) {
+                error_log("Tentando buscar na tabela AtividadesDisponiveis");
+                $sql = "SELECT ad.*, ca.descricao as categoria_nome 
+                        FROM AtividadesDisponiveis ad
+                        LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                        WHERE ad.id = ?";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                
+                $result = $stmt->get_result();
+                $atividade = $result->fetch_assoc();
+                
+                // Se ainda não encontrou ou categoria_nome é null, tentar com categoriaatividade
+                if (!$atividade || !$atividade['categoria_nome']) {
+                    error_log("Tentando buscar categoria na tabela categoriaatividade");
+                    $sql = "SELECT ad.*, ca.descricao as categoria_nome 
+                            FROM AtividadesDisponiveis ad
+                            LEFT JOIN categoriaatividade ca ON ad.categoria_id = ca.id
+                            WHERE ad.id = ?";
+                    
+                    $stmt = $db->prepare($sql);
+                    $stmt->bind_param("i", $id);
+                    $stmt->execute();
+                    
+                    $result = $stmt->get_result();
+                    $atividade = $result->fetch_assoc();
+                }
+            }
+            
+            return $atividade;
             
         } catch (Exception $e) {
             error_log("Erro em AtividadesDisponiveis::buscarPorId: " . $e->getMessage());
@@ -74,14 +146,15 @@ class AtividadesDisponiveis {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT 
                         ad.id,
                         ad.titulo as nome,
                         ad.carga_horaria_maxima_por_atividade as horas_max,
                         ca.descricao as categoria,
                         'Atividade Complementar' as tipo
-                    FROM AtividadesDisponiveis ad
-                    INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    FROM atividadesdisponiveisbcc23 ad
+                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     WHERE ca.descricao LIKE ?
                     ORDER BY ad.titulo";
             
@@ -91,12 +164,52 @@ class AtividadesDisponiveis {
             $stmt->execute();
             $result = $stmt->get_result();
             
+            // Se não retornou resultados, tentar com AtividadesDisponiveis
+            if ($result->num_rows === 0) {
+                error_log("Nenhum resultado com atividadesdisponiveisbcc23, tentando AtividadesDisponiveis");
+                $sql = "SELECT 
+                            ad.id,
+                            ad.titulo as nome,
+                            ad.carga_horaria_maxima_por_atividade as horas_max,
+                            ca.descricao as categoria,
+                            'Atividade Complementar' as tipo
+                        FROM AtividadesDisponiveis ad
+                        INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                        WHERE ca.descricao LIKE ?
+                        ORDER BY ad.titulo";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("s", $categoria_like);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                
+                // Se ainda não retornou resultados, tentar com categoriaatividade
+                if ($result->num_rows === 0) {
+                    error_log("Nenhum resultado com categoriaatividadebcc23, tentando categoriaatividade");
+                    $sql = "SELECT 
+                                ad.id,
+                                ad.titulo as nome,
+                                ad.carga_horaria_maxima_por_atividade as horas_max,
+                                ca.descricao as categoria,
+                                'Atividade Complementar' as tipo
+                            FROM AtividadesDisponiveis ad
+                            INNER JOIN categoriaatividade ca ON ad.categoria_id = ca.id
+                            WHERE ca.descricao LIKE ?
+                            ORDER BY ad.titulo";
+                    
+                    $stmt = $db->prepare($sql);
+                    $stmt->bind_param("s", $categoria_like);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                }
+            }
+            
             $atividades = [];
             while ($row = $result->fetch_assoc()) {
                 $atividades[] = [
                     'id' => (int)$row['id'],
                     'nome' => $row['nome'],
-                    'descricao' => $row['descricao'],
+                    'descricao' => $row['descricao'] ?? '',
                     'horas_max' => (int)$row['horas_max'],
                     'categoria' => $row['categoria'],
                     'tipo' => $row['tipo']
@@ -158,11 +271,18 @@ class AtividadesDisponiveis {
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
             // Verificar se a categoria existe
-            $checkCat = $db->prepare("SELECT id FROM CategoriaAtividade WHERE id = ?");
+            // Verificar se a categoria existe (primeiro em categoriaatividadebcc23, depois em categoriaatividade)
+            $checkCat = $db->prepare("SELECT id FROM categoriaatividadebcc23 WHERE id = ?");
             $checkCat->bind_param("i", $categoria_id);
             $checkCat->execute();
             if ($checkCat->get_result()->num_rows === 0) {
-                throw new \Exception("Categoria não encontrada: $categoria_id");
+                // Tentar na tabela padrão
+                $checkCat = $db->prepare("SELECT id FROM categoriaatividade WHERE id = ?");
+                $checkCat->bind_param("i", $categoria_id);
+                $checkCat->execute();
+                if ($checkCat->get_result()->num_rows === 0) {
+                    throw new \Exception("Categoria não encontrada: $categoria_id");
+                }
             }
             
             $stmt = $db->prepare("INSERT INTO AtividadesDisponiveis (titulo, categoria_id, carga_horaria_maxima_por_atividade) VALUES (?, ?, ?)");
@@ -178,6 +298,86 @@ class AtividadesDisponiveis {
             
         } catch (\Exception $e) {
             error_log("Erro em AtividadesDisponiveis::adicionar: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public static function buscarPorCategoriaId($categoria_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Primeiro tentar a tabela atividadesdisponiveisbcc17 com categoriaatividadebcc23
+            $sql = "SELECT 
+                        ad.id,
+                        ad.titulo,
+                        ad.carga_horaria_maxima_por_atividade,
+                        ad.observacoes,
+                        ca.descricao as categoria_nome
+                    FROM atividadesdisponiveisbcc17 ad
+                    LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                    WHERE ad.categoria_id = ?
+                    ORDER BY ad.titulo";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("i", $categoria_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            // Se não retornou resultados, tentar com atividadesdisponiveisbcc23
+            if ($result->num_rows === 0) {
+                error_log("Nenhum resultado com atividadesdisponiveisbcc17, tentando atividadesdisponiveisbcc23");
+                $sql = "SELECT 
+                            ad.id,
+                            ad.titulo,
+                            ad.carga_horaria_maxima_por_atividade,
+                            ad.observacoes,
+                            ca.descricao as categoria_nome
+                        FROM atividadesdisponiveisbcc23 ad
+                        LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                        WHERE ad.categoria_id = ?
+                        ORDER BY ad.titulo";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $categoria_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                
+                // Se ainda não retornou resultados, tentar com AtividadesDisponiveis
+                if ($result->num_rows === 0) {
+                    error_log("Nenhum resultado com atividadesdisponiveisbcc23, tentando AtividadesDisponiveis");
+                    $sql = "SELECT 
+                                ad.id,
+                                ad.titulo,
+                                ad.carga_horaria_maxima_por_atividade,
+                                ad.observacoes,
+                                ca.descricao as categoria_nome
+                            FROM AtividadesDisponiveis ad
+                            LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                            WHERE ad.categoria_id = ?
+                            ORDER BY ad.titulo";
+                    
+                    $stmt = $db->prepare($sql);
+                    $stmt->bind_param("i", $categoria_id);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                }
+            }
+            
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'titulo' => $row['titulo'],
+                    'carga_horaria_maxima_por_atividade' => (int)$row['carga_horaria_maxima_por_atividade'],
+                    'observacoes' => $row['observacoes'] ?? '',
+                    'categoria_nome' => $row['categoria_nome']
+                ];
+            }
+            
+            return $atividades;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadesDisponiveis::buscarPorCategoriaId: " . $e->getMessage());
             throw $e;
         }
     }

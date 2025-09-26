@@ -16,6 +16,14 @@ use Exception;
 
 class AtividadeComplementarController extends Controller {
     
+    protected function sendJsonResponse($data, $statusCode = 200) {
+        error_log("=== ENVIANDO RESPOSTA JSON ===");
+        error_log("Status Code: " . $statusCode);
+        error_log("Dados: " . json_encode($data));
+        
+        parent::sendJsonResponse($data, $statusCode);
+    }
+    
     public function cadastrarComJWT($dados) {
         try {
             
@@ -147,7 +155,6 @@ class AtividadeComplementarController extends Controller {
             // Combinar todas as listas
             $todasAtividades = array_merge(
                 $atividades, 
-                $certificadosAvulsos, 
                 $atividadesEnsino, 
                 $atividadesEstagio, 
                 $atividadesPesquisa
@@ -302,7 +309,7 @@ class AtividadeComplementarController extends Controller {
             }
             
             // Verificar se a atividade ainda está pendente
-            if ($atividade['status'] !== 'Pendente') {
+            if ($atividade['status'] !== 'Aguardando avaliação') {
                 $this->sendJsonResponse(['error' => 'Esta atividade já foi avaliada'], 400);
                 return;
             }
@@ -525,15 +532,26 @@ class AtividadeComplementarController extends Controller {
 
     public function listarCertificadosPendentesCoordenadorComJWT($coordenador_id) {
         try {
+            error_log("=== INICIO listarCertificadosPendentesCoordenadorComJWT ===");
+            error_log("Coordenador ID recebido: " . $coordenador_id);
+            
             $atividades = AtividadeComplementar::buscarCertificadosPendentesPorCoordenador($coordenador_id);
+            error_log("Atividades retornadas do modelo: " . print_r($atividades, true));
+            error_log("Total de atividades encontradas: " . count($atividades));
 
-            $this->sendJsonResponse([
+            $response = [
                 'success' => true,
-                'data' => $atividades
-            ]);
+                'data' => $atividades,
+                'total' => count($atividades)
+            ];
+            
+            error_log("Resposta que será enviada: " . print_r($response, true));
+            
+            $this->sendJsonResponse($response);
         } catch (\Exception $e) {
             error_log("Erro em listarCertificadosPendentesCoordenadorComJWT: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
+            error_log("Stack trace: " . $e->getTraceAsString());
+            $this->sendJsonResponse(['error' => 'Erro interno do servidor: ' . $e->getMessage()], 500);
         }
     }
 
@@ -577,42 +595,40 @@ class AtividadeComplementarController extends Controller {
         return $erros;
     }
 
-    public function rejeitarCertificadoComJWT($coordenador_id, $atividade_id, $observacoes) {
+    public function rejeitarCertificadoComJWT($coordenador_id, $atividade_id, $observacoes, $tipo = null) {
         try {
             error_log("=== INICIO rejeitarCertificadoComJWT ===");
             error_log("Coordenador ID: " . $coordenador_id);
             error_log("Atividade ID: " . $atividade_id);
+            error_log("Tipo fornecido: " . ($tipo ?? 'null'));
             error_log("Observações: " . $observacoes);
             
-            // Verificar se a atividade existe
-            $atividade = AtividadeComplementar::buscarPorId($atividade_id);
+            // Verificar se a atividade existe em qualquer tabela
+            $atividade = AtividadeComplementar::buscarAtividadePorIdETipo($atividade_id, $tipo);
             if (!$atividade) {
-                error_log("Atividade não encontrada: " . $atividade_id);
+                error_log("Atividade não encontrada em nenhuma tabela: " . $atividade_id);
                 $this->sendJsonResponse(['error' => 'Atividade não encontrada'], 404);
                 return;
             }
             
             error_log("Atividade encontrada: " . print_r($atividade, true));
             
-            if (empty($atividade['certificado_processado'])) {
+            // Verificar se possui certificado para rejeição
+            $caminhoCertificado = $atividade['certificado_processado'] ?? $atividade['certificado_caminho'] ?? $atividade['declaracao_caminho'] ?? null;
+            if (empty($caminhoCertificado)) {
                 $this->sendJsonResponse(['error' => 'Esta atividade não possui certificado para rejeição'], 400);
                 return;
             }
             
-            if ($atividade['avaliador_id'] != $coordenador_id) {
-                $this->sendJsonResponse(['error' => 'Este certificado não foi enviado para você'], 403);
-                return;
-            }
-            
-            // Rejeitar o certificado
-            $sucesso = AtividadeComplementar::rejeitarCertificado($atividade_id, $coordenador_id, $observacoes);
+            // Rejeitar o certificado baseado no tipo da atividade
+            $sucesso = $this->rejeitarCertificadoPorTipo($atividade, $coordenador_id, $observacoes);
             
             if ($sucesso) {
                 // Registrar ação no log de auditoria
                 LogAcoesController::registrar(
                     $coordenador_id,
                     'REJEITAR_CERTIFICADO',
-                    "Certificado rejeitado para atividade ID: {$atividade_id} - Motivo: {$observacoes}"
+                    "Certificado rejeitado para atividade ID: {$atividade_id} (tipo: {$atividade['tipo']}) - Motivo: {$observacoes}"
                 );
                 
                 $this->sendJsonResponse([
@@ -629,62 +645,237 @@ class AtividadeComplementarController extends Controller {
         }
     }
 
-    public function aprovarCertificadoComJWT($coordenador_id, $atividade_id, $observacoes = '') {
+    private function rejeitarCertificadoPorTipo($atividade, $coordenador_id, $observacoes) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $atividade_id = $atividade['id'];
+            $tipo = $atividade['tipo'] ?? 'acc';
+            
+            // Adiciona uma observação sobre a rejeição
+            $observacao_rejeicao = "\n[CERTIFICADO REJEITADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
+            if ($observacoes) {
+                $observacao_rejeicao .= "\nMotivo da rejeição: " . $observacoes;
+            }
+            
+            // Definir tabela e campos baseado no tipo
+            switch ($tipo) {
+                case 'ensino':
+                    $tabela = 'AtividadeComplementarEnsino';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+                    
+                case 'estagio':
+                    $tabela = 'atividadecomplementarestagio';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+                    
+                case 'pesquisa':
+                    $tabela = 'atividadecomplementarpesquisa';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+                    
+                default: // 'acc'
+                    $tabela = 'atividadecomplementaracc';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+            }
+            
+            // Atualizar a atividade com status rejeitado
+            $sql = "UPDATE {$tabela} 
+                    SET {$campoObservacoes} = CONCAT(
+                        COALESCE({$campoObservacoes}, ''), 
+                        ?
+                    ),
+                    status = 'rejeitado',
+                    data_avaliacao = NOW(),
+                    avaliador_id = ?
+                    WHERE id = ?";
+                    
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("sii", $observacao_rejeicao, $coordenador_id, $atividade_id);
+            
+            $sucesso = $stmt->execute();
+            
+            if ($sucesso && $stmt->affected_rows > 0) {
+                error_log("Certificado rejeitado com sucesso para atividade ID: {$atividade_id} (tipo: {$tipo})");
+            } else {
+                error_log("Erro ao rejeitar certificado ou nenhuma linha afetada: " . $stmt->error);
+                return false;
+            }
+            
+            return $sucesso;
+            
+        } catch (Exception $e) {
+            error_log("Erro em rejeitarCertificadoPorTipo: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function aprovarCertificadoComJWT($coordenador_id, $atividade_id, $observacoes = '', $tipo = null) {
         try {
             error_log("=== INICIO aprovarCertificadoComJWT ===");
             error_log("Coordenador ID: " . $coordenador_id);
             error_log("Atividade ID: " . $atividade_id);
+            error_log("Tipo fornecido: " . ($tipo ?? 'null'));
             error_log("Observações: " . $observacoes);
             
-            // Verificar se a atividade existe
-            $atividade = AtividadeComplementar::buscarPorId($atividade_id);
+            // Verificar se a atividade existe em qualquer tabela
+            $atividade = AtividadeComplementar::buscarAtividadePorIdETipo($atividade_id, $tipo);
             if (!$atividade) {
-                error_log("Atividade não encontrada: " . $atividade_id);
+                error_log("ERRO: Atividade não encontrada em nenhuma tabela: " . $atividade_id);
                 $this->sendJsonResponse(['error' => 'Atividade não encontrada'], 404);
                 return;
             }
             
             error_log("Atividade encontrada: " . print_r($atividade, true));
             
-            if (empty($atividade['certificado_processado'])) {
+            // Verificar se possui certificado para aprovação
+            $caminhoCertificado = $atividade['certificado_processado'] ?? $atividade['certificado_caminho'] ?? $atividade['declaracao_caminho'] ?? null;
+            error_log("Caminho do certificado: " . ($caminhoCertificado ?? 'null'));
+            
+            if (empty($caminhoCertificado)) {
+                error_log("ERRO: Atividade não possui certificado para aprovação");
                 $this->sendJsonResponse(['error' => 'Esta atividade não possui certificado para aprovação'], 400);
                 return;
             }
             
-            if ($atividade['avaliador_id'] != $coordenador_id) {
-                $this->sendJsonResponse(['error' => 'Este certificado não foi enviado para você'], 403);
-                return;
-            }
+            // Verificar se já foi aprovado usando observacoes_avaliacao
+            $observacoesExistentes = $atividade['observacoes_avaliacao'] ?? '';
+            error_log("Observações existentes: " . $observacoesExistentes);
             
-            // Verificar se já foi aprovado usando observacoes_Analise
-            if (!empty($atividade['observacoes_Analise']) && 
-                strpos($atividade['observacoes_Analise'], '[CERTIFICADO APROVADO PELO COORDENADOR') !== false) {
+            if (!empty($observacoesExistentes) && 
+                strpos($observacoesExistentes, '[CERTIFICADO APROVADO PELO COORDENADOR') !== false) {
+                error_log("ERRO: Certificado já foi aprovado anteriormente");
                 $this->sendJsonResponse(['error' => 'Este certificado já foi aprovado'], 400);
                 return;
             }
             
-            // Aprovar o certificado
-            $sucesso = AtividadeComplementar::aprovarCertificado($atividade_id, $coordenador_id, $observacoes);
+            error_log("Iniciando processo de aprovação do certificado...");
+            
+            // Aprovar o certificado baseado no tipo da atividade
+            $sucesso = $this->aprovarCertificadoPorTipo($atividade, $coordenador_id, $observacoes);
+            
+            error_log("Resultado da aprovação: " . ($sucesso ? 'SUCESSO' : 'FALHA'));
             
             if ($sucesso) {
+                error_log("Registrando ação no log de auditoria...");
+                
                 // Registrar ação no log de auditoria
                 LogAcoesController::registrar(
                     $coordenador_id,
                     'APROVAR_CERTIFICADO',
-                    "Certificado aprovado para atividade ID: {$atividade_id}" . ($observacoes ? " - Observações: {$observacoes}" : "")
+                    "Certificado aprovado para atividade ID: {$atividade_id} (tipo: {$atividade['tipo']})" . ($observacoes ? " - Observações: {$observacoes}" : "")
                 );
                 
+                error_log("Enviando resposta de sucesso...");
                 $this->sendJsonResponse([
                     'success' => true,
                     'message' => 'Certificado aprovado com sucesso'
                 ]);
             } else {
+                error_log("ERRO: Falha ao aprovar certificado na função aprovarCertificadoPorTipo");
                 $this->sendJsonResponse(['error' => 'Erro ao aprovar certificado'], 500);
             }
             
         } catch (Exception $e) {
-            error_log("Erro em aprovarCertificadoComJWT: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => 'Erro interno do servidor'], 500);
+            error_log("EXCEÇÃO em aprovarCertificadoComJWT: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            $this->sendJsonResponse(['error' => 'Erro interno do servidor: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function aprovarCertificadoPorTipo($atividade, $coordenador_id, $observacoes) {
+        try {
+            error_log("=== INICIO aprovarCertificadoPorTipo ===");
+            
+            $db = Database::getInstance()->getConnection();
+            if (!$db) {
+                error_log("ERRO: Falha ao obter conexão com o banco de dados");
+                return false;
+            }
+            
+            $atividade_id = $atividade['id'];
+            $tipo = $atividade['tipo'] ?? 'acc';
+            
+            error_log("Processando aprovação - ID: {$atividade_id}, Tipo: {$tipo}");
+            
+            // Adiciona uma observação sobre a aprovação
+            $observacao_aprovacao = "\n[CERTIFICADO APROVADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
+            if ($observacoes) {
+                $observacao_aprovacao .= "\nObservações do coordenador: " . $observacoes;
+            }
+            
+            error_log("Observação de aprovação: " . $observacao_aprovacao);
+            
+            // Definir tabela e campos baseado no tipo
+            switch ($tipo) {
+                case 'ensino':
+                    $tabela = 'AtividadeComplementarEnsino';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+                    
+                case 'estagio':
+                    $tabela = 'atividadecomplementarestagio';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+                    
+                case 'pesquisa':
+                    $tabela = 'atividadecomplementarpesquisa';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+                    
+                default: // 'acc'
+                    $tabela = 'atividadecomplementaracc';
+                    $campoObservacoes = 'observacoes_avaliacao';
+                    break;
+            }
+            
+            error_log("Tabela selecionada: {$tabela}, Campo observações: {$campoObservacoes}");
+            
+            // Atualizar a atividade com status aprovado
+            $sql = "UPDATE {$tabela} 
+                    SET {$campoObservacoes} = CONCAT(
+                        COALESCE({$campoObservacoes}, ''), 
+                        ?
+                    ),
+                    status = 'aprovado',
+                    data_avaliacao = NOW(),
+                    avaliador_id = ?
+                    WHERE id = ?";
+                    
+            error_log("SQL preparado: " . $sql);
+            error_log("Parâmetros: observacao='{$observacao_aprovacao}', coordenador_id={$coordenador_id}, atividade_id={$atividade_id}");
+            
+            $stmt = $db->prepare($sql);
+            if (!$stmt) {
+                error_log("ERRO: Falha ao preparar statement SQL: " . $db->error);
+                return false;
+            }
+            
+            $stmt->bind_param("sii", $observacao_aprovacao, $coordenador_id, $atividade_id);
+            
+            $sucesso = $stmt->execute();
+            
+            if ($sucesso) {
+                $linhas_afetadas = $stmt->affected_rows;
+                error_log("Execução SQL bem-sucedida. Linhas afetadas: {$linhas_afetadas}");
+                
+                if ($linhas_afetadas > 0) {
+                    error_log("SUCESSO: Certificado aprovado para atividade ID: {$atividade_id} (tipo: {$tipo})");
+                    return true;
+                } else {
+                    error_log("AVISO: Nenhuma linha foi afetada. Atividade pode não existir ou já estar aprovada");
+                    return false;
+                }
+            } else {
+                error_log("ERRO: Falha na execução SQL: " . $stmt->error);
+                return false;
+            }
+            
+        } catch (Exception $e) {
+            error_log("EXCEÇÃO em aprovarCertificadoPorTipo: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            return false;
         }
     }
 

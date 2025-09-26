@@ -305,13 +305,36 @@ class AtividadesDisponiveisController {
         }
     }
 
-    public function listarCategorias() {
+    public function listarCategorias($userData = null) {
         try {
-            $categorias = \backend\api\models\AtividadeComplementar::listarCategorias();
+            $categorias = \backend\api\models\AtividadeComplementar::listarCategorias($userData);
             $this->sendJsonResponse(['success' => true, 'data' => $categorias]);
         } catch (\Exception $e) {
             error_log("Erro ao listar categorias: " . $e->getMessage());
             $this->sendJsonResponse(['success' => false, 'error' => 'Erro ao carregar categorias'], 500);
+        }
+    }
+
+    public function buscarPorCategoriaId() {
+        try {
+            $categoria_id = $_GET['categoria_id'] ?? null;
+            if (!$categoria_id) {
+                $this->sendJsonResponse(['success' => false, 'error' => 'categoria_id é obrigatório'], 400);
+                return;
+            }
+
+            $atividades = AtividadesDisponiveis::buscarPorCategoriaId($categoria_id);
+            
+            $this->sendJsonResponse([
+                'success' => true,
+                'data' => $atividades
+            ]);
+        } catch (Exception $e) {
+            error_log("Erro em AtividadesDisponiveisController::buscarPorCategoriaId: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro ao buscar atividades: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

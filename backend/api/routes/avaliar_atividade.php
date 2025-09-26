@@ -20,7 +20,6 @@ require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
 use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
-use backend\api\models\CertificadoAvulso;
 
 ApiKeyMiddleware::validateApiKey();
 
@@ -52,7 +51,13 @@ try {
         error_log("Usuário validado: " . print_r($usuario, true));
         
         $atividade_id = $_POST['atividade_id'] ?? null;
+        $tipo = $_POST['tipo'] ?? null;
         $observacoes = $_POST['observacoes'] ?? '';
+        
+        error_log("Parâmetros recebidos:");
+        error_log("- atividade_id: " . $atividade_id);
+        error_log("- tipo: " . $tipo);
+        error_log("- observacoes: " . $observacoes);
         
         if (!$atividade_id) {
             error_log("ID da atividade não fornecido");
@@ -67,7 +72,7 @@ try {
         error_log("Processando rejeição do certificado para atividade ID: " . $atividade_id);
         
         $controller = new AtividadeComplementarController();
-        $controller->rejeitarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes);
+        $controller->rejeitarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes, $tipo);
         exit;
     }
 
@@ -79,7 +84,13 @@ try {
         error_log("Usuário validado: " . print_r($usuario, true));
         
         $atividade_id = $_POST['atividade_id'] ?? null;
+        $tipo = $_POST['tipo'] ?? null;
         $observacoes = $_POST['observacoes'] ?? '';
+        
+        error_log("Parâmetros recebidos:");
+        error_log("- atividade_id: " . $atividade_id);
+        error_log("- tipo: " . $tipo);
+        error_log("- observacoes: " . $observacoes);
         
         if (!$atividade_id) {
             error_log("ID da atividade não fornecido");
@@ -89,18 +100,21 @@ try {
         error_log("Processando aprovação do certificado para atividade ID: " . $atividade_id);
         
         $controller = new AtividadeComplementarController();
-        $controller->aprovarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes);
+        $controller->aprovarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes, $tipo);
         exit;
     }
     
     // Certificados pendentes (COORDENADOR)
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'certificados_pendentes') {
         error_log("=== ROTA COORDENADOR: CERTIFICADOS PENDENTES ===");
+        error_log("Parâmetros GET: " . print_r($_GET, true));
         
         $usuario = AuthMiddleware::requireCoordenador();
         error_log("Usuário validado: " . print_r($usuario, true));
+        error_log("ID do coordenador: " . $usuario['id']);
         
         $controller = new AtividadeComplementarController();
+        error_log("Controller criado, chamando listarCertificadosPendentesCoordenadorComJWT...");
         $controller->listarCertificadosPendentesCoordenadorComJWT($usuario['id']);
         exit;
     }
@@ -117,74 +131,7 @@ try {
         exit;
     }
 
-    // Aprovar certificado avulso (COORDENADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'aprovar_certificado_avulso') {
-        error_log("=== ROTA COORDENADOR: APROVAR CERTIFICADO AVULSO ===");
-        
-        $usuario = AuthMiddleware::requireCoordenador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $certificado_id = $_POST['certificado_id'] ?? null;
-        $observacoes = $_POST['observacoes'] ?? '';
-        
-        if (!$certificado_id) {
-            error_log("ID do certificado não fornecido");
-            enviarErro('ID do certificado é obrigatório', 400);
-        }
-        
-        error_log("Processando aprovação do certificado avulso ID: " . $certificado_id);
-        
-        
-        if ($resultado) {
-            while (ob_get_level()) {
-                ob_end_clean();
-            }
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'message' => 'Certificado avulso aprovado com sucesso'
-            ]);
-        } else {
-            enviarErro('Erro ao aprovar certificado avulso', 500);
-        }
-        exit;
-    }
 
-    // Rejeitar certificado avulso (COORDENADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'rejeitar_certificado_avulso') {
-        error_log("=== ROTA COORDENADOR: REJEITAR CERTIFICADO AVULSO ===");
-        
-        $usuario = AuthMiddleware::requireCoordenador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $certificado_id = $_POST['certificado_id'] ?? null;
-        $observacoes = $_POST['observacoes'] ?? '';
-        
-        if (!$certificado_id) {
-            error_log("ID do certificado não fornecido");
-            enviarErro('ID do certificado é obrigatório', 400);
-        }
-        
-        if (!$observacoes) {
-            error_log("Observações não fornecidas");
-            enviarErro('Observações são obrigatórias para rejeição', 400);
-        }
-                
-        
-        if ($resultado) {
-            while (ob_get_level()) {
-                ob_end_clean();
-            }
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'message' => 'Certificado avulso rejeitado com sucesso'
-            ]);
-        } else {
-            enviarErro('Erro ao rejeitar certificado avulso', 500);
-        }
-        exit;
-    }
     
     // Enviar certificado (ALUNO)
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'enviar_certificado_processado') {

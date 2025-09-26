@@ -387,6 +387,7 @@
             }
             
             const formData = new FormData();
+            formData.append('atividade_disponivel_id', document.getElementById('atividadeId').value);
             formData.append('empresa', empresa);
             formData.append('area', area);
             formData.append('data_inicio', dataInicio);

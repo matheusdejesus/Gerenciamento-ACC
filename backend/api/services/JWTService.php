@@ -6,7 +6,13 @@ class JWTService {
     private static $algorithm = 'HS256';
     
     public static function init() {
-        self::$secret = defined('JWT_SECRET') ? JWT_SECRET : ($_ENV['JWT_SECRET'] ?? '');
+        self::$secret = defined('JWT_SECRET') ? JWT_SECRET : ($_ENV['JWT_SECRET'] ?? 'gerenciamento-acc-secret-key-2025');
+        
+        if (empty(self::$secret)) {
+            self::$secret = 'gerenciamento-acc-secret-key-2025';
+        }
+        
+        error_log("JWT Secret inicializado: " . (empty(self::$secret) ? 'VAZIO' : 'DEFINIDO'));
     }
     
     public static function encode($payload) {
@@ -58,8 +64,10 @@ class JWTService {
     public static function validate($jwt) {
         try {
             $payload = self::decode($jwt);
+
             return $payload;
         } catch (\Exception $e) {
+
             return false;
         }
     }

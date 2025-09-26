@@ -188,8 +188,8 @@ class AtividadeComplementarPesquisaController extends Controller {
                 throw new Exception("ID da atividade é obrigatório");
             }
 
-            if (empty($dados['status']) || !in_array($dados['status'], ['aprovada', 'rejeitada'])) {
-                throw new Exception("Status deve ser 'aprovada' ou 'rejeitada'");
+            if (empty($dados['status']) || !in_array($dados['status'], ['aprovado', 'rejeitado'])) {
+                throw new Exception("Status deve ser 'aprovado' ou 'rejeitado'");
             }
 
             if (empty($dados['avaliador_id']) || !is_numeric($dados['avaliador_id'])) {
@@ -205,7 +205,7 @@ class AtividadeComplementarPesquisaController extends Controller {
             }
 
             // Verificar se a atividade ainda está pendente
-            if ($atividade['status'] !== 'pendente') {
+            if ($atividade['status'] !== 'Aguardando avaliação') {
                 throw new Exception("Esta atividade já foi avaliada");
             }
 

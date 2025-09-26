@@ -55,7 +55,7 @@ class AtividadeComplementarEstagioController {
             
             // Adicionar o ID do aluno logado
             $input['aluno_id'] = $usuario['id'];
-            $input['status'] = 'pendente';
+            $input['status'] = 'Aguardando avaliação';
             $input['data_submissao'] = date('Y-m-d H:i:s');
 
             // Processar upload de arquivo se enviado

@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../controllers/AtividadeComplementarEnsinoController.php';
+// Configurar tratamento de erros para evitar HTML na resposta
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
-use backend\api\controllers\AtividadeComplementarEnsinoController;
+require_once __DIR__ . '/../controllers/AtividadeComplementarEnsinoController.php';
 
 // Configurar headers CORS
 header('Content-Type: application/json');
@@ -16,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    $controller = new AtividadeComplementarEnsinoController();
+    $controller = new \AtividadeComplementarEnsinoController();
     
     // Obter o método HTTP e a URI
     $method = $_SERVER['REQUEST_METHOD'];
@@ -69,7 +71,7 @@ try {
             break;
     }
     
-} catch (Exception $e) {
+} catch (\Exception $e) {
     error_log("Erro na rota atividade_complementar_ensino: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['erro' => 'Erro interno do servidor']);

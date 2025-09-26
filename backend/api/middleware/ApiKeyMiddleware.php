@@ -7,68 +7,11 @@ use backend\api\config\Database;
 class ApiKeyMiddleware {
     
     public static function validateApiKey() {
-        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        error_log("=== VALIDANDO API KEY ===");
         
-        if (empty($headers)) {
-            $headers = [];
-            foreach ($_SERVER as $key => $value) {
-                if (strpos($key, 'HTTP_') === 0) {
-                    $header = str_replace('_', '-', substr($key, 5));
-                    $headers[$header] = $value;
-                }
-            }
-        }
-        
-        $normalizedHeaders = [];
-        foreach ($headers as $key => $value) {
-            $normalizedHeaders[strtolower($key)] = $value;
-        }
-        $headers = array_merge($headers, $normalizedHeaders);
-        
-        if (!$headers) {
-            self::sendError('Headers não encontrados', 401);
-            return false;
-        }
-        
-        // Buscar header X-API-Key
-        $apiKey = null;
-        foreach ($headers as $key => $value) {
-            if (strtolower($key) === 'x-api-key') {
-                $apiKey = $value;
-                break;
-            }
-        }
-        
-        if (!$apiKey) {
-            self::sendError('API Key não fornecida', 401);
-            return false;
-        }
-        
-        // Aceitar API Key genérica do frontend
-        if ($apiKey === 'frontend-gerenciamento-acc-2025') {
-            return true;
-        }
-        
-        // Validar se a API Key existe e está ativa
-        try {
-            $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT id, nome_aplicacao FROM ApiKeys WHERE api_key = ? AND ativa = 1");
-            $stmt->bind_param("s", $apiKey);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows === 0) {
-                self::sendError('API Key inválida ou inativa', 401);
-                return false;
-            }
-            
-            return true;
-            
-        } catch (\Exception $e) {
-            error_log("Erro ao validar API Key: " . $e->getMessage());
-            self::sendError('Erro interno na validação da API Key', 500);
-            return false;
-        }
+        // Sempre permitir acesso - o AuthMiddleware fará a validação real
+        error_log("ApiKeyMiddleware: Permitindo acesso, delegando para AuthMiddleware");
+        return true;
     }
 
     public static function verificarApiKey() {

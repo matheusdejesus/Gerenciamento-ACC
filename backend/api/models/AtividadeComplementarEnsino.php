@@ -10,8 +10,8 @@ class AtividadeComplementarEnsino {
     
     public static function create($dados) {
         try {
-            // Validar dados obrigatórios básicos
-            $camposObrigatorios = ['aluno_id', 'categoria_id'];
+            // Validar dados obrigatórios
+            $camposObrigatorios = ['aluno_id', 'categoria_id', 'atividade_disponivel_id'];
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
                     throw new Exception("Campo obrigatório não informado: $campo");
@@ -23,12 +23,13 @@ class AtividadeComplementarEnsino {
             $db->begin_transaction();
 
             // Campos básicos sempre presentes
-            $campos = "aluno_id, categoria_id";
-            $placeholders = "?, ?";
-            $tipos = "ii";
+            $campos = "aluno_id, categoria_id, atividade_disponivel_id";
+            $placeholders = "?, ?, ?";
+            $tipos = "iii";
             $valores = [
                 $dados['aluno_id'],
-                $dados['categoria_id']
+                $dados['categoria_id'],
+                $dados['atividade_disponivel_id']
             ];
 
             // Campos específicos para Disciplinas em outras IES
@@ -90,7 +91,13 @@ class AtividadeComplementarEnsino {
                 $valores[] = $dados['declaracao_caminho'];
             }
 
-            $sql = "INSERT INTO AtividadeComplementarEnsino ($campos) VALUES ($placeholders)";
+            // Campos de controle (status padrão é 'Aguardando avaliação')
+            $campos .= ", status, data_submissao";
+            $placeholders .= ", ?, NOW()";
+            $tipos .= "s";
+            $valores[] = 'Aguardando avaliação';
+
+            $sql = "INSERT INTO atividadecomplementarensino ($campos) VALUES ($placeholders)";
 
             $stmt = $db->prepare($sql);
             if (!$stmt) {
@@ -126,10 +133,12 @@ class AtividadeComplementarEnsino {
         try {
             $db = Database::getInstance()->getConnection();
             
-            $sql = "SELECT 
+            // Usar as tabelas corretas do banco de dados
+            $sql = "SELECT DISTINCT
                         ace.id,
                         ace.aluno_id,
                         ace.categoria_id,
+                        ace.atividade_disponivel_id,
                         ace.nome_disciplina,
                         ace.nome_instituicao,
                         ace.carga_horaria,
@@ -138,16 +147,63 @@ class AtividadeComplementarEnsino {
                         ace.data_inicio,
                         ace.data_fim,
                         ace.declaracao_caminho,
-                        ca.descricao AS categoria_nome
-                    FROM AtividadeComplementarEnsino ace
-                    INNER JOIN CategoriaAtividade ca ON ace.categoria_id = ca.id
+                        ace.status,
+                        ace.data_submissao,
+                        ace.data_avaliacao,
+                        ace.observacoes_avaliacao,
+                        ca.descricao AS categoria_nome,
+                        ad.titulo AS atividade_nome,
+                        CASE 
+                            WHEN ace.nome_disciplina IS NOT NULL THEN ace.nome_disciplina
+                            WHEN ace.nome_disciplina_laboratorio IS NOT NULL THEN ace.nome_disciplina_laboratorio
+                            ELSE 'Sem título'
+                        END AS titulo_personalizado
+                    FROM atividadecomplementarensino ace
+                    LEFT JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad ON ace.atividade_disponivel_id = ad.id
                     WHERE ace.aluno_id = ?
-                    ORDER BY ace.id DESC";
+                    ORDER BY ace.data_submissao DESC";
             
             $stmt = $db->prepare($sql);
             
             if (!$stmt) {
-                throw new Exception("Erro ao preparar consulta: " . $db->error);
+                error_log("Erro ao preparar consulta com categoriaatividadebcc23: " . $db->error);
+                // Fallback para tabelas originais
+                $sql = "SELECT DISTINCT
+                            ace.id,
+                            ace.aluno_id,
+                            ace.categoria_id,
+                            ace.atividade_disponivel_id,
+                            ace.nome_disciplina,
+                            ace.nome_instituicao,
+                            ace.carga_horaria,
+                            ace.nome_disciplina_laboratorio,
+                            ace.monitor,
+                            ace.data_inicio,
+                            ace.data_fim,
+                            ace.declaracao_caminho,
+                            ace.status,
+                            ace.data_submissao,
+                            ace.data_avaliacao,
+                            ace.observacoes_avaliacao,
+                            ca.descricao AS categoria_nome,
+                            ad.titulo AS atividade_nome,
+                            CASE 
+                                WHEN ace.nome_disciplina IS NOT NULL THEN ace.nome_disciplina
+                                WHEN ace.nome_disciplina_laboratorio IS NOT NULL THEN ace.nome_disciplina_laboratorio
+                                ELSE 'Sem título'
+                            END AS titulo_personalizado
+                        FROM atividadecomplementarensino ace
+                        LEFT JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
+                        LEFT JOIN atividadesdisponiveisbcc23 ad ON ace.atividade_disponivel_id = ad.id
+                        WHERE ace.aluno_id = ?
+                        ORDER BY ace.data_submissao DESC";
+                
+                $stmt = $db->prepare($sql);
+                
+                if (!$stmt) {
+                    throw new Exception("Erro ao preparar consulta: " . $db->error);
+                }
             }
             
             $stmt->bind_param("i", $aluno_id);
@@ -169,7 +225,14 @@ class AtividadeComplementarEnsino {
                     'data_inicio' => $row['data_inicio'],
                     'data_fim' => $row['data_fim'],
                     'declaracao_caminho' => $row['declaracao_caminho'],
-                    'categoria_nome' => $row['categoria_nome']
+                    'categoria_nome' => $row['categoria_nome'],
+                    'atividade_nome' => $row['atividade_nome'],
+                    'titulo' => $row['titulo_personalizado'],
+                    'atividade_titulo' => $row['atividade_nome'], // Para compatibilidade
+                    'status' => $row['status'],
+                    'data_submissao' => $row['data_submissao'],
+                    'data_avaliacao' => $row['data_avaliacao'],
+                    'observacoes_avaliacao' => $row['observacoes_avaliacao']
                 ];
             }
             
@@ -186,10 +249,24 @@ class AtividadeComplementarEnsino {
             $db = Database::getInstance()->getConnection();
             
             $sql = "SELECT 
-                        ace.*,
+                        ace.id,
+                        ace.aluno_id,
+                        ace.categoria_id,
+                        ace.nome_disciplina,
+                        ace.nome_instituicao,
+                        ace.carga_horaria,
+                        ace.nome_disciplina_laboratorio,
+                        ace.monitor,
+                        ace.data_inicio,
+                        ace.data_fim,
+                        ace.declaracao_caminho,
+                        ace.status,
+                        ace.data_submissao,
+                        ace.data_avaliacao,
+                        ace.observacoes_avaliacao,
                         ca.descricao AS categoria_nome
-                    FROM AtividadeComplementarEnsino ace
-                    INNER JOIN CategoriaAtividade ca ON ace.categoria_id = ca.id
+                    FROM atividadecomplementarensino ace
+                    INNER JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
                     WHERE ace.id = ?";
             
             $stmt = $db->prepare($sql);
@@ -225,6 +302,77 @@ class AtividadeComplementarEnsino {
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementarEnsino::buscarPorId: " . $e->getMessage());
             throw $e;
+        }
+    }
+
+    public static function buscarPendentes() {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $sql = "SELECT 
+                        ace.id,
+                        ace.aluno_id,
+                        ace.categoria_id,
+                        ace.nome_disciplina,
+                        ace.nome_instituicao,
+                        ace.carga_horaria,
+                        ace.nome_disciplina_laboratorio,
+                        ace.monitor,
+                        ace.data_inicio,
+                        ace.data_fim,
+                        ace.declaracao_caminho,
+                        ace.status,
+                        ace.data_submissao,
+                        ace.data_avaliacao,
+                        ace.observacoes_avaliacao,
+                        ca.descricao AS categoria_nome,
+                        u.nome AS aluno_nome,
+                        c.nome AS curso_nome
+                    FROM atividadecomplementarensino ace
+                    INNER JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
+                    INNER JOIN aluno a ON ace.aluno_id = a.usuario_id
+                    INNER JOIN usuario u ON a.usuario_id = u.id
+                    INNER JOIN curso c ON a.curso_id = c.id
+                    WHERE ace.status = 'Aguardando avaliação'
+                    ORDER BY ace.data_submissao ASC";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute();
+            
+            $result = $stmt->get_result();
+            $atividades = [];
+            
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = $row;
+            }
+            
+            return $atividades;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao buscar atividades pendentes: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function avaliar($id, $status, $observacoes = null, $avaliador_id = null) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $sql = "UPDATE atividadecomplementarensino 
+                    SET status = ?, 
+                        data_avaliacao = NOW(), 
+                        observacoes_avaliacao = ?, 
+                        avaliador_id = ?
+                    WHERE id = ?";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("ssis", $status, $observacoes, $avaliador_id, $id);
+            
+            return $stmt->execute();
+            
+        } catch (Exception $e) {
+            error_log("Erro ao avaliar atividade: " . $e->getMessage());
+            return false;
         }
     }
 }

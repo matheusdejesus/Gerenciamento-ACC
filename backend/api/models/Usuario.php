@@ -123,13 +123,32 @@ class Usuario {
     public static function findByEmailForLogin($email) {
         try {
             $db = Database::getInstance()->getConnection();
+            
+            // Primeiro buscar dados básicos do usuário
             $stmt = $db->prepare("SELECT id, nome, email, senha, tipo FROM Usuario WHERE email = ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
             
             if ($result->num_rows > 0) {
-                return $result->fetch_assoc();
+                $usuario = $result->fetch_assoc();
+                
+                // Se for aluno, buscar também a matrícula
+                if ($usuario['tipo'] === 'aluno') {
+                    $stmtAluno = $db->prepare("SELECT matricula, curso_id FROM Aluno WHERE usuario_id = ?");
+                    $stmtAluno->bind_param("i", $usuario['id']);
+                    $stmtAluno->execute();
+                    $resultAluno = $stmtAluno->get_result();
+                    
+                    if ($resultAluno->num_rows > 0) {
+                        $dadosAluno = $resultAluno->fetch_assoc();
+                        $usuario['matricula'] = $dadosAluno['matricula'];
+                        $usuario['curso_id'] = $dadosAluno['curso_id'];
+                    }
+                    $stmtAluno->close();
+                }
+                
+                return $usuario;
             }
             
             return null;

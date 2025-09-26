@@ -211,8 +211,8 @@ class AtividadeComplementarACCController extends Controller {
                 throw new Exception("ID da atividade é obrigatório");
             }
             
-            if (empty($dados['status']) || !in_array($dados['status'], ['Aprovada', 'Rejeitada'])) {
-                throw new Exception("Status deve ser 'Aprovada' ou 'Rejeitada'");
+            if (empty($dados['status']) || !in_array($dados['status'], ['aprovado', 'rejeitado'])) {
+                throw new Exception("Status deve ser 'aprovado' ou 'rejeitado'");
             }
             
             if (empty($dados['avaliador_id']) || !is_numeric($dados['avaliador_id'])) {
@@ -281,7 +281,7 @@ class AtividadeComplementarACCController extends Controller {
             // Aluno pode excluir suas próprias atividades pendentes
             if ($usuario_logado['tipo'] === 'aluno' && 
                 $atividade['aluno_id'] == $usuario_logado['id'] && 
-                $atividade['status'] === 'Pendente') {
+                $atividade['status'] === 'Aguardando avaliação') {
                 $pode_excluir = true;
             }
             

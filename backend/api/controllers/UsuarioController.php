@@ -62,6 +62,11 @@ class UsuarioController {
                 'tipo' => $resultado['usuario']['tipo']
             ];
             
+            // Adicionar matrícula se for aluno
+            if ($resultado['usuario']['tipo'] === 'aluno' && isset($resultado['usuario']['matricula'])) {
+                $tokenPayload['matricula'] = $resultado['usuario']['matricula'];
+            }
+            
             $jwt = JWTService::encode($tokenPayload);
             
             // Buscar API Key do usuário

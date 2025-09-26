@@ -1,11 +1,11 @@
 <?php
-namespace backend\api\controllers;
-
 require_once __DIR__ . '/../models/AtividadeComplementarEnsino.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../config/Database.php';
 
 use backend\api\models\AtividadeComplementarEnsino;
 use backend\api\middleware\AuthMiddleware;
+use backend\api\config\Database;
 use Exception;
 
 class AtividadeComplementarEnsinoController {
@@ -58,6 +58,42 @@ class AtividadeComplementarEnsinoController {
             // Validar campos específicos baseado na categoria
             $tipo_atividade = $input['tipo_atividade'] ?? '';
             $input['categoria_id'] = 1; // Garantir categoria de Ensino
+            
+            // Garantir que atividade_disponivel_id está presente (obrigatório no banco)
+            if (empty($input['atividade_disponivel_id'])) {
+                // Primeiro tentar buscar na tabela atividadesdisponiveisbcc23
+                try {
+                    $db = Database::getInstance()->getConnection();
+                    $sql = "SELECT id FROM atividadesdisponiveisbcc23 WHERE categoria_id = 1 LIMIT 1";
+                    $stmt = $db->prepare($sql);
+                    
+                    if ($stmt && $stmt->execute()) {
+                        $result = $stmt->get_result();
+                        if ($row = $result->fetch_assoc()) {
+                            $input['atividade_disponivel_id'] = $row['id'];
+                        }
+                    }
+                } catch (\Exception $e) {
+                    error_log("Erro ao buscar em atividadesdisponiveisbcc23: " . $e->getMessage());
+                }
+                
+                // Se ainda não encontrou, usar fallback baseado no tipo
+                if (empty($input['atividade_disponivel_id'])) {
+                    $tipo_atividade = $input['tipo_atividade'] ?? '';
+                    if ($tipo_atividade === 'Outras IES') {
+                        $input['atividade_disponivel_id'] = 1; // Disciplinas em outras IES
+                    } elseif ($tipo_atividade === 'UFOPA') {
+                        $input['atividade_disponivel_id'] = 2; // Disciplinas na UFOPA
+                    } elseif ($tipo_atividade === 'Monitoria') {
+                        $input['atividade_disponivel_id'] = 3; // Monitoria
+                    } else {
+                        $input['atividade_disponivel_id'] = 2; // Padrão: UFOPA
+                    }
+                }
+                error_log("atividade_disponivel_id não fornecido, usando valor baseado no tipo: " . $input['atividade_disponivel_id']);
+            }
+            
+            error_log("atividade_disponivel_id definido como: " . $input['atividade_disponivel_id']);
             
 
             // Validar campos específicos baseado no tipo de atividade

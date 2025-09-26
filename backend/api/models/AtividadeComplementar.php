@@ -258,7 +258,7 @@ class AtividadeComplementar {
                     INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                     INNER JOIN Usuario u ON a.usuario_id = u.id
                     INNER JOIN Curso c ON a.curso_id = c.id
-                    WHERE ac.orientador_id = ? AND ac.status = 'Pendente'
+                    WHERE ac.orientador_id = ? AND ac.status = 'Aguardando avaliação'
                     ORDER BY ac.data_submissao DESC";
             
             $stmt = $db->prepare($sql);
@@ -417,9 +417,127 @@ class AtividadeComplementar {
         }
     }
 
+    public static function buscarAtividadePorIdETipo($id, $tipo = null) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            error_log("=== buscarAtividadePorIdETipo ===");
+            error_log("ID: " . $id);
+            error_log("Tipo: " . ($tipo ?? 'null'));
+            
+            // Se o tipo não for especificado, tentar encontrar a atividade em todas as tabelas
+            if (!$tipo) {
+                // Primeiro tentar na tabela principal
+                error_log("Tentando buscar na tabela atividadecomplementaracc...");
+                $atividade = self::buscarPorId($id);
+                if ($atividade) {
+                    $atividade['tipo'] = 'acc';
+                    error_log("Atividade encontrada na tabela atividadecomplementaracc");
+                    return $atividade;
+                }
+                error_log("Atividade não encontrada na tabela atividadecomplementaracc");
+                
+                // Tentar na tabela de ensino
+                error_log("Tentando buscar na tabela AtividadeComplementarEnsino...");
+                $sql = "SELECT *, 'ensino' as tipo FROM AtividadeComplementarEnsino WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $atividade = $result->fetch_assoc();
+                if ($atividade) {
+                    error_log("Atividade encontrada na tabela AtividadeComplementarEnsino");
+                    return $atividade;
+                }
+                error_log("Atividade não encontrada na tabela AtividadeComplementarEnsino");
+                
+                // Tentar na tabela de estágio
+                error_log("Tentando buscar na tabela atividadecomplementarestagio...");
+                $sql = "SELECT *, 'estagio' as tipo FROM atividadecomplementarestagio WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $atividade = $result->fetch_assoc();
+                if ($atividade) {
+                    error_log("Atividade encontrada na tabela atividadecomplementarestagio");
+                    return $atividade;
+                }
+                error_log("Atividade não encontrada na tabela atividadecomplementarestagio");
+                
+                // Tentar na tabela de pesquisa
+                error_log("Tentando buscar na tabela atividadecomplementarpesquisa...");
+                $sql = "SELECT *, 'pesquisa' as tipo FROM atividadecomplementarpesquisa WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $atividade = $result->fetch_assoc();
+                if ($atividade) {
+                    error_log("Atividade encontrada na tabela atividadecomplementarpesquisa");
+                    return $atividade;
+                }
+                error_log("Atividade não encontrada na tabela atividadecomplementarpesquisa");
+                
+                error_log("Atividade com ID " . $id . " não encontrada em nenhuma tabela");
+                return null;
+            }
+            
+            // Se o tipo for especificado, buscar na tabela correspondente
+            switch ($tipo) {
+                case 'acc':
+                    return self::buscarPorId($id);
+                    
+                case 'ensino':
+                    $sql = "SELECT *, 'ensino' as tipo FROM AtividadeComplementarEnsino WHERE id = ?";
+                    break;
+                    
+                case 'estagio':
+                    $sql = "SELECT *, 'estagio' as tipo FROM atividadecomplementarestagio WHERE id = ?";
+                    break;
+                    
+                case 'pesquisa':
+                    $sql = "SELECT *, 'pesquisa' as tipo FROM atividadecomplementarpesquisa WHERE id = ?";
+                    break;
+                    
+                default:
+                    error_log("Tipo de atividade inválido: " . $tipo);
+                    return null;
+            }
+            
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            
+            $result = $stmt->get_result();
+            return $result->fetch_assoc();
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementar::buscarAtividadePorIdETipo: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
     public static function aprovarCertificado($atividade_id, $coordenador_id, $observacoes = '') {
         try {
             $db = Database::getInstance()->getConnection();
+
+            // Primeiro, verificar se a atividade existe e se o coordenador tem permissão
+            $sqlVerificar = "SELECT ac.id, ac.aluno_id, a.curso_id, c.curso_id as coordenador_curso_id
+                            FROM atividadecomplementaracc ac
+                            INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
+                            INNER JOIN Coordenador c ON c.usuario_id = ?
+                            WHERE ac.id = ? AND a.curso_id = c.curso_id";
+            
+            $stmtVerificar = $db->prepare($sqlVerificar);
+            $stmtVerificar->bind_param("ii", $coordenador_id, $atividade_id);
+            $stmtVerificar->execute();
+            $resultVerificar = $stmtVerificar->get_result();
+            
+            if ($resultVerificar->num_rows === 0) {
+                error_log("Atividade não encontrada ou coordenador sem permissão. Atividade ID: " . $atividade_id . ", Coordenador ID: " . $coordenador_id);
+                return false;
+            }
 
             // Adiciona uma observação sobre a aprovação
             $observacao_aprovacao = "\n[CERTIFICADO APROVADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
@@ -427,23 +545,27 @@ class AtividadeComplementar {
                 $observacao_aprovacao .= "\nObservações do coordenador: " . $observacoes;
             }
             
+            // Atualizar a atividade com status aprovado
             $sql = "UPDATE atividadecomplementaracc 
                     SET observacoes_Analise = CONCAT(
                         COALESCE(observacoes_Analise, ''), 
                         ?
                     ),
-                    data_avaliacao = NOW()
-                    WHERE id = ? AND avaliador_id = ?";
+                    status = 'aprovado',
+                    data_avaliacao = NOW(),
+                    avaliador_id = ?
+                    WHERE id = ?";
                     
             $stmt = $db->prepare($sql);
-            $stmt->bind_param("sii", $observacao_aprovacao, $atividade_id, $coordenador_id);
+            $stmt->bind_param("sii", $observacao_aprovacao, $coordenador_id, $atividade_id);
             
             $sucesso = $stmt->execute();
             
-            if ($sucesso) {
+            if ($sucesso && $stmt->affected_rows > 0) {
                 error_log("Certificado aprovado com sucesso para atividade ID: " . $atividade_id);
             } else {
-                error_log("Erro ao aprovar certificado: " . $stmt->error);
+                error_log("Erro ao aprovar certificado ou nenhuma linha afetada: " . $stmt->error);
+                return false;
             }
             
             return $sucesso;
@@ -454,32 +576,54 @@ class AtividadeComplementar {
         }
     }
 
-    public static function rejeitarCertificado($atividade_id, $coordenador_id, $observacoes) {
+    public static function rejeitarCertificado($atividade_id, $coordenador_id, $observacoes = '') {
         try {
             $db = Database::getInstance()->getConnection();
 
+            // Primeiro, verificar se a atividade existe e se o coordenador tem permissão
+            $sqlVerificar = "SELECT ac.id, ac.aluno_id, a.curso_id, c.curso_id as coordenador_curso_id
+                            FROM atividadecomplementaracc ac
+                            INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
+                            INNER JOIN Coordenador c ON c.usuario_id = ?
+                            WHERE ac.id = ? AND a.curso_id = c.curso_id";
+            
+            $stmtVerificar = $db->prepare($sqlVerificar);
+            $stmtVerificar->bind_param("ii", $coordenador_id, $atividade_id);
+            $stmtVerificar->execute();
+            $resultVerificar = $stmtVerificar->get_result();
+            
+            if ($resultVerificar->num_rows === 0) {
+                error_log("Atividade não encontrada ou coordenador sem permissão. Atividade ID: " . $atividade_id . ", Coordenador ID: " . $coordenador_id);
+                return false;
+            }
+
             // Adiciona uma observação sobre a rejeição
             $observacao_rejeicao = "\n[CERTIFICADO REJEITADO PELO COORDENADOR EM " . date('Y-m-d H:i:s') . "]";
-            $observacao_rejeicao .= "\nMotivo da rejeição: " . $observacoes;
+            if ($observacoes) {
+                $observacao_rejeicao .= "\nMotivo da rejeição: " . $observacoes;
+            }
             
-            // Remove o certificado processado e adiciona a observação
+            // Atualizar a atividade com status rejeitado
             $sql = "UPDATE atividadecomplementaracc 
-                    SET certificado_processado = NULL,
-                        observacoes_Analise = CONCAT(
-                            COALESCE(observacoes_Analise, ''), 
-                            ?
-                        )
-                    WHERE id = ? AND avaliador_id = ?";
+                    SET observacoes_Analise = CONCAT(
+                        COALESCE(observacoes_Analise, ''), 
+                        ?
+                    ),
+                    status = 'rejeitado',
+                    data_avaliacao = NOW(),
+                    avaliador_id = ?
+                    WHERE id = ?";
                     
             $stmt = $db->prepare($sql);
-            $stmt->bind_param("sii", $observacao_rejeicao, $atividade_id, $coordenador_id);
+            $stmt->bind_param("sii", $observacao_rejeicao, $coordenador_id, $atividade_id);
             
             $sucesso = $stmt->execute();
             
-            if ($sucesso) {
+            if ($sucesso && $stmt->affected_rows > 0) {
                 error_log("Certificado rejeitado com sucesso para atividade ID: " . $atividade_id);
             } else {
-                error_log("Erro ao rejeitar certificado: " . $stmt->error);
+                error_log("Erro ao rejeitar certificado ou nenhuma linha afetada: " . $stmt->error);
+                return false;
             }
             
             return $sucesso;
@@ -549,6 +693,9 @@ class AtividadeComplementar {
     public static function buscarCertificadosPendentesPorCoordenador($coordenador_id) {
         try {
             $db = Database::getInstance()->getConnection();
+            
+            error_log("=== INICIO buscarCertificadosPendentesPorCoordenador ===");
+            error_log("Coordenador ID: " . $coordenador_id);
 
             // Buscar o curso_id do coordenador
             $sqlCurso = "SELECT curso_id FROM Coordenador WHERE usuario_id = ?";
@@ -558,57 +705,83 @@ class AtividadeComplementar {
             $resultCurso = $stmtCurso->get_result();
 
             if ($resultCurso->num_rows === 0) {
+                error_log("Nenhum coordenador encontrado com ID: " . $coordenador_id);
                 return [];
             }
 
             $coordenador = $resultCurso->fetch_assoc();
             $curso_id = $coordenador['curso_id'];
+            error_log("Curso ID do coordenador: " . $curso_id);
 
             $atividades = [];
 
             // 1. Buscar atividades complementares (ACC) pendentes
+            // Primeiro, determinar qual tabela de categoria usar baseado no curso
+            $tabelaCategoria = '';
+            $tabelaAtividades = '';
+            
+            if ($curso_id == 1) { // Agronomia - BCC17
+                $tabelaCategoria = 'categoriaatividadebcc17';
+                $tabelaAtividades = 'atividadesdisponiveisbcc17';
+            } elseif ($curso_id == 27) { // Ciência da Computação - BCC23
+                $tabelaCategoria = 'categoriaatividadebcc23';
+                $tabelaAtividades = 'atividadesdisponiveisbcc23';
+            } else {
+                // Para outros cursos, tentar usar as tabelas genéricas ou a primeira disponível
+                $tabelaCategoria = 'categoriaatividadebcc17';
+                $tabelaAtividades = 'atividadesdisponiveisbcc17';
+            }
+            
             $sqlACC = "
                 SELECT 
                     ac.id,
-                    ac.titulo,
-                    ac.carga_horaria_aprovada,
+                    COALESCE(ac.curso_evento_nome, 'Atividade Complementar') as titulo,
+                    ad.titulo as atividade_nome,
+                    ac.horas_realizadas as carga_horaria_aprovada,
                     ac.status,
-                    ac.data_envio_certificado as data_envio,
-                    ac.certificado_processado as certificado_caminho,
+                    ac.data_submissao as data_envio,
+                    ac.declaracao_caminho as certificado_caminho,
                     ac.aluno_id,
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ac.observacoes_Analise,
+                    ac.observacoes_avaliacao as observacoes_Analise,
                     ac.atividade_disponivel_id,
                     ac.categoria_id,
                     cat.descricao as categoria_nome,
                     'acc' as tipo,
                     ac.data_submissao
                 FROM atividadecomplementaracc ac
-                INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
-                INNER JOIN Usuario u ON a.usuario_id = u.id
-                INNER JOIN Curso c ON a.curso_id = c.id
-                LEFT JOIN CategoriaAtividade cat ON ac.categoria_id = cat.id
+                INNER JOIN aluno a ON ac.aluno_id = a.usuario_id
+                INNER JOIN usuario u ON a.usuario_id = u.id
+                INNER JOIN curso c ON a.curso_id = c.id
+                LEFT JOIN $tabelaCategoria cat ON ac.categoria_id = cat.id
+                LEFT JOIN $tabelaAtividades ad ON ac.atividade_disponivel_id = ad.id
                 WHERE c.id = ?
-                  AND ac.status = 'pendente'
+                  AND ac.status = 'Aguardando avaliação'
+                  AND ac.declaracao_caminho IS NOT NULL
+                  AND ac.declaracao_caminho != ''
             ";
 
             $stmt = $db->prepare($sqlACC);
             $stmt->bind_param("i", $curso_id);
             $stmt->execute();
             $result = $stmt->get_result();
-
+            
+            $countACC = 0;
             while ($row = $result->fetch_assoc()) {
                 $atividades[] = $row;
+                $countACC++;
             }
+            error_log("Atividades ACC encontradas: " . $countACC);
 
             // 2. Buscar atividades de Ensino pendentes
             $sqlEnsino = "
                 SELECT 
                     ae.id,
-                    ad.titulo,
-                    ae.horas_realizadas as carga_horaria_aprovada,
+                    COALESCE(ae.nome_disciplina, ae.nome_disciplina_laboratorio, 'Disciplinas em áreas correlatas cursadas em outras IES') as titulo,
+                    ad.titulo as atividade_nome,
+                    ae.carga_horaria as carga_horaria_aprovada,
                     ae.status,
                     ae.data_submissao as data_envio,
                     ae.declaracao_caminho as certificado_caminho,
@@ -617,18 +790,18 @@ class AtividadeComplementar {
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
                     ae.observacoes_avaliacao as observacoes_Analise,
-                    ae.atividade_disponivel_id,
-                    1 as categoria_id,
-                    'Ensino' as categoria_nome,
+                    ae.categoria_id,
+                    ca.descricao as categoria_nome,
                     'ensino' as tipo,
                     ae.data_submissao
                 FROM atividadecomplementarensino ae
-                INNER JOIN Aluno a ON ae.aluno_id = a.usuario_id
-                INNER JOIN Usuario u ON a.usuario_id = u.id
-                INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN AtividadesDisponiveis ad ON ae.atividade_disponivel_id = ad.id
+                INNER JOIN aluno a ON ae.aluno_id = a.usuario_id
+                INNER JOIN usuario u ON a.usuario_id = u.id
+                INNER JOIN curso c ON a.curso_id = c.id
+                LEFT JOIN $tabelaCategoria ca ON ae.categoria_id = ca.id
+                LEFT JOIN $tabelaAtividades ad ON ae.atividade_disponivel_id = ad.id
                 WHERE c.id = ?
-                  AND ae.status = 'pendente'
+                  AND ae.status = 'Aguardando avaliação'
             ";
 
             $stmt = $db->prepare($sqlEnsino);
@@ -644,8 +817,9 @@ class AtividadeComplementar {
             $sqlEstagio = "
                 SELECT 
                     aes.id,
-                    ad.titulo,
-                    aes.horas_realizadas as carga_horaria_aprovada,
+                    CONCAT(aes.empresa, ' - ', aes.area) as titulo,
+                    'Estágio curricular não obrigatório' as atividade_nome,
+                    aes.horas as carga_horaria_aprovada,
                     aes.status,
                     aes.data_submissao as data_envio,
                     aes.declaracao_caminho as certificado_caminho,
@@ -654,18 +828,19 @@ class AtividadeComplementar {
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
                     aes.observacoes_avaliacao as observacoes_Analise,
-                    aes.atividade_disponivel_id,
+                    NULL as atividade_disponivel_id,
                     4 as categoria_id,
                     'Estágio' as categoria_nome,
                     'estagio' as tipo,
                     aes.data_submissao
                 FROM atividadecomplementarestagio aes
-                INNER JOIN Aluno a ON aes.aluno_id = a.usuario_id
-                INNER JOIN Usuario u ON a.usuario_id = u.id
-                INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN AtividadesDisponiveis ad ON aes.atividade_disponivel_id = ad.id
+                INNER JOIN aluno a ON aes.aluno_id = a.usuario_id
+                INNER JOIN usuario u ON a.usuario_id = u.id
+                INNER JOIN curso c ON a.curso_id = c.id
                 WHERE c.id = ?
-                  AND aes.status = 'pendente'
+                  AND aes.status = 'Aguardando avaliação'
+                  AND aes.declaracao_caminho IS NOT NULL
+                  AND aes.declaracao_caminho != ''
             ";
 
             $stmt = $db->prepare($sqlEstagio);
@@ -681,7 +856,13 @@ class AtividadeComplementar {
             $sqlPesquisa = "
                 SELECT 
                     ap.id,
-                    ad.titulo,
+                    CASE 
+                        WHEN ap.nome_evento IS NOT NULL AND ap.nome_evento != '' THEN ap.nome_evento
+                        WHEN ap.nome_projeto IS NOT NULL AND ap.nome_projeto != '' THEN ap.nome_projeto
+                        WHEN ap.nome_artigo IS NOT NULL AND ap.nome_artigo != '' THEN ap.nome_artigo
+                        ELSE 'Atividade de Pesquisa'
+                    END as titulo,
+                    ad.titulo as atividade_nome,
                     ap.horas_realizadas as carga_horaria_aprovada,
                     ap.status,
                     ap.data_submissao as data_envio,
@@ -697,12 +878,14 @@ class AtividadeComplementar {
                     'pesquisa' as tipo,
                     ap.data_submissao
                 FROM atividadecomplementarpesquisa ap
-                INNER JOIN Aluno a ON ap.aluno_id = a.usuario_id
-                INNER JOIN Usuario u ON a.usuario_id = u.id
-                INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN AtividadesDisponiveis ad ON ap.atividade_disponivel_id = ad.id
+                INNER JOIN aluno a ON ap.aluno_id = a.usuario_id
+                INNER JOIN usuario u ON a.usuario_id = u.id
+                INNER JOIN curso c ON a.curso_id = c.id
+                LEFT JOIN $tabelaAtividades ad ON ap.atividade_disponivel_id = ad.id
                 WHERE c.id = ?
-                  AND ap.status = 'pendente'
+                  AND ap.status = 'Aguardando avaliação'
+                  AND ap.declaracao_caminho IS NOT NULL
+                  AND ap.declaracao_caminho != ''
             ";
 
             $stmt = $db->prepare($sqlPesquisa);
@@ -714,39 +897,7 @@ class AtividadeComplementar {
                 $atividades[] = $row;
             }
 
-            // 5. Buscar certificados avulsos pendentes
-            $sqlAvulso = "
-                SELECT 
-                    ca.id,
-                    ca.titulo,
-                    ca.horas as carga_horaria_aprovada,
-                    ca.status,
-                    ca.data_envio as data_envio,
-                    ca.caminho_arquivo as certificado_caminho,
-                    ca.aluno_id,
-                    u.nome as aluno_nome,
-                    a.matricula as aluno_matricula,
-                    c.nome as curso_nome,
-                    ca.observacao as observacoes_Analise,
-                    NULL as categoria_id,
-                    'Certificado Avulso' as categoria_nome,
-                    'avulso' as tipo,
-                    ca.data_envio as data_submissao
-                FROM certificadoavulso ca
-                INNER JOIN Aluno a ON ca.aluno_id = a.usuario_id
-                INNER JOIN Usuario u ON a.usuario_id = u.id
-                INNER JOIN Curso c ON a.curso_id = c.id
-                WHERE c.id = ? AND ca.coordenador_id = ? AND ca.status = 'Pendente'
-            ";
-
-            $stmtAvulso = $db->prepare($sqlAvulso);
-            $stmtAvulso->bind_param("ii", $curso_id, $coordenador_id);
-            $stmtAvulso->execute();
-            $resultAvulso = $stmtAvulso->get_result();
-
-            while ($row = $resultAvulso->fetch_assoc()) {
-                $atividades[] = $row;
-            }
+            // Remover busca por certificados avulsos (funcionalidade removida)
 
             // Ordenar por data de submissão (mais recente primeiro)
             usort($atividades, function($a, $b) {
@@ -754,6 +905,9 @@ class AtividadeComplementar {
                 $dataB = $b['data_submissao'] ?? $b['data_envio'];
                 return strtotime($dataB) - strtotime($dataA);
             });
+            
+            error_log("Total de atividades pendentes encontradas: " . count($atividades));
+            error_log("=== FIM buscarCertificadosPendentesPorCoordenador ===");
 
             return $atividades;
         } catch (Exception $e) {
@@ -774,104 +928,236 @@ class AtividadeComplementar {
             $resultCurso = $stmtCurso->get_result();
     
             if ($resultCurso->num_rows === 0) {
+                error_log("Coordenador não encontrado: " . $coordenador_id);
                 return [];
             }
     
             $coordenador = $resultCurso->fetch_assoc();
             $curso_id = $coordenador['curso_id'];
+            error_log("Buscando certificados para coordenador $coordenador_id, curso $curso_id");
     
             $atividades = [];
 
-            // Buscar certificados processados de atividades complementares
-            $sql = "SELECT 
+            // 1. Buscar atividades complementares processadas (aprovadas ou rejeitadas)
+            $sqlACC = "SELECT 
                     ac.id,
-                    ac.titulo,
-                    ac.carga_horaria_aprovada as horas_contabilizadas,
-                    'Aprovado' as status,
-                    ac.data_avaliacao as data_envio,
+                    COALESCE(ac.curso_evento_nome, 'Atividade Complementar') as titulo,
+                    ac.horas_realizadas as horas_contabilizadas,
+                    ac.status,
+                    ac.data_submissao as data_envio,
                     ac.data_avaliacao as data_aprovacao,
-                    ac.certificado_processado as certificado_caminho,
+                    ac.declaracao_caminho as certificado_caminho,
+                    ac.aluno_id,
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ca.descricao as atividade_nome,
-                    'complementar' as tipo
+                    ad.titulo as atividade_nome,
+                    ac.observacoes_avaliacao as observacoes_Analise,
+                    1 as categoria_id,
+                    'Complementar' as categoria_nome,
+                    'acc' as tipo,
+                    ac.data_avaliacao
                 FROM atividadecomplementaracc ac
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                LEFT JOIN CategoriaAtividade ca ON ac.categoria_id = ca.id
-                WHERE a.curso_id = ? 
-                  AND ac.status = 'Aprovada'
-                  AND ac.certificado_processado IS NOT NULL 
-                  AND ac.certificado_processado != ''
-                  AND ac.avaliador_id = ?
-                  AND ac.observacoes_Analise LIKE '%[CERTIFICADO APROVADO PELO COORDENADOR%'";
+                LEFT JOIN atividadesdisponiveisbcc23 ad ON ac.atividade_disponivel_id = ad.id
+                WHERE c.id = ?
+                  AND (ac.status = 'aprovado' OR ac.status = 'rejeitado')
+                  AND ac.declaracao_caminho IS NOT NULL
+                  AND ac.declaracao_caminho != ''
+                  AND ac.data_avaliacao IS NOT NULL";
             
-            $stmt = $db->prepare($sql);
-            $stmt->bind_param("ii", $curso_id, $coordenador_id);
+            $stmt = $db->prepare($sqlACC);
+            $stmt->bind_param("i", $curso_id);
             $stmt->execute();
             $result = $stmt->get_result();
+            
+            $count_acc = $result->num_rows;
+            error_log("Query ACC encontrou $count_acc registros para curso $curso_id");
         
             while ($row = $result->fetch_assoc()) {
+                error_log("ACC encontrado: ID " . $row['id'] . ", Status: " . $row['status'] . ", Data avaliação: " . $row['data_avaliacao']);
                 $atividades[] = [
                     'id' => (int)$row['id'],
                     'aluno_nome' => $row['aluno_nome'],
                     'aluno_matricula' => $row['aluno_matricula'],
                     'curso_nome' => $row['curso_nome'],
                     'atividade_nome' => $row['atividade_nome'],
+                    'titulo' => $row['titulo'],
                     'horas_contabilizadas' => (int)$row['horas_contabilizadas'],
-                    'status' => $row['status'],
+                    'status' => ucfirst($row['status']),
                     'data_envio' => $row['data_envio'],
                     'data_aprovacao' => $row['data_aprovacao'],
                     'certificado_caminho' => $row['certificado_caminho'],
-                    'tipo' => $row['tipo']
+                    'tipo' => $row['tipo'],
+                    'categoria_nome' => $row['categoria_nome']
                 ];
             }
 
-            // Buscar certificados avulsos processados
-            $sqlAvulso = "SELECT 
-                    ca.id,
-                    ca.titulo,
-                    ca.horas as horas_contabilizadas,
-                    ca.status,
-                    ca.data_envio as data_envio,
-                    ca.data_avaliacao as data_aprovacao,
-                    ca.caminho_arquivo as certificado_caminho,
+            // 2. Buscar atividades de ensino processadas
+            $sqlEnsino = "SELECT 
+                    ae.id,
+                    COALESCE(ae.nome_disciplina, ae.nome_disciplina_laboratorio, 'Disciplinas em áreas correlatas cursadas em outras IES') as titulo,
+                    ae.carga_horaria as horas_contabilizadas,
+                    ae.status,
+                    ae.data_submissao as data_envio,
+                    ae.data_avaliacao as data_aprovacao,
+                    ae.declaracao_caminho as certificado_caminho,
+                    ae.aluno_id,
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    'Certificado Avulso' as atividade_nome,
-                    'avulso' as tipo
-                FROM certificadoavulso ca
-                INNER JOIN Aluno a ON ca.aluno_id = a.usuario_id
+                    ad.titulo as atividade_nome,
+                    ae.observacoes_avaliacao as observacoes_Analise,
+                    3 as categoria_id,
+                    'Ensino' as categoria_nome,
+                    'ensino' as tipo,
+                    ae.data_avaliacao
+                FROM atividadecomplementarensino ae
+                INNER JOIN Aluno a ON ae.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                WHERE c.id = ? AND ca.coordenador_id = ? 
-                  AND (ca.status = 'Aprovado' OR ca.status = 'Rejeitado')";
+                INNER JOIN atividadesdisponiveisbcc23 ad ON ae.atividade_disponivel_id = ad.id
+                WHERE c.id = ?
+                  AND (ae.status = 'aprovado' OR ae.status = 'rejeitado')
+                  AND ae.declaracao_caminho IS NOT NULL
+                  AND ae.declaracao_caminho != ''
+                  AND ae.data_avaliacao IS NOT NULL";
             
-            $stmtAvulso = $db->prepare($sqlAvulso);
-            $stmtAvulso->bind_param("ii", $curso_id, $coordenador_id);
-            $stmtAvulso->execute();
-            $resultAvulso = $stmtAvulso->get_result();
+            $stmtEnsino = $db->prepare($sqlEnsino);
+            $stmtEnsino->bind_param("i", $curso_id);
+            $stmtEnsino->execute();
+            $resultEnsino = $stmtEnsino->get_result();
         
-            while ($row = $resultAvulso->fetch_assoc()) {
+            while ($row = $resultEnsino->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'aluno_nome' => $row['aluno_nome'],
+                    'aluno_matricula' => $row['aluno_matricula'],
+                    'curso_nome' => $row['curso_nome'],
+                    'atividade_nome' => $row['atividade_nome'], // Usar o nome correto da atividade baseado no atividade_disponivel_id
+                    'titulo' => $row['titulo'],
+                    'horas_contabilizadas' => (int)$row['horas_contabilizadas'],
+                    'status' => ucfirst($row['status']),
+                    'data_envio' => $row['data_envio'],
+                    'data_aprovacao' => $row['data_aprovacao'],
+                    'certificado_caminho' => $row['certificado_caminho'],
+                    'tipo' => $row['tipo'],
+                    'categoria_nome' => $row['categoria_nome']
+                ];
+            }
+
+            // 3. Buscar atividades de estágio processadas
+            $sqlEstagio = "SELECT 
+                    aes.id,
+                    CONCAT('Estágio - ', aes.empresa, ' - ', aes.area) as titulo,
+                    aes.horas as horas_contabilizadas,
+                    aes.status,
+                    aes.data_submissao as data_envio,
+                    aes.data_avaliacao as data_aprovacao,
+                    aes.declaracao_caminho as certificado_caminho,
+                    aes.aluno_id,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    aes.observacoes_avaliacao as observacoes_Analise,
+                    4 as categoria_id,
+                    'Estágio' as categoria_nome,
+                    'estagio' as tipo,
+                    aes.data_avaliacao
+                FROM atividadecomplementarestagio aes
+                INNER JOIN Aluno a ON aes.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                WHERE c.id = ?
+                  AND (aes.status = 'aprovado' OR aes.status = 'rejeitado')
+                  AND aes.declaracao_caminho IS NOT NULL
+                  AND aes.declaracao_caminho != ''
+                  AND aes.data_avaliacao IS NOT NULL";
+            
+            $stmtEstagio = $db->prepare($sqlEstagio);
+            $stmtEstagio->bind_param("i", $curso_id);
+            $stmtEstagio->execute();
+            $resultEstagio = $stmtEstagio->get_result();
+        
+            while ($row = $resultEstagio->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'aluno_nome' => $row['aluno_nome'],
+                    'aluno_matricula' => $row['aluno_matricula'],
+                    'curso_nome' => $row['curso_nome'],
+                    'atividade_nome' => 'Estágio curricular não obrigatório',
+                    'titulo' => $row['titulo'],
+                    'horas_contabilizadas' => (int)$row['horas_contabilizadas'],
+                    'status' => ucfirst($row['status']),
+                    'data_envio' => $row['data_envio'],
+                    'data_aprovacao' => $row['data_aprovacao'],
+                    'certificado_caminho' => $row['certificado_caminho'],
+                    'tipo' => $row['tipo'],
+                    'categoria_nome' => $row['categoria_nome']
+                ];
+            }
+
+            // 4. Buscar atividades de pesquisa processadas
+            $sqlPesquisa = "SELECT 
+                    ap.id,
+                    CASE 
+                        WHEN ap.nome_evento IS NOT NULL AND ap.nome_evento != '' THEN ap.nome_evento
+                        WHEN ap.nome_projeto IS NOT NULL AND ap.nome_projeto != '' THEN ap.nome_projeto
+                        WHEN ap.nome_artigo IS NOT NULL AND ap.nome_artigo != '' THEN ap.nome_artigo
+                        ELSE 'Atividade de Pesquisa'
+                    END as titulo,
+                    ap.horas_realizadas as horas_contabilizadas,
+                    ap.status,
+                    ap.data_submissao as data_envio,
+                    ap.data_avaliacao as data_aprovacao,
+                    ap.declaracao_caminho as certificado_caminho,
+                    ap.aluno_id,
+                    u.nome as aluno_nome,
+                    a.matricula as aluno_matricula,
+                    c.nome as curso_nome,
+                    ad.titulo as atividade_nome,
+                    ap.observacoes_avaliacao as observacoes_Analise,
+                    2 as categoria_id,
+                    'Pesquisa' as categoria_nome,
+                    'pesquisa' as tipo,
+                    ap.data_avaliacao
+                FROM atividadecomplementarpesquisa ap
+                INNER JOIN Aluno a ON ap.aluno_id = a.usuario_id
+                INNER JOIN Usuario u ON a.usuario_id = u.id
+                INNER JOIN Curso c ON a.curso_id = c.id
+                INNER JOIN atividadesdisponiveisbcc23 ad ON ap.atividade_disponivel_id = ad.id
+                WHERE c.id = ?
+                  AND (ap.status = 'aprovado' OR ap.status = 'rejeitado')
+                  AND ap.declaracao_caminho IS NOT NULL
+                  AND ap.declaracao_caminho != ''
+                  AND ap.data_avaliacao IS NOT NULL";
+            
+            $stmtPesquisa = $db->prepare($sqlPesquisa);
+            $stmtPesquisa->bind_param("i", $curso_id);
+            $stmtPesquisa->execute();
+            $resultPesquisa = $stmtPesquisa->get_result();
+        
+            while ($row = $resultPesquisa->fetch_assoc()) {
                 $atividades[] = [
                     'id' => (int)$row['id'],
                     'aluno_nome' => $row['aluno_nome'],
                     'aluno_matricula' => $row['aluno_matricula'],
                     'curso_nome' => $row['curso_nome'],
                     'atividade_nome' => $row['atividade_nome'],
+                    'titulo' => $row['titulo'],
                     'horas_contabilizadas' => (int)$row['horas_contabilizadas'],
-                    'status' => $row['status'],
+                    'status' => ucfirst($row['status']),
                     'data_envio' => $row['data_envio'],
                     'data_aprovacao' => $row['data_aprovacao'],
                     'certificado_caminho' => $row['certificado_caminho'],
-                    'tipo' => $row['tipo']
+                    'tipo' => $row['tipo'],
+                    'categoria_nome' => $row['categoria_nome']
                 ];
             }
 
-            // Ordenar por data de aprovação
+            // Ordenar por data de aprovação (mais recente primeiro)
             usort($atividades, function($a, $b) {
                 return strtotime($b['data_aprovacao']) - strtotime($a['data_aprovacao']);
             });
@@ -921,23 +1207,102 @@ class AtividadeComplementar {
         }
     }
 
-    public static function listarCategorias() {
+    public static function listarCategorias($userData = null) {
         try {
+            // Log dos dados recebidos para debug
+            error_log("listarCategorias - userData recebido: " . json_encode($userData));
+            
             $db = \backend\api\config\Database::getInstance()->getConnection();
-            $sql = "SELECT id, descricao as nome FROM CategoriaAtividade ORDER BY descricao";
+            
+            // Primeiro tentar a tabela categoriaatividadebcc23, se não existir usar categoriaatividade
+            $sql = "SELECT id, descricao as nome FROM categoriaatividadebcc23 ORDER BY descricao";
             $result = $db->query($sql);
             
-            $categorias = [];
-            while ($row = $result->fetch_assoc()) {
-                $categorias[] = [
-                    'id' => (int)$row['id'],
-                    'nome' => $row['nome']
-                ];
+            // Se a query falhar, tentar a tabela padrão
+            if (!$result) {
+                error_log("Tabela categoriaatividadebcc23 não encontrada, usando categoriaatividade");
+                $sql = "SELECT id, descricao as nome FROM categoriaatividade ORDER BY descricao";
+                $result = $db->query($sql);
             }
+            
+            $categorias = [];
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $categorias[] = [
+                        'id' => (int)$row['id'],
+                        'nome' => $row['nome']
+                    ];
+                }
+            }
+            
+            // Aplicar filtro para alunos com matrícula 2023+
+            if ($userData && isset($userData['tipo']) && $userData['tipo'] === 'aluno' && isset($userData['matricula'])) {
+                $anoMatricula = (int)substr($userData['matricula'], 0, 4);
+                error_log("Aluno detectado - Matrícula: {$userData['matricula']}, Ano: {$anoMatricula}");
+                
+                // Para alunos com matrícula 2023 ou posterior, filtrar "Ação Social e Comunitária"
+                if ($anoMatricula >= 2023) {
+                    error_log("Aplicando filtro para aluno 2023+");
+                    $categorias = array_filter($categorias, function($categoria) {
+                        // Filtrar categorias que contenham "Ação Social" ou "Social" no nome
+                        $nome = strtolower($categoria['nome']);
+                        return !(strpos($nome, 'ação social') !== false || 
+                                strpos($nome, 'social e comunitária') !== false ||
+                                strpos($nome, 'atividades sociais') !== false);
+                    });
+                    
+                    // Reindexar o array após filtrar
+                    $categorias = array_values($categorias);
+                    error_log("Categorias após filtro: " . count($categorias));
+                } else {
+                    error_log("Aluno 2017-2022 - mantendo todas as categorias");
+                }
+                // Para alunos 2017-2022 e outros tipos de usuário (coordenador, admin), manter todas as categorias
+            } else {
+                error_log("Usuário não é aluno ou dados insuficientes - mantendo todas as categorias");
+            }
+            
             return $categorias;
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementar::listarCategorias: " . $e->getMessage());
-            throw $e;
+            
+            // Fallback para a tabela padrão em caso de erro
+            try {
+                $db = \backend\api\config\Database::getInstance()->getConnection();
+                $sql = "SELECT id, descricao as nome FROM categoriaatividade ORDER BY descricao";
+                $result = $db->query($sql);
+                
+                $categorias = [];
+                if ($result) {
+                    while ($row = $result->fetch_assoc()) {
+                        $categorias[] = [
+                            'id' => (int)$row['id'],
+                            'nome' => $row['nome']
+                        ];
+                    }
+                }
+                
+                // Aplicar o mesmo filtro no fallback
+                if ($userData && isset($userData['tipo']) && $userData['tipo'] === 'aluno' && isset($userData['matricula'])) {
+                    $anoMatricula = (int)substr($userData['matricula'], 0, 4);
+                    
+                    if ($anoMatricula >= 2023) {
+                        $categorias = array_filter($categorias, function($categoria) {
+                            $nome = strtolower($categoria['nome']);
+                            return !(strpos($nome, 'ação social') !== false || 
+                                    strpos($nome, 'social e comunitária') !== false ||
+                                    strpos($nome, 'atividades sociais') !== false);
+                        });
+                        
+                        $categorias = array_values($categorias);
+                    }
+                }
+                
+                return $categorias;
+            } catch (Exception $fallbackError) {
+                error_log("Erro no fallback: " . $fallbackError->getMessage());
+                throw $e;
+            }
         }
     }
 

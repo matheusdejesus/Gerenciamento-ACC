@@ -602,6 +602,17 @@
                 // Adicionar tipo de atividade para validação no backend
                 formData.append('tipo_atividade', tipoAtividade);
                 
+                // Adicionar atividade_disponivel_id correto baseado no tipo
+                let atividadeDisponivelId;
+                if (tipoAtividade === 'Outras IES') {
+                    atividadeDisponivelId = 1; // ID 1: Disciplinas em áreas correlatas cursadas em outras IES
+                } else if (tipoAtividade === 'UFOPA') {
+                    atividadeDisponivelId = 2; // ID 2: Disciplinas em áreas correlatas cursadas na UFOPA
+                } else if (tipoAtividade === 'Monitoria') {
+                    atividadeDisponivelId = 3; // ID 3: Monitoria em disciplina de graduação ou laboratório
+                }
+                formData.append('atividade_disponivel_id', atividadeDisponivelId);
+                
                 // Enviar FormData diretamente para suportar uploads
                 const response = await AuthClient.fetch('../../backend/api/routes/atividade_complementar_ensino.php', {
                     method: 'POST',

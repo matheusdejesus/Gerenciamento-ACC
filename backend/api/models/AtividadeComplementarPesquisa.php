@@ -151,9 +151,15 @@ class AtividadeComplementarPesquisa {
                         acp.observacoes_avaliacao,
                         acp.avaliador_id,
                         ad.titulo as atividade_titulo,
+                        CASE 
+                            WHEN acp.nome_evento IS NOT NULL AND acp.nome_evento != '' THEN acp.nome_evento
+                            WHEN acp.nome_projeto IS NOT NULL AND acp.nome_projeto != '' THEN acp.nome_projeto
+                            WHEN acp.nome_artigo IS NOT NULL AND acp.nome_artigo != '' THEN acp.nome_artigo
+                            ELSE 'Sem título'
+                        END as titulo_atividade,
                         u.nome as avaliador_nome
                     FROM atividadecomplementarpesquisa acp
-                    LEFT JOIN AtividadesDisponiveis ad ON acp.atividade_disponivel_id = ad.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad ON acp.atividade_disponivel_id = ad.id
                     LEFT JOIN Usuario u ON acp.avaliador_id = u.id
                     WHERE acp.aluno_id = ?
                     ORDER BY acp.data_submissao DESC";
@@ -192,6 +198,7 @@ class AtividadeComplementarPesquisa {
                     'observacoes_avaliacao' => $row['observacoes_avaliacao'],
                     'avaliador_id' => $row['avaliador_id'] ? (int)$row['avaliador_id'] : null,
                     'atividade_titulo' => $row['atividade_titulo'],
+                    'titulo_atividade' => $row['titulo_atividade'],
                     'avaliador_nome' => $row['avaliador_nome']
                 ];
             }
@@ -216,7 +223,7 @@ class AtividadeComplementarPesquisa {
                         ad.titulo as atividade_titulo,
                         u.nome as avaliador_nome
                     FROM atividadecomplementarpesquisa acp
-                    LEFT JOIN AtividadesDisponiveis ad ON acp.atividade_disponivel_id = ad.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad ON acp.atividade_disponivel_id = ad.id
                     LEFT JOIN Usuario u ON acp.avaliador_id = u.id
                     WHERE acp.id = ?";
             
@@ -298,7 +305,7 @@ class AtividadeComplementarPesquisa {
                     INNER JOIN Aluno a ON acp.aluno_id = a.usuario_id
                     INNER JOIN Usuario u ON a.usuario_id = u.id
                     INNER JOIN Curso c ON a.curso_id = c.id
-                    LEFT JOIN AtividadesDisponiveis ad ON acp.atividade_disponivel_id = ad.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad ON acp.atividade_disponivel_id = ad.id
                     LEFT JOIN Usuario av ON acp.avaliador_id = av.id";
             
             $condicoes = [];

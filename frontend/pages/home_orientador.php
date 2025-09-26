@@ -894,10 +894,10 @@
                 }
 
                 try {
-                    const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php', {
-                        method: 'POST',
-                        body: formData
-                    });
+                    const response = await AuthClient.fetch('../../backend/api/routes/avaliar_atividade.php', {
+                    method: 'POST',
+                    body: formData
+                });
 
                     if (!response.ok) {
                         const errorText = await response.text();

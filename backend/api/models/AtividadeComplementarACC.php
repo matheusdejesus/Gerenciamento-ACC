@@ -35,7 +35,7 @@ class AtividadeComplementarACC {
             }
 
             // Buscar categoria_id da atividade disponível
-            $stmt_categoria = $db->prepare("SELECT categoria_id FROM AtividadesDisponiveis WHERE id = ?");
+            $stmt_categoria = $db->prepare("SELECT categoria_id FROM atividadesdisponiveisbcc23 WHERE id = ?");
             $stmt_categoria->bind_param("i", $dados['atividade_disponivel_id']);
             $stmt_categoria->execute();
             $result_categoria = $stmt_categoria->get_result();
@@ -113,12 +113,13 @@ class AtividadeComplementarACC {
                         acc.data_avaliacao,
                         acc.observacoes_avaliacao,
                         ad.titulo as atividade_nome,
+                        acc.curso_evento_nome as titulo,
                         ad.carga_horaria_maxima_por_atividade as horas_maximas,
                         ca.descricao as categoria_nome,
                         u.nome as avaliador_nome
                     FROM atividadecomplementaracc acc
-                    INNER JOIN AtividadesDisponiveis ad ON acc.atividade_disponivel_id = ad.id
-                    INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    INNER JOIN atividadesdisponiveisbcc23 ad ON acc.atividade_disponivel_id = ad.id
+                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     LEFT JOIN Coordenador c ON acc.avaliador_id = c.usuario_id
                     LEFT JOIN Usuario u ON c.usuario_id = u.id
                     WHERE acc.aluno_id = ?
@@ -139,6 +140,8 @@ class AtividadeComplementarACC {
             $atividades = [];
             
             while ($row = $result->fetch_assoc()) {
+                // Adicionar campo atividade_titulo para compatibilidade
+                $row['atividade_titulo'] = $row['atividade_nome'];
                 $atividades[] = $row;
             }
             
@@ -166,8 +169,8 @@ class AtividadeComplementarACC {
                         al.matricula,
                         ua.nome as aluno_nome
                     FROM atividadecomplementaracc acc
-                    INNER JOIN AtividadesDisponiveis ad ON acc.atividade_disponivel_id = ad.id
-                    INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    INNER JOIN atividadesdisponiveisbcc23 ad ON acc.atividade_disponivel_id = ad.id
+                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     INNER JOIN Aluno al ON acc.aluno_id = al.usuario_id
                     INNER JOIN Usuario ua ON al.usuario_id = ua.id
                     LEFT JOIN Coordenador c ON acc.avaliador_id = c.usuario_id
@@ -247,8 +250,8 @@ class AtividadeComplementarACC {
                         al.matricula,
                         u.nome as avaliador_nome
                     FROM atividadecomplementaracc acc
-                    INNER JOIN AtividadesDisponiveis ad ON acc.atividade_disponivel_id = ad.id
-                    INNER JOIN CategoriaAtividade ca ON ad.categoria_id = ca.id
+                    INNER JOIN atividadesdisponiveisbcc23 ad ON acc.atividade_disponivel_id = ad.id
+                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     INNER JOIN Aluno al ON acc.aluno_id = al.usuario_id
                     INNER JOIN Usuario ua ON al.usuario_id = ua.id
                     LEFT JOIN Coordenador c ON acc.avaliador_id = c.usuario_id

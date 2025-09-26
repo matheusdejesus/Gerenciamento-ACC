@@ -14,6 +14,8 @@ class AuthMiddleware {
     
     public static function validateToken() {
         try {
+            error_log("=== VALIDANDO TOKEN JWT ===");
+            
             $headers = function_exists('getallheaders') ? getallheaders() : [];
             
             if (empty($headers)) {
@@ -33,6 +35,8 @@ class AuthMiddleware {
             }
             $headers = array_merge($headers, $normalizedHeaders);
             
+            error_log("Headers recebidos: " . print_r(array_keys($headers), true));
+            
             if (!$headers) {
                 error_log("Headers não encontrados");
                 return null;
@@ -49,29 +53,31 @@ class AuthMiddleware {
             
             if (!$authHeader) {
                 error_log("Header Authorization não encontrado");
+                error_log("Headers disponíveis: " . print_r($headers, true));
                 return null;
             }
             
-            // Verificar formato Bearer
-            if (!preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-                error_log("Formato de token inválido: " . $authHeader);
-                return null;
+            
+            if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
+                $token = $matches[1];
+            
+                // Validar token
+                $payload = JWTService::validate($token);
+                if (!$payload) {
+                    error_log("Token inválido ou expirado");
+                    return null;
+                }
+                
+                error_log("Token validado com sucesso: " . json_encode($payload));
+                return $payload;
             }
             
-            $token = $matches[1];
-            
-            // Validar token
-            $payload = JWTService::validate($token);
-            if (!$payload) {
-                error_log("Token inválido ou expirado");
-                return null;
-            }
-            
-            error_log("Token validado com sucesso: " . json_encode($payload));
-            return $payload;
+            error_log("Formato de token inválido");
+            return null;
             
         } catch (Exception $e) {
             error_log("Erro em validateToken: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             return null;
         }
     }

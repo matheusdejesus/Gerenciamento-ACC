@@ -45,7 +45,7 @@
                     </h2>
                     <p class="text-gray-600">Aqui estão suas Atividades ACC.</p>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
                         <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Horas Certificadas</h3>
                         <p id="horasValidadas" class="text-3xl font-bold" style="color: #1A7F37">-</p>
@@ -53,13 +53,8 @@
                     </div>
                     <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
                         <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Horas Pendentes</h3>
-                        <p id="horasPendentes" class="text-3xl font-bold" style="color: #B45309">-</p>
+                        <p id="horasPendentes" class="text-3xl font-bold" style="color: #B45309">120</p>
                         <p class="text-xs text-gray-500 mt-1">Aguardando conclusão ou avaliação</p>
-                    </div>
-                    <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
-                        <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Atividades em Andamento</h3>
-                        <p id="atividadesAndamento" class="text-3xl font-bold" style="color: #0969DA">-</p>
-                        <p class="text-xs text-gray-500 mt-1">Total de atividades ativas</p>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -71,11 +66,11 @@
                             <thead style="background-color: #F6F8FA">
     <tr>
         <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Título</th>
+        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Atividade</th>
         <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Categoria</th>
         <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Horas</th>
         <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Status</th>
         <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Ações</th>
-        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Certificados</th>
     </tr>
 </thead>
                             <tbody id="tabelaAtividades" class="bg-white divide-y divide-gray-200">
@@ -197,7 +192,7 @@
         }
         
         const user = AuthClient.getUser();
-        if (user.tipo !== 'aluno') {
+        if (!user || user.tipo !== 'aluno') {
             AuthClient.logout();
         }
         
@@ -278,6 +273,10 @@
                             if (categoria === 'ACC') {
                                 titulo = atividade.curso_evento_nome || 'Sem título';
                                 cargaHoraria = atividade.horas_realizadas || 0;
+                            } else if (categoria === 'Pesquisa') {
+                                // Para pesquisa, usar o título específico da atividade (nome do evento, projeto ou artigo)
+                                titulo = atividade.titulo_atividade || atividade.nome_evento || atividade.nome_projeto || atividade.nome_artigo || 'Sem título';
+                                cargaHoraria = atividade.horas_realizadas || 0;
                             } else {
                                 titulo = atividade.titulo || atividade.nome_disciplina || atividade.empresa || atividade.tema || 'Sem título';
                                 cargaHoraria = atividade.carga_horaria_solicitada || atividade.carga_horaria || atividade.horas || atividade.horas_realizadas || 0;
@@ -289,6 +288,7 @@
                                 // Garantir campos obrigatórios
                                 titulo: titulo,
                                 categoria_nome: atividade.categoria_nome || categoria,
+                                atividade_titulo: atividade.atividade_titulo || titulo, // Usar o título da atividade disponível
                                 carga_horaria_solicitada: cargaHoraria,
                                 carga_horaria_aprovada: atividade.carga_horaria_aprovada || atividade.horas_aprovadas || null,
                                 status: atividade.status || 'Pendente',
@@ -322,29 +322,33 @@
         
         // Função para obter status mais detalhado
         function getStatusDetalhado(atividade) {
-            const isAvulso = atividade.tipo === 'avulso';
-            
-            if (atividade.status === 'Pendente') {
+            // Verificar status do banco de dados primeiro
+            if (atividade.status === 'aprovado') {
+                return { class: 'bg-green-100 text-green-800', text: 'Aprovado' };
+            }
+
+            if (atividade.status === 'rejeitado') {
+                return { class: 'bg-red-100 text-red-800', text: 'Rejeitado' };
+            }
+
+            if (atividade.status === 'Aguardando avaliação') {
                 return { class: 'bg-yellow-100 text-yellow-800', text: 'Aguardando Avaliação' };
             }
 
+            // Fallback para status antigos baseados em observações
             if (atividade.status === 'Aprovada') {
-                if (isAvulso) {
-                    return { class: 'bg-green-100 text-green-800', text: 'Concluída' };
-                } else {
-                    if (atividade.observacoes_Analise && 
-                        atividade.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) {
-                        return { class: 'bg-green-100 text-green-800', text: 'Concluída' };
-                    }
-                    return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
+                if (atividade.observacoes_Analise && 
+                    atividade.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) {
+                    return { class: 'bg-green-100 text-green-800', text: 'Aprovado' };
                 }
+                return { class: 'bg-blue-100 text-blue-800', text: 'Em Andamento' };
             }
 
             if (atividade.status === 'Rejeitada') {
-                return { class: 'bg-red-100 text-red-800', text: 'Rejeitada' };
+                return { class: 'bg-red-100 text-red-800', text: 'Rejeitado' };
             }
 
-            return { class: 'bg-gray-100 text-gray-800', text: atividade.status || 'N/A' };
+            return { class: 'bg-gray-100 text-gray-800', text: atividade.status || 'Aguardando Avaliação' };
         }
 
         // Função para exibir as atividades na tabela
@@ -362,7 +366,6 @@
             
             tbody.innerHTML = minhasAtividades.map(atividade => {
                 const statusDetalhado = getStatusDetalhado(atividade);
-                const isAvulso = atividade.tipo === 'avulso';
 
                 // Formatação das horas
                 let horasDisplay = `${atividade.carga_horaria_solicitada}h`;
@@ -377,49 +380,7 @@
                     }
                 }
 
-                let certificadoBtn;
-                if (isAvulso) {
-                    if (atividade.certificado_caminho) {
-                        certificadoBtn = `
-                            <button class="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition"
-                                onclick="verCertificado('${atividade.certificado_caminho}')">
-                                Ver Certificado
-                            </button>
-                        `;
-                    } else {
-                        certificadoBtn = `
-                            <span class="text-gray-500 text-sm">Certificado Anexado</span>
-                        `;
-                    }
-                } else {
-                    const hoje = new Date();
-                    hoje.setHours(0, 0, 0, 0); // Zerar horas para comparar apenas a data
-                    let dataFim = atividade.data_fim ? new Date(atividade.data_fim + 'T00:00:00') : null;
-                    if (dataFim) dataFim.setHours(0, 0, 0, 0);
-                    const concluida = atividade.status === 'Aprovada' && dataFim && dataFim <= hoje;
 
-                    if (atividade.certificado_caminho) {
-                        certificadoBtn = `
-                            <button class="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition"
-                                onclick="verCertificado('${atividade.certificado_caminho}')">
-                                Ver Certificado
-                            </button>
-                        `;
-                    } else if (concluida) {
-                        certificadoBtn = `
-                            <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition"
-                                onclick="solicitarCertificado(${atividade.id})">
-                                Solicitar Certificado
-                            </button>
-                        `;
-                    } else {
-                        certificadoBtn = `
-                            <button class="bg-gray-200 text-gray-400 px-3 py-1 rounded cursor-not-allowed" disabled>
-                                Certificados
-                            </button>
-                        `;
-                    }
-                }
 
                 return `
                     <tr class="hover:bg-gray-50">
@@ -427,7 +388,10 @@
                             <div class="font-medium">${atividade.titulo}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${isAvulso ? 'Certificado Avulso' : (atividade.categoria_nome || 'N/A')}
+                            <div class="font-medium">${atividade.atividade_titulo || 'N/A'}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${atividade.categoria_nome || 'N/A'}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             ${horasDisplay}
@@ -443,9 +407,6 @@
                                 Ver Detalhes
                             </button>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            ${certificadoBtn}
-                        </td>
                     </tr>
                 `;
             }).join('');
@@ -458,45 +419,24 @@
 
         // Função para atualizar as estatísticas
         function atualizarEstatisticas() {
+            // Calcular horas certificadas (aprovadas pelo coordenador)
             const horasValidadas = minhasAtividades
                 .filter(a => {
-                    if (a.tipo === 'avulso') {
-                        return a.status === 'Aprovada';
-                    } else {
-                        return a.status === 'Aprovada' && 
-                               a.observacoes_Analise && 
-                               a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR');
-                    }
+                    // Verificar se foi aprovado pelo coordenador (certificado aprovado)
+                    return a.status === 'aprovado' || 
+                           (a.observacoes_Analise && 
+                            a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) ||
+                           (a.observacoes_avaliacao && 
+                            a.observacoes_avaliacao.includes('[CERTIFICADO APROVADO PELO COORDENADOR'));
                 })
                 .reduce((total, a) => total + (a.carga_horaria_aprovada || 0), 0);
 
-            const horasPendentes = minhasAtividades
-                .filter(a => {
-                    if (a.tipo === 'avulso') {
-                        return false;
-                    } else {
-                        return a.status !== 'Rejeitada' && 
-                               (!a.observacoes_Analise || 
-                                !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR'));
-                    }
-                })
-                .reduce((total, a) => total + (a.carga_horaria_solicitada || 0), 0);
-
-            const atividadesAndamento = minhasAtividades
-                .filter(a => {
-                    if (a.tipo === 'avulso') {
-                        return false;
-                    } else {
-                        return a.status === 'Aprovada' && 
-                               (!a.observacoes_Analise || 
-                                !a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR'));
-                    }
-                })
-                .length;
+            // Calcular horas pendentes (total necessário - horas certificadas)
+            const totalHorasNecessarias = 120; // Total de horas ACC necessárias
+            const horasPendentes = Math.max(0, totalHorasNecessarias - horasValidadas);
 
             document.getElementById('horasValidadas').textContent = horasValidadas;
             document.getElementById('horasPendentes').textContent = horasPendentes;
-            document.getElementById('atividadesAndamento').textContent = atividadesAndamento;
         }
 
         // Função para exibir detalhes da atividade
@@ -508,30 +448,20 @@
                 return;
             }
 
-            const isAvulso = atividade.tipo === 'avulso';
-
             // Preencher os dados no modal
             document.getElementById('detalheTitulo').textContent = atividade.titulo;
-            document.getElementById('detalheCategoria').textContent = 
-                isAvulso ? 'Certificado Avulso' : (atividade.categoria_nome || 'N/A');
+            document.getElementById('detalheCategoria').textContent = atividade.categoria_nome || 'N/A';
             document.getElementById('detalheHorasSolicitadas').textContent = atividade.carga_horaria_solicitada + 'h';
             document.getElementById('detalheHorasAprovadas').textContent = 
                 atividade.carga_horaria_aprovada ? atividade.carga_horaria_aprovada + 'h' : 'Aguardando avaliação';
             document.getElementById('detalheDataSubmissao').textContent = 
                 formatarData(atividade.data_submissao);
             
-            // Para certificados avulsos, não mostrar período
-            if (isAvulso) {
-                document.getElementById('detalhePeriodo').textContent = 'N/A (Certificado Avulso)';
-            } else {
-                document.getElementById('detalhePeriodo').textContent = 
-                    `${formatarData(atividade.data_inicio)} a ${formatarData(atividade.data_fim)}`;
-            }
+            document.getElementById('detalhePeriodo').textContent = 
+                `${formatarData(atividade.data_inicio)} a ${formatarData(atividade.data_fim)}`;
             
-            document.getElementById('detalheDescricao').textContent = 
-                isAvulso ? (atividade.observacao || 'Sem observações') : (atividade.descricao || 'Sem descrição');
-            document.getElementById('detalheOrientador').textContent = 
-                isAvulso ? (atividade.coordenador_nome || 'Não definido') : (atividade.orientador_nome || 'Não definido');
+            document.getElementById('detalheDescricao').textContent = atividade.descricao || 'Sem descrição';
+            document.getElementById('detalheOrientador').textContent = atividade.orientador_nome || 'Não definido';
 
             // Status com informação mais detalhada
             const statusElement = document.getElementById('detalheStatus');
@@ -550,46 +480,24 @@
 
             // Documentos anexados
             const docContainer = document.getElementById('documentoDeclaracaoAluno');
-            if (isAvulso) {
-                if (atividade.certificado_caminho) {
-                    docContainer.innerHTML = `
-                        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
-                            <div class="flex items-center">
-                                <svg class="w-8 h-8 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
-                                </svg>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">Certificado Anexado</p>
-                                </div>
+            if (atividade.tem_declaracao === true || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 1 || atividade.tem_declaracao === 'true') {
+                docContainer.innerHTML = `
+                    <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+                        <div class="flex items-center">
+                            <svg class="w-8 h-8 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
                             </div>
-                           <button onclick="verCertificado('${atividade.certificado_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                Visualizar
-                            </button>
                         </div>
-                    `;
-                } else {
-                    docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Certificado anexado no envio</div>`;
-                }
+                       <button onclick="visualizarDeclaracao('${atividade.declaracao_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            Visualizar
+                        </button>
+                    </div>
+                `;
             } else {
-                if (atividade.tem_declaracao === true || atividade.tem_declaracao === '1' || atividade.tem_declaracao === 1 || atividade.tem_declaracao === 'true') {
-                    docContainer.innerHTML = `
-                        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
-                            <div class="flex items-center">
-                                <svg class="w-8 h-8 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/>
-                                </svg>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">Declaração da Atividade</p>
-                                </div>
-                            </div>
-                           <button onclick="visualizarDeclaracao('${atividade.declaracao_caminho}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                Visualizar
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Nenhum documento anexado</div>`;
-                }
+                docContainer.innerHTML = `<div class="text-center py-4 text-gray-500">Nenhum documento anexado</div>`;
             }
 
             // Mostrar modal
@@ -619,7 +527,7 @@
             const tbody = document.getElementById('tabelaAtividades');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="px-6 py-8 text-center text-red-600">
+                    <td colspan="6" class="px-6 py-8 text-center text-red-600">
                         <div class="flex flex-col items-center">
                             <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 

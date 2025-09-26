@@ -92,12 +92,12 @@
         </div>
     </footer>
     
-    <script src="../assets/js/auth.js"></script>
+    <script src="auth.js"></script>
     <script>
         // Verificar autenticação JWT
         function verificarAutenticacao() {
             if (!AuthClient.isLoggedIn()) {
-                window.location.href = '/Gerenciamento-ACC/frontend/pages/login.php';
+                window.location.href = 'login.php';
                 return false;
             }
             const user = AuthClient.getUser();
@@ -112,10 +112,21 @@
 
         // Carregar categorias via JWT
         let todasCategorias = [];
+        let isAlunoAntigo = false; // Flag para identificar alunos de 2017-2022
+
+        // Verificar se o aluno tem matrícula entre 2017 e 2022
+        function verificarAlunoAntigo() {
+            const user = AuthClient.getUser();
+            if (user && user.matricula) {
+                const anoMatricula = parseInt(user.matricula.substring(0, 4));
+                isAlunoAntigo = anoMatricula >= 2017 && anoMatricula <= 2022;
+                console.log('Ano da matrícula:', anoMatricula, 'É aluno antigo:', isAlunoAntigo);
+            }
+        }
 
         async function carregarCategorias() {
             try {
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_categorias.php', {
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_categorias.php', {
                     method: 'POST'
                 });
                 const data = await response.json();
@@ -146,33 +157,76 @@
                 'Pesquisa': { cor: '#0969DA', icone: '🔬' },
                 'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
                 'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
-                'Estágio': { cor: '#F59E0B', icone: '💼' }
+                'Estágio': { cor: '#F59E0B', icone: '💼' },
+                'Ação Social': { cor: '#DC2626', icone: '🤝' } // Nova categoria para alunos antigos
             };
 
-            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                ${todasCategorias.map(categoria => {
-                    const config = categoriaConfig[categoria.nome] || { cor: '#6B7280', icone: '📋' };
-                    return `
-                        <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
-                             onclick="selecionarCategoria('${categoria.nome}')">
-                            <div class="p-6 text-center" style="background: linear-gradient(135deg, ${config.cor}, ${config.cor}dd)">
-                                <div class="text-4xl mb-3">${config.icone}</div>
-                                <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
-                            </div>
-                            <div class="p-4 text-center">
-                                <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
-                                <div class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition duration-200"
-                                     style="background-color: ${config.cor}20; color: ${config.cor}">
-                                    Ver Atividades
-                                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                    </svg>
+            // Se for aluno antigo (2017-2022), mostrar interface especial
+            if (isAlunoAntigo) {
+                const categoriasEspeciais = [
+                    { nome: 'Atividades extracurriculares', config: categoriaConfig['Atividades extracurriculares'] },
+                    { nome: 'Ensino', config: categoriaConfig['Ensino'] },
+                    { nome: 'Estágio', config: categoriaConfig['Estágio'] },
+                    { nome: 'Pesquisa', config: categoriaConfig['Pesquisa'] },
+                    { nome: 'Ação Social', config: categoriaConfig['Ação Social'] }
+                ];
+
+                container.innerHTML = `
+                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="text-lg font-semibold text-blue-800 mb-2">Escolher Categoria de Atividade</h3>
+                        <p class="text-blue-700 text-sm">Selecione uma categoria para ver as atividades disponíveis</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${categoriasEspeciais.map(item => `
+                            <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
+                                 onclick="selecionarCategoria('${item.nome}')">
+                                <div class="p-6 text-center" style="background: linear-gradient(135deg, ${item.config.cor}, ${item.config.cor}dd)">
+                                    <div class="text-4xl mb-3">${item.config.icone}</div>
+                                    <h3 class="text-xl font-bold text-white">${item.nome}</h3>
+                                </div>
+                                <div class="p-4 text-center">
+                                    <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
+                                    <div class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition duration-200"
+                                         style="background-color: ${item.config.cor}20; color: ${item.config.cor}">
+                                        Ver Atividades
+                                        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>`;
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                // Interface normal para alunos de 2023 em diante - FILTRAR "Ação Social"
+                const categoriasFiltradas = todasCategorias.filter(categoria => categoria.nome !== 'Ação Social');
+                
+                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    ${categoriasFiltradas.map(categoria => {
+                        const config = categoriaConfig[categoria.nome] || { cor: '#6B7280', icone: '📋' };
+                        return `
+                            <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
+                                 onclick="selecionarCategoria('${categoria.nome}')">
+                                <div class="p-6 text-center" style="background: linear-gradient(135deg, ${config.cor}, ${config.cor}dd)">
+                                    <div class="text-4xl mb-3">${config.icone}</div>
+                                    <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
+                                </div>
+                                <div class="p-4 text-center">
+                                    <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
+                                    <div class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition duration-200"
+                                         style="background-color: ${config.cor}20; color: ${config.cor}">
+                                        Ver Atividades
+                                        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>`;
+            }
         }
 
         function selecionarCategoria(nomeCategoria) {
@@ -181,7 +235,8 @@
                 'Ensino': 'atividades_ensino.php',
                 'Pesquisa': 'atividades_pesquisa.php',
                 'Atividades extracurriculares': 'atividades_extracurriculares.php',
-                'Estágio': 'atividades_estagio.php'
+                'Estágio': 'atividades_estagio.php',
+                'Ação Social': 'atividades_acao_social.php' // Nova página para Ação Social
             };
             
             const pagina = paginasCategoria[nomeCategoria];
@@ -192,6 +247,8 @@
             }
         }
 
+        // Inicializar verificação e carregar categorias
+        verificarAlunoAntigo();
         carregarCategorias();
     </script>
 </body>

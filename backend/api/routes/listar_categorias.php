@@ -10,17 +10,17 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../controllers/AtividadesDisponiveisController.php';
-require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
+require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
 use backend\api\controllers\AtividadesDisponiveisController;
-use backend\api\middleware\ApiKeyMiddleware;
+use backend\api\middleware\AuthMiddleware;
 
 try {
-    ApiKeyMiddleware::validateApiKey();
+    $userData = AuthMiddleware::validateToken();
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $controller = new AtividadesDisponiveisController();
-        $controller->listarCategorias();
+        $controller->listarCategorias($userData);
     } else {
         http_response_code(405);
         echo json_encode(['success' => false, 'error' => 'Método não permitido']);
