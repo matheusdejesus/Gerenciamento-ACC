@@ -7,6 +7,89 @@ use Exception;
 
 class AtividadesDisponiveis {
     
+    /**
+     * Determina qual tabela de atividades usar baseado no ano de matrícula
+     * @param string $matricula - Matrícula do aluno (formato: YYYYXXXXXX)
+     * @return array - Array com nomes das tabelas [atividades, categoria]
+     */
+    public static function determinarTabelasPorMatricula($matricula) {
+        // Extrair o ano da matrícula (primeiros 4 dígitos)
+        $anoMatricula = (int)substr($matricula, 0, 4);
+        
+        // Para alunos de 2017 a 2022: usar tabelas bcc17
+        if ($anoMatricula >= 2017 && $anoMatricula <= 2022) {
+            return [
+                'atividades' => 'atividadesdisponiveisbcc17',
+                'categoria' => 'categoriaatividadebcc17'
+            ];
+        }
+        // Para alunos de 2023 em diante: usar tabelas bcc23
+        else if ($anoMatricula >= 2023) {
+            return [
+                'atividades' => 'atividadesdisponiveisbcc23',
+                'categoria' => 'categoriaatividadebcc23'
+            ];
+        }
+        // Fallback para casos não previstos: usar tabelas bcc23
+        else {
+            return [
+                'atividades' => 'atividadesdisponiveisbcc23',
+                'categoria' => 'categoriaatividadebcc23'
+            ];
+        }
+    }
+    
+    /**
+     * Busca atividades usando a tabela apropriada baseada na matrícula do aluno
+     * @param string $matricula - Matrícula do aluno
+     * @return array - Lista de atividades
+     */
+    public static function listarPorMatricula($matricula) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $tabelas = self::determinarTabelasPorMatricula($matricula);
+            
+            $sql = "SELECT 
+                        ad.id,
+                        ad.titulo as nome,
+                        ad.carga_horaria_maxima_por_atividade as horas_max,
+                        ca.descricao as categoria,
+                        'Atividade Complementar' as tipo,
+                        ad.observacoes as descricao
+                    FROM {$tabelas['atividades']} ad
+                    INNER JOIN {$tabelas['categoria']} ca ON ad.categoria_id = ca.id
+                    ORDER BY ca.descricao, ad.titulo";
+            
+            $result = $db->query($sql);
+            
+            // Se a query falhar, usar fallback com tabelas padrão
+            if (!$result) {
+                error_log("Tabela {$tabelas['atividades']} não encontrada, usando fallback");
+                return self::listarTodas();
+            }
+            
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['id'],
+                    'nome' => $row['nome'],
+                    'horas_max' => (int)$row['horas_max'],
+                    'categoria' => $row['categoria'],
+                    'tipo' => $row['tipo'],
+                    'descricao' => $row['descricao'] ?? ''
+                ];
+            }
+            
+            error_log("AtividadesDisponiveis::listarPorMatricula - Encontradas " . count($atividades) . " atividades para matrícula $matricula");
+            return $atividades;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadesDisponiveis::listarPorMatricula: " . $e->getMessage());
+            // Em caso de erro, usar o método padrão como fallback
+            return self::listarTodas();
+        }
+    }
+    
     public static function listarTodas() {
         try {
             $db = Database::getInstance()->getConnection();
@@ -85,10 +168,38 @@ class AtividadesDisponiveis {
         }
     }
     
-    public static function buscarPorId($id) {
+    /**
+     * Busca atividade por ID usando a tabela apropriada baseada na matrícula
+     * @param int $id - ID da atividade
+     * @param string $matricula - Matrícula do aluno (opcional, para determinar tabela)
+     * @return array|null - Dados da atividade ou null se não encontrada
+     */
+    public static function buscarPorId($id, $matricula = null) {
         try {
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
+            // Se matrícula foi fornecida, usar tabela específica
+            if ($matricula) {
+                $tabelas = self::determinarTabelasPorMatricula($matricula);
+                
+                $sql = "SELECT ad.*, ca.descricao as categoria_nome 
+                        FROM {$tabelas['atividades']} ad
+                        LEFT JOIN {$tabelas['categoria']} ca ON ad.categoria_id = ca.id
+                        WHERE ad.id = ?";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                
+                $result = $stmt->get_result();
+                $atividade = $result->fetch_assoc();
+                
+                if ($atividade) {
+                    return $atividade;
+                }
+            }
+            
+            // Fallback: tentar nas tabelas na ordem de prioridade
             // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT ad.*, ca.descricao as categoria_nome 
                     FROM atividadesdisponiveisbcc23 ad
@@ -102,7 +213,23 @@ class AtividadesDisponiveis {
             $result = $stmt->get_result();
             $atividade = $result->fetch_assoc();
             
-            // Se não encontrou, tentar com AtividadesDisponiveis
+            // Se não encontrou, tentar com atividadesdisponiveisbcc17
+            if (!$atividade) {
+                error_log("Tentando buscar na tabela atividadesdisponiveisbcc17");
+                $sql = "SELECT ad.*, ca.descricao as categoria_nome 
+                        FROM atividadesdisponiveisbcc17 ad
+                        LEFT JOIN categoriaatividadebcc17 ca ON ad.categoria_id = ca.id
+                        WHERE ad.id = ?";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                
+                $result = $stmt->get_result();
+                $atividade = $result->fetch_assoc();
+            }
+            
+            // Se ainda não encontrou, tentar com AtividadesDisponiveis
             if (!$atividade) {
                 error_log("Tentando buscar na tabela AtividadesDisponiveis");
                 $sql = "SELECT ad.*, ca.descricao as categoria_nome 
@@ -142,10 +269,54 @@ class AtividadesDisponiveis {
         }
     }
     
-    public static function buscarPorCategoria($categoria) {
+    /**
+     * Busca atividades por categoria usando a tabela apropriada baseada na matrícula
+     * @param string $categoria - Nome da categoria
+     * @param string $matricula - Matrícula do aluno (opcional, para determinar tabela)
+     * @return array - Lista de atividades da categoria
+     */
+    public static function buscarPorCategoria($categoria, $matricula = null) {
         try {
             $db = Database::getInstance()->getConnection();
+            $categoria_like = "%{$categoria}%";
             
+            // Se matrícula foi fornecida, usar tabela específica
+            if ($matricula) {
+                $tabelas = self::determinarTabelasPorMatricula($matricula);
+                
+                $sql = "SELECT 
+                            ad.id,
+                            ad.titulo as nome,
+                            ad.carga_horaria_maxima_por_atividade as horas_max,
+                            ca.descricao as categoria,
+                            'Atividade Complementar' as tipo
+                        FROM {$tabelas['atividades']} ad
+                        INNER JOIN {$tabelas['categoria']} ca ON ad.categoria_id = ca.id
+                        WHERE ca.descricao LIKE ?
+                        ORDER BY ad.titulo";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("s", $categoria_like);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                
+                if ($result->num_rows > 0) {
+                    $atividades = [];
+                    while ($row = $result->fetch_assoc()) {
+                        $atividades[] = [
+                            'id' => (int)$row['id'],
+                            'nome' => $row['nome'],
+                            'descricao' => $row['descricao'] ?? '',
+                            'horas_max' => (int)$row['horas_max'],
+                            'categoria' => $row['categoria'],
+                            'tipo' => $row['tipo']
+                        ];
+                    }
+                    return $atividades;
+                }
+            }
+            
+            // Fallback: tentar nas tabelas na ordem de prioridade
             // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT 
                         ad.id,
@@ -159,14 +330,33 @@ class AtividadesDisponiveis {
                     ORDER BY ad.titulo";
             
             $stmt = $db->prepare($sql);
-            $categoria_like = "%{$categoria}%";
             $stmt->bind_param("s", $categoria_like);
             $stmt->execute();
             $result = $stmt->get_result();
             
-            // Se não retornou resultados, tentar com AtividadesDisponiveis
+            // Se não retornou resultados, tentar com atividadesdisponiveisbcc17
             if ($result->num_rows === 0) {
-                error_log("Nenhum resultado com atividadesdisponiveisbcc23, tentando AtividadesDisponiveis");
+                error_log("Nenhum resultado com atividadesdisponiveisbcc23, tentando atividadesdisponiveisbcc17");
+                $sql = "SELECT 
+                            ad.id,
+                            ad.titulo as nome,
+                            ad.carga_horaria_maxima_por_atividade as horas_max,
+                            ca.descricao as categoria,
+                            'Atividade Complementar' as tipo
+                        FROM atividadesdisponiveisbcc17 ad
+                        INNER JOIN categoriaatividadebcc17 ca ON ad.categoria_id = ca.id
+                        WHERE ca.descricao LIKE ?
+                        ORDER BY ad.titulo";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("s", $categoria_like);
+                $stmt->execute();
+                $result = $stmt->get_result();
+            }
+            
+            // Se ainda não retornou resultados, tentar com AtividadesDisponiveis
+            if ($result->num_rows === 0) {
+                error_log("Nenhum resultado com atividadesdisponiveisbcc17, tentando AtividadesDisponiveis");
                 $sql = "SELECT 
                             ad.id,
                             ad.titulo as nome,
@@ -302,18 +492,60 @@ class AtividadesDisponiveis {
         }
     }
 
-    public static function buscarPorCategoriaId($categoria_id) {
+    /**
+     * Busca atividades por ID da categoria usando a tabela apropriada baseada na matrícula
+     * @param int $categoria_id - ID da categoria
+     * @param string $matricula - Matrícula do aluno (opcional, para determinar tabela)
+     * @return array - Lista de atividades da categoria
+     */
+    public static function buscarPorCategoriaId($categoria_id, $matricula = null) {
         try {
             $db = Database::getInstance()->getConnection();
             
-            // Primeiro tentar a tabela atividadesdisponiveisbcc17 com categoriaatividadebcc23
+            // Se matrícula foi fornecida, usar tabela específica
+            if ($matricula) {
+                $tabelas = self::determinarTabelasPorMatricula($matricula);
+                
+                $sql = "SELECT 
+                            ad.id,
+                            ad.titulo,
+                            ad.carga_horaria_maxima_por_atividade,
+                            ad.observacoes,
+                            ca.descricao as categoria_nome
+                        FROM {$tabelas['atividades']} ad
+                        LEFT JOIN {$tabelas['categoria']} ca ON ad.categoria_id = ca.id
+                        WHERE ad.categoria_id = ?
+                        ORDER BY ad.titulo";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $categoria_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                
+                if ($result->num_rows > 0) {
+                    $atividades = [];
+                    while ($row = $result->fetch_assoc()) {
+                        $atividades[] = [
+                            'id' => (int)$row['id'],
+                            'titulo' => $row['titulo'],
+                            'carga_horaria_maxima_por_atividade' => (int)$row['carga_horaria_maxima_por_atividade'],
+                            'observacoes' => $row['observacoes'] ?? '',
+                            'categoria_nome' => $row['categoria_nome']
+                        ];
+                    }
+                    return $atividades;
+                }
+            }
+            
+            // Fallback: tentar nas tabelas na ordem de prioridade
+            // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT 
                         ad.id,
                         ad.titulo,
                         ad.carga_horaria_maxima_por_atividade,
                         ad.observacoes,
                         ca.descricao as categoria_nome
-                    FROM atividadesdisponiveisbcc17 ad
+                    FROM atividadesdisponiveisbcc23 ad
                     LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
                     WHERE ad.categoria_id = ?
                     ORDER BY ad.titulo";
@@ -323,17 +555,17 @@ class AtividadesDisponiveis {
             $stmt->execute();
             $result = $stmt->get_result();
             
-            // Se não retornou resultados, tentar com atividadesdisponiveisbcc23
+            // Se não retornou resultados, tentar com atividadesdisponiveisbcc17
             if ($result->num_rows === 0) {
-                error_log("Nenhum resultado com atividadesdisponiveisbcc17, tentando atividadesdisponiveisbcc23");
+                error_log("Nenhum resultado com atividadesdisponiveisbcc23, tentando atividadesdisponiveisbcc17");
                 $sql = "SELECT 
                             ad.id,
                             ad.titulo,
                             ad.carga_horaria_maxima_por_atividade,
                             ad.observacoes,
                             ca.descricao as categoria_nome
-                        FROM atividadesdisponiveisbcc23 ad
-                        LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                        FROM atividadesdisponiveisbcc17 ad
+                        LEFT JOIN categoriaatividadebcc17 ca ON ad.categoria_id = ca.id
                         WHERE ad.categoria_id = ?
                         ORDER BY ad.titulo";
                 
@@ -344,7 +576,7 @@ class AtividadesDisponiveis {
                 
                 // Se ainda não retornou resultados, tentar com AtividadesDisponiveis
                 if ($result->num_rows === 0) {
-                    error_log("Nenhum resultado com atividadesdisponiveisbcc23, tentando AtividadesDisponiveis");
+                    error_log("Nenhum resultado com atividadesdisponiveisbcc17, tentando AtividadesDisponiveis");
                     $sql = "SELECT 
                                 ad.id,
                                 ad.titulo,

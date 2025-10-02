@@ -129,6 +129,14 @@ class AtividadeComplementarPesquisa {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Primeiro, buscar a matrícula do aluno
+            $sqlMatricula = "SELECT matricula FROM Aluno WHERE usuario_id = ?";
+            $stmtMatricula = $db->prepare($sqlMatricula);
+            $stmtMatricula->bind_param("i", $aluno_id);
+            $stmtMatricula->execute();
+            $resultMatricula = $stmtMatricula->get_result();
+            $matricula = $resultMatricula->fetch_assoc()['matricula'] ?? '';
+            
             $sql = "SELECT 
                         acp.id,
                         acp.aluno_id,
@@ -150,7 +158,10 @@ class AtividadeComplementarPesquisa {
                         acp.data_avaliacao,
                         acp.observacoes_avaliacao,
                         acp.avaliador_id,
-                        ad.titulo as atividade_titulo,
+                        CASE 
+                            WHEN SUBSTRING(?, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_titulo,
                         CASE 
                             WHEN acp.nome_evento IS NOT NULL AND acp.nome_evento != '' THEN acp.nome_evento
                             WHEN acp.nome_projeto IS NOT NULL AND acp.nome_projeto != '' THEN acp.nome_projeto
@@ -159,7 +170,8 @@ class AtividadeComplementarPesquisa {
                         END as titulo_atividade,
                         u.nome as avaliador_nome
                     FROM atividadecomplementarpesquisa acp
-                    LEFT JOIN atividadesdisponiveisbcc23 ad ON acp.atividade_disponivel_id = ad.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON acp.atividade_disponivel_id = ad23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON acp.atividade_disponivel_id = ad17.id
                     LEFT JOIN Usuario u ON acp.avaliador_id = u.id
                     WHERE acp.aluno_id = ?
                     ORDER BY acp.data_submissao DESC";
@@ -169,7 +181,7 @@ class AtividadeComplementarPesquisa {
                 throw new Exception("Erro ao preparar consulta: " . $db->error);
             }
             
-            $stmt->bind_param("i", $aluno_id);
+            $stmt->bind_param("si", $matricula, $aluno_id);
             $stmt->execute();
             
             $result = $stmt->get_result();
@@ -218,12 +230,26 @@ class AtividadeComplementarPesquisa {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Primeiro, buscar a matrícula do aluno associado à atividade
+            $sqlMatricula = "SELECT a.matricula FROM atividadecomplementarpesquisa acp 
+                            INNER JOIN Aluno a ON acp.aluno_id = a.usuario_id 
+                            WHERE acp.id = ?";
+            $stmtMatricula = $db->prepare($sqlMatricula);
+            $stmtMatricula->bind_param("i", $id);
+            $stmtMatricula->execute();
+            $resultMatricula = $stmtMatricula->get_result();
+            $matricula = $resultMatricula->fetch_assoc()['matricula'] ?? '';
+            
             $sql = "SELECT 
                         acp.*,
-                        ad.titulo as atividade_titulo,
+                        CASE 
+                            WHEN SUBSTRING(?, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_titulo,
                         u.nome as avaliador_nome
                     FROM atividadecomplementarpesquisa acp
-                    LEFT JOIN atividadesdisponiveisbcc23 ad ON acp.atividade_disponivel_id = ad.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON acp.atividade_disponivel_id = ad23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON acp.atividade_disponivel_id = ad17.id
                     LEFT JOIN Usuario u ON acp.avaliador_id = u.id
                     WHERE acp.id = ?";
             
@@ -232,7 +258,7 @@ class AtividadeComplementarPesquisa {
                 throw new Exception("Erro ao preparar consulta: " . $db->error);
             }
             
-            $stmt->bind_param("i", $id);
+            $stmt->bind_param("si", $matricula, $id);
             $stmt->execute();
             
             $result = $stmt->get_result();
@@ -296,7 +322,10 @@ class AtividadeComplementarPesquisa {
                         acp.status,
                         acp.data_submissao,
                         acp.data_avaliacao,
-                        ad.titulo as atividade_titulo,
+                        CASE 
+                            WHEN SUBSTRING(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_titulo,
                         u.nome as aluno_nome,
                         u.email as aluno_email,
                         c.nome as curso_nome,
@@ -305,7 +334,8 @@ class AtividadeComplementarPesquisa {
                     INNER JOIN Aluno a ON acp.aluno_id = a.usuario_id
                     INNER JOIN Usuario u ON a.usuario_id = u.id
                     INNER JOIN Curso c ON a.curso_id = c.id
-                    LEFT JOIN atividadesdisponiveisbcc23 ad ON acp.atividade_disponivel_id = ad.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON acp.atividade_disponivel_id = ad23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON acp.atividade_disponivel_id = ad17.id
                     LEFT JOIN Usuario av ON acp.avaliador_id = av.id";
             
             $condicoes = [];

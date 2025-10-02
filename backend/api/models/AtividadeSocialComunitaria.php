@@ -39,7 +39,20 @@ class AtividadeSocialComunitaria {
             $nome_projeto = $dados['nome_projeto'];
             $instituicao = $dados['instituicao'];
             $atividade_disponivel_id = $dados['atividade_disponivel_id'] ?? 1; // Default para ação social
-            $categoria_id = 5; // ID da categoria Ação Social
+            // Buscar dinamicamente o ID da categoria social/comunitária
+            $sql_categoria = "SELECT id FROM categoriaatividadebcc23 WHERE descricao LIKE '%social%' OR descricao LIKE '%comunitaria%' OR descricao LIKE '%acao%' OR descricao LIKE '%Ação%' LIMIT 1";
+            $stmt_categoria = $db->prepare($sql_categoria);
+            if ($stmt_categoria) {
+                $stmt_categoria->execute();
+                $result_categoria = $stmt_categoria->get_result();
+                if ($row_categoria = $result_categoria->fetch_assoc()) {
+                    $categoria_id = (int)$row_categoria['id'];
+                } else {
+                    $categoria_id = 5; // Fallback
+                }
+            } else {
+                $categoria_id = 5; // Fallback se erro na query
+            }
             $carga_horaria = $dados['carga_horaria'];
             $local_realizacao = $dados['local_realizacao'] ?? $dados['instituicao'];
             $descricao_atividades = $dados['descricao_atividades'];
@@ -214,24 +227,63 @@ class AtividadeSocialComunitaria {
     
     /**
      * Buscar atividades disponíveis da categoria 5 (ação social)
+     * Agora usa lógica dinâmica baseada na matrícula do aluno
      */
-    public static function buscarAtividadesDisponiveis() {
+    public static function buscarAtividadesDisponiveis($aluno_id = null) {
         try {
             $db = Database::getInstance()->getConnection();
             
-            $categoria_id = 5; // Categoria de ação social
-            error_log("[DEBUG] Model - Buscando atividades disponíveis para categoria_id = {$categoria_id}");
+            error_log("[DEBUG] Model - Iniciando busca de atividades disponíveis");
             
-            // Primeiro tentar a tabela atividadesdisponiveisbcc17 com categoriaatividadebcc17 (tabela correta para 2017)
-            error_log("[DEBUG] Model - Tentando buscar na tabela atividadesdisponiveisbcc17 com categoriaatividadebcc17");
+            // Se aluno_id for fornecido, buscar a matrícula para determinar a tabela
+            $usar_bcc23 = true; // Default para BCC23
+            if ($aluno_id) {
+                $sql_matricula = "SELECT matricula FROM Aluno WHERE usuario_id = ?";
+                $stmt_matricula = $db->prepare($sql_matricula);
+                $stmt_matricula->bind_param("i", $aluno_id);
+                $stmt_matricula->execute();
+                $result_matricula = $stmt_matricula->get_result();
+                
+                if ($row_matricula = $result_matricula->fetch_assoc()) {
+                    $ano_matricula = (int)substr($row_matricula['matricula'], 0, 4);
+                    $usar_bcc23 = $ano_matricula >= 2023;
+                }
+            }
+            
+            // Selecionar tabelas baseado na matrícula
+            if ($usar_bcc23) {
+                $tabela_atividades = 'atividadesdisponiveisbcc23';
+                $tabela_categoria = 'categoriaatividadebcc23';
+            } else {
+                $tabela_atividades = 'atividadesdisponiveisbcc17';
+                $tabela_categoria = 'categoriaatividadebcc17';
+            }
+            
+            error_log("[DEBUG] Model - Usando tabelas: {$tabela_atividades} e {$tabela_categoria}");
+
+            // Buscar dinamicamente o ID da categoria social/comunitária
+            $sql_categoria = "SELECT id FROM {$tabela_categoria} WHERE descricao LIKE '%social%' OR descricao LIKE '%comunitaria%' OR descricao LIKE '%acao%' OR descricao LIKE '%Ação%' LIMIT 1";
+            $stmt_categoria = $db->prepare($sql_categoria);
+            if ($stmt_categoria) {
+                $stmt_categoria->execute();
+                $result_categoria = $stmt_categoria->get_result();
+                if ($row_categoria = $result_categoria->fetch_assoc()) {
+                    $categoria_id = (int)$row_categoria['id'];
+                } else {
+                    $categoria_id = 5; // Fallback
+                }
+            } else {
+                $categoria_id = 5; // Fallback se erro na query
+            }
+            
             $sql = "SELECT 
                         ad.id,
                         ad.titulo,
                         ad.carga_horaria_maxima_por_atividade,
                         ad.observacoes,
                         ca.descricao as categoria_nome
-                    FROM atividadesdisponiveisbcc17 ad
-                    LEFT JOIN categoriaatividadebcc17 ca ON ad.categoria_id = ca.id
+                    FROM {$tabela_atividades} ad
+                    LEFT JOIN {$tabela_categoria} ca ON ad.categoria_id = ca.id
                     WHERE ad.categoria_id = ?
                     ORDER BY ad.titulo";
             
@@ -248,67 +300,7 @@ class AtividadeSocialComunitaria {
             
             $result = $stmt->get_result();
             
-            error_log("[DEBUG] Model - Resultados encontrados na atividadesdisponiveisbcc17: " . $result->num_rows);
-            
-            // Se não retornou resultados, tentar com atividadesdisponiveisbcc23
-            if ($result->num_rows === 0) {
-                error_log("[DEBUG] Model - Nenhum resultado com atividadesdisponiveisbcc17, tentando atividadesdisponiveisbcc23");
-                $sql = "SELECT 
-                            ad.id,
-                            ad.titulo,
-                            ad.carga_horaria_maxima_por_atividade,
-                            ad.observacoes,
-                            ca.descricao as categoria_nome
-                        FROM atividadesdisponiveisbcc23 ad
-                        LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
-                        WHERE ad.categoria_id = ?
-                        ORDER BY ad.titulo";
-                
-                $stmt = $db->prepare($sql);
-                if (!$stmt) {
-                    throw new Exception("Erro ao preparar query: " . $db->error);
-                }
-                
-                $stmt->bind_param("i", $categoria_id);
-                
-                if (!$stmt->execute()) {
-                    throw new Exception("Erro ao executar query: " . $stmt->error);
-                }
-                
-                $result = $stmt->get_result();
-                
-                error_log("[DEBUG] Model - Resultados encontrados na atividadesdisponiveisbcc23: " . $result->num_rows);
-                
-                // Se ainda não retornou resultados, tentar com AtividadesDisponiveis
-                if ($result->num_rows === 0) {
-                    error_log("[DEBUG] Model - Nenhum resultado com atividadesdisponiveisbcc23, tentando AtividadesDisponiveis");
-                    $sql = "SELECT 
-                                ad.id,
-                                ad.titulo,
-                                ad.carga_horaria_maxima_por_atividade,
-                                ad.observacoes,
-                                ca.descricao as categoria_nome
-                            FROM AtividadesDisponiveis ad
-                            LEFT JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
-                            WHERE ad.categoria_id = ?
-                            ORDER BY ad.titulo";
-                    
-                    $stmt = $db->prepare($sql);
-                    if (!$stmt) {
-                        throw new Exception("Erro ao preparar query: " . $db->error);
-                    }
-                    
-                    $stmt->bind_param("i", $categoria_id);
-                    
-                    if (!$stmt->execute()) {
-                        throw new Exception("Erro ao executar query: " . $stmt->error);
-                    }
-                    
-                    $result = $stmt->get_result();
-                    
-                    error_log("[DEBUG] Model - Resultados encontrados na AtividadesDisponiveis: " . $result->num_rows);
-                }
-            }
+            error_log("[DEBUG] Model - Resultados encontrados: " . $result->num_rows);
             
             $atividades = [];
             while ($row = $result->fetch_assoc()) {

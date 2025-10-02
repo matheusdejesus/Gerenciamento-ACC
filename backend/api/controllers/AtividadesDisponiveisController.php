@@ -43,6 +43,42 @@ class AtividadesDisponiveisController {
         }
     }
 
+    public function listarPorMatricula() {
+        try {
+            // Validar autenticação JWT
+            $usuario = \backend\api\middleware\AuthMiddleware::validateToken();
+            if (!$usuario) {
+                $this->sendJsonResponse(['success' => false, 'error' => 'Token inválido ou expirado'], 401);
+                return;
+            }
+
+            // Se for admin ou coordenador, mostrar todas as atividades
+            if ($usuario['tipo'] === 'admin' || $usuario['tipo'] === 'coordenador') {
+                $atividades = AtividadesDisponiveis::listarTodas();
+            } else {
+                // Para alunos, usar a matrícula para filtrar as atividades
+                $matricula = $usuario['matricula'] ?? null;
+                if (!$matricula) {
+                    $this->sendJsonResponse(['success' => false, 'error' => 'Matrícula não encontrada no token'], 400);
+                    return;
+                }
+                
+                $atividades = AtividadesDisponiveis::listarPorMatricula($matricula);
+            }
+            
+            $this->sendJsonResponse([
+                'success' => true,
+                'data' => $atividades
+            ]);
+        } catch (Exception $e) {
+            error_log("Erro em AtividadesDisponiveisController::listarPorMatricula: " . $e->getMessage());
+            $this->sendJsonResponse([
+                'success' => false,
+                'error' => 'Erro ao buscar atividades: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function buscarPorId() {
         try {
             $id = $_GET['id'] ?? null;

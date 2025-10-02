@@ -197,14 +197,7 @@
                 return;
             }
 
-            if (user.matricula) {
-                const anoMatricula = parseInt(user.matricula.substring(0, 4));
-                if (anoMatricula < 2017 || anoMatricula > 2022) {
-                    alert('Esta categoria está disponível apenas para alunos com matrícula entre 2017 e 2022.');
-                    window.location.href = 'nova_atividade.php';
-                    return;
-                }
-            }
+            // Atividades de ação social disponíveis para todos os alunos
 
             carregarAtividades();
         });
@@ -217,8 +210,10 @@
             const mensagemVazia = document.getElementById('mensagemVazia');
 
             try {
-                // Buscar atividade de Ação Social da API
-                const response = await fetch('../../backend/api/routes/atividade_social_comunitaria.php?disponiveis=true', {
+                console.log('Carregando atividades de ação social...');
+                
+                // Buscar atividade de Ação Social da API usando AuthClient.fetch()
+                const response = await AuthClient.fetch('../../backend/api/routes/atividade_social_comunitaria.php?disponiveis=true', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
@@ -226,51 +221,60 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Erro ao buscar atividades');
+                    console.error('Erro na resposta da API:', response.status, response.statusText);
+                    throw new Error(`Erro ao buscar atividades: ${response.status} ${response.statusText}`);
                 }
 
                 const data = await response.json();
+                console.log('Dados recebidos da API:', data);
                 
                 if (!data.success || !data.data || data.data.length === 0) {
+                    console.log('Nenhuma atividade encontrada ou erro na resposta');
                     container.classList.add('hidden');
                     mensagemVazia.classList.remove('hidden');
                     return;
                 }
 
-                // Pegar apenas a primeira atividade (único card)
-                atividadeAcaoSocial = data.data[0];
-                
-                container.innerHTML = `
-                    <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 max-w-md mx-auto">
-                        <div class="p-4" style="background-color: #DC2626">
-                            <h3 class="text-lg font-bold text-white">${atividadeAcaoSocial.titulo}</h3>
-                            <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 mt-2">
-                                ${atividadeAcaoSocial.categoria_nome || 'Ação Social'}
-                            </span>
-                        </div>
-                        <div class="p-4">
-                            <p class="text-gray-600 text-sm mb-4">Atividade de ação social voltada para projetos comunitários e voluntariado.</p>
-                            <div class="space-y-2 mb-4">
-                                <div class="flex justify-between text-sm">
-                                    <span class="font-medium" style="color: #DC2626">Horas Máximas:</span>
-                                    <span class="text-gray-600">${atividadeAcaoSocial.carga_horaria_maxima_por_atividade}h</span>
+                // Exibir todas as atividades disponíveis
+                let cardsHTML = '';
+                data.data.forEach((atividade, index) => {
+                    cardsHTML += `
+                        <div class="atividade-card bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300">
+                            <div class="p-4" style="background-color: #DC2626">
+                                <h3 class="text-lg font-bold text-white">${atividade.titulo}</h3>
+                                <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 mt-2">
+                                    ${atividade.categoria_nome || 'Ação Social'}
+                                </span>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-gray-600 text-sm mb-4">${atividade.observacoes || 'Atividade de ação social voltada para projetos comunitários e voluntariado.'}</p>
+                                <div class="space-y-2 mb-4">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="font-medium" style="color: #DC2626">Horas Máximas:</span>
+                                        <span class="text-gray-600">${atividade.carga_horaria_maxima_por_atividade}h</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="verDetalhes(${index})"
+                                            class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+                                            style="color: #DC2626">
+                                        Ver Detalhes
+                                    </button>
+                                    <button onclick="selecionarAtividade(${index})"
+                                            class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200"
+                                            style="background-color: #DC2626">
+                                        Cadastrar
+                                    </button>
                                 </div>
                             </div>
-                            <div class="flex gap-2">
-                                <button onclick="verDetalhes()"
-                                        class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
-                                        style="color: #DC2626">
-                                    Ver Detalhes
-                                </button>
-                                <button onclick="selecionarAtividade()"
-                                        class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200"
-                                        style="background-color: #DC2626">
-                                    Cadastrar
-                                </button>
-                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                });
+                
+                container.innerHTML = `<div class="atividades-grid">${cardsHTML}</div>`;
+                
+                // Armazenar todas as atividades para uso posterior
+                window.atividadesDisponiveis = data.data;
                 
             } catch (error) {
                 console.error('Erro ao carregar atividades:', error);
@@ -279,24 +283,26 @@
             }
         }
 
-        function verDetalhes() {
-            if (!atividadeAcaoSocial) return;
+        function verDetalhes(index) {
+            if (!window.atividadesDisponiveis || !window.atividadesDisponiveis[index]) return;
+            
+            const atividade = window.atividadesDisponiveis[index];
 
             document.getElementById('conteudoDetalhes').innerHTML = `
                 <div class="p-6">
-                    <h4 class="text-lg font-semibold mb-4" style="color: #DC2626">${atividadeAcaoSocial.titulo}</h4>
+                    <h4 class="text-lg font-semibold mb-4" style="color: #DC2626">${atividade.titulo}</h4>
                     <div class="space-y-4">
                         <div>
                             <span class="font-medium text-gray-700">Descrição:</span>
-                            <p class="mt-1 text-gray-600">Atividade de ação social voltada para projetos comunitários, voluntariado e ações que beneficiem a sociedade.</p>
+                            <p class="mt-1 text-gray-600">${atividade.observacoes || 'Atividade de ação social voltada para projetos comunitários, voluntariado e ações que beneficiem a sociedade.'}</p>
                         </div>
                         <div>
                             <span class="font-medium text-gray-700">Carga Horária Máxima:</span>
-                            <span class="ml-2 text-gray-600">${atividadeAcaoSocial.carga_horaria_maxima_por_atividade} horas</span>
+                            <span class="ml-2 text-gray-600">${atividade.carga_horaria_maxima_por_atividade} horas</span>
                         </div>
                         <div>
                             <span class="font-medium text-gray-700">Categoria:</span>
-                            <span class="ml-2 text-gray-600">${atividadeAcaoSocial.categoria_nome || 'Ação Social'}</span>
+                            <span class="ml-2 text-gray-600">${atividade.categoria_nome || 'Ação Social'}</span>
                         </div>
                         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                             <h5 class="font-medium text-yellow-800 mb-2">Documentos Necessários:</h5>
@@ -310,15 +316,16 @@
                 </div>
             `;
             
-            atividadeSelecionada = atividadeAcaoSocial;
+            atividadeSelecionada = atividade;
             document.getElementById('modalDetalhes').classList.remove('hidden');
         }
 
-        function selecionarAtividade() {
-            if (!atividadeAcaoSocial) return;
-
-            atividadeSelecionada = atividadeAcaoSocial;
-            document.getElementById('atividadeId').value = atividadeAcaoSocial.id;
+        function selecionarAtividade(index) {
+            if (!window.atividadesDisponiveis || !window.atividadesDisponiveis[index]) return;
+            
+            const atividade = window.atividadesDisponiveis[index];
+            atividadeSelecionada = atividade;
+            document.getElementById('atividadeId').value = atividade.id;
             document.getElementById('modalSelecao').classList.remove('hidden');
         }
 

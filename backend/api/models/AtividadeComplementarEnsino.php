@@ -133,7 +133,15 @@ class AtividadeComplementarEnsino {
         try {
             $db = Database::getInstance()->getConnection();
             
-            // Usar as tabelas corretas do banco de dados
+            // Buscar a matrícula do aluno para determinar as tabelas corretas
+            $sqlMatricula = "SELECT a.matricula FROM aluno a WHERE a.usuario_id = ?";
+            $stmtMatricula = $db->prepare($sqlMatricula);
+            $stmtMatricula->bind_param("i", $aluno_id);
+            $stmtMatricula->execute();
+            $resultMatricula = $stmtMatricula->get_result();
+            $matricula = $resultMatricula->fetch_assoc()['matricula'] ?? null;
+            
+            // Usar as tabelas corretas baseado na matrícula
             $sql = "SELECT DISTINCT
                         ace.id,
                         ace.aluno_id,
@@ -151,62 +159,34 @@ class AtividadeComplementarEnsino {
                         ace.data_submissao,
                         ace.data_avaliacao,
                         ace.observacoes_avaliacao,
-                        ca.descricao AS categoria_nome,
-                        ad.titulo AS atividade_nome,
+                        CASE 
+                            WHEN SUBSTR(?, 1, 4) >= '2023' THEN ca23.descricao
+                            ELSE COALESCE(ca23.descricao, ca17.descricao)
+                        END AS categoria_nome,
+                        CASE 
+                            WHEN SUBSTR(?, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE COALESCE(ad23.titulo, ad17.titulo)
+                        END AS atividade_nome,
                         CASE 
                             WHEN ace.nome_disciplina IS NOT NULL THEN ace.nome_disciplina
                             WHEN ace.nome_disciplina_laboratorio IS NOT NULL THEN ace.nome_disciplina_laboratorio
                             ELSE 'Sem título'
                         END AS titulo_personalizado
                     FROM atividadecomplementarensino ace
-                    LEFT JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
-                    LEFT JOIN atividadesdisponiveisbcc23 ad ON ace.atividade_disponivel_id = ad.id
+                    LEFT JOIN categoriaatividadebcc17 ca17 ON ace.categoria_id = ca17.id
+                    LEFT JOIN categoriaatividadebcc23 ca23 ON ace.categoria_id = ca23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ace.atividade_disponivel_id = ad17.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ace.atividade_disponivel_id = ad23.id
                     WHERE ace.aluno_id = ?
                     ORDER BY ace.data_submissao DESC";
             
             $stmt = $db->prepare($sql);
             
             if (!$stmt) {
-                error_log("Erro ao preparar consulta com categoriaatividadebcc23: " . $db->error);
-                // Fallback para tabelas originais
-                $sql = "SELECT DISTINCT
-                            ace.id,
-                            ace.aluno_id,
-                            ace.categoria_id,
-                            ace.atividade_disponivel_id,
-                            ace.nome_disciplina,
-                            ace.nome_instituicao,
-                            ace.carga_horaria,
-                            ace.nome_disciplina_laboratorio,
-                            ace.monitor,
-                            ace.data_inicio,
-                            ace.data_fim,
-                            ace.declaracao_caminho,
-                            ace.status,
-                            ace.data_submissao,
-                            ace.data_avaliacao,
-                            ace.observacoes_avaliacao,
-                            ca.descricao AS categoria_nome,
-                            ad.titulo AS atividade_nome,
-                            CASE 
-                                WHEN ace.nome_disciplina IS NOT NULL THEN ace.nome_disciplina
-                                WHEN ace.nome_disciplina_laboratorio IS NOT NULL THEN ace.nome_disciplina_laboratorio
-                                ELSE 'Sem título'
-                            END AS titulo_personalizado
-                        FROM atividadecomplementarensino ace
-                        LEFT JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
-                        LEFT JOIN atividadesdisponiveisbcc23 ad ON ace.atividade_disponivel_id = ad.id
-                        WHERE ace.aluno_id = ?
-                        ORDER BY ace.data_submissao DESC";
-                
-                $stmt = $db->prepare($sql);
-                
-                if (!$stmt) {
-                    throw new Exception("Erro ao preparar consulta: " . $db->error);
-                }
+                throw new Exception("Erro ao preparar consulta: " . $db->error);
             }
             
-            $stmt->bind_param("i", $aluno_id);
+            $stmt->bind_param("ssi", $matricula, $matricula, $aluno_id);
             $stmt->execute();
             
             $result = $stmt->get_result();
@@ -248,6 +228,16 @@ class AtividadeComplementarEnsino {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Buscar a matrícula do aluno para determinar as tabelas corretas
+            $sqlMatricula = "SELECT a.matricula FROM atividadecomplementarensino ace 
+                            INNER JOIN aluno a ON ace.aluno_id = a.usuario_id 
+                            WHERE ace.id = ?";
+            $stmtMatricula = $db->prepare($sqlMatricula);
+            $stmtMatricula->bind_param("i", $id);
+            $stmtMatricula->execute();
+            $resultMatricula = $stmtMatricula->get_result();
+            $matricula = $resultMatricula->fetch_assoc()['matricula'] ?? null;
+            
             $sql = "SELECT 
                         ace.id,
                         ace.aluno_id,
@@ -264,9 +254,13 @@ class AtividadeComplementarEnsino {
                         ace.data_submissao,
                         ace.data_avaliacao,
                         ace.observacoes_avaliacao,
-                        ca.descricao AS categoria_nome
+                        CASE 
+                            WHEN SUBSTR(?, 1, 4) >= '2023' THEN ca23.descricao
+                            ELSE COALESCE(ca23.descricao, ca17.descricao)
+                        END AS categoria_nome
                     FROM atividadecomplementarensino ace
-                    INNER JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
+                    LEFT JOIN categoriaatividadebcc17 ca17 ON ace.categoria_id = ca17.id
+                    LEFT JOIN categoriaatividadebcc23 ca23 ON ace.categoria_id = ca23.id
                     WHERE ace.id = ?";
             
             $stmt = $db->prepare($sql);
@@ -275,7 +269,7 @@ class AtividadeComplementarEnsino {
                 throw new Exception("Erro ao preparar consulta: " . $db->error);
             }
             
-            $stmt->bind_param("i", $id);
+            $stmt->bind_param("si", $matricula, $id);
             $stmt->execute();
             
             $result = $stmt->get_result();
@@ -325,11 +319,15 @@ class AtividadeComplementarEnsino {
                         ace.data_submissao,
                         ace.data_avaliacao,
                         ace.observacoes_avaliacao,
-                        ca.descricao AS categoria_nome,
+                        CASE 
+                            WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ca23.descricao
+                            ELSE COALESCE(ca23.descricao, ca17.descricao)
+                        END AS categoria_nome,
                         u.nome AS aluno_nome,
                         c.nome AS curso_nome
                     FROM atividadecomplementarensino ace
-                    INNER JOIN categoriaatividadebcc23 ca ON ace.categoria_id = ca.id
+                    LEFT JOIN categoriaatividadebcc17 ca17 ON ace.categoria_id = ca17.id
+                    LEFT JOIN categoriaatividadebcc23 ca23 ON ace.categoria_id = ca23.id
                     INNER JOIN aluno a ON ace.aluno_id = a.usuario_id
                     INNER JOIN usuario u ON a.usuario_id = u.id
                     INNER JOIN curso c ON a.curso_id = c.id

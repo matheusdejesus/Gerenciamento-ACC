@@ -169,3 +169,28 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Estilos para cards de atividades */
+.atividade-card {
+    min-width: 350px;
+    max-width: 450px;
+}
+
+/* Grid customizado para cards mais largos */
+.atividades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    justify-items: center;
+}
+
+@media (max-width: 768px) {
+    .atividade-card {
+        min-width: 100%;
+        max-width: 100%;
+    }
+    
+    .atividades-grid {
+        grid-template-columns: 1fr;
+    }
+}

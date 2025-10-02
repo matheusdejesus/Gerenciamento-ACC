@@ -61,10 +61,21 @@ class AtividadeComplementarEnsinoController {
             
             // Garantir que atividade_disponivel_id está presente (obrigatório no banco)
             if (empty($input['atividade_disponivel_id'])) {
-                // Primeiro tentar buscar na tabela atividadesdisponiveisbcc23
+                // Buscar matrícula do aluno para determinar a tabela
                 try {
                     $db = Database::getInstance()->getConnection();
-                    $sql = "SELECT id FROM atividadesdisponiveisbcc23 WHERE categoria_id = 1 LIMIT 1";
+                    $stmt_aluno = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+                    $stmt_aluno->bind_param("i", $usuario['id']);
+                    $stmt_aluno->execute();
+                    $result_aluno = $stmt_aluno->get_result();
+                    $aluno_data = $result_aluno->fetch_assoc();
+                    $matricula = $aluno_data ? $aluno_data['matricula'] : null;
+                    
+                    // Determinar tabela baseada na matrícula
+                    $ano_matricula = substr($matricula, 0, 4);
+                    $tabela_atividades = ($ano_matricula >= '2023') ? 'atividadesdisponiveisbcc23' : 'atividadesdisponiveisbcc17';
+                    
+                    $sql = "SELECT id FROM {$tabela_atividades} WHERE categoria_id = 1 LIMIT 1";
                     $stmt = $db->prepare($sql);
                     
                     if ($stmt && $stmt->execute()) {
@@ -74,7 +85,7 @@ class AtividadeComplementarEnsinoController {
                         }
                     }
                 } catch (\Exception $e) {
-                    error_log("Erro ao buscar em atividadesdisponiveisbcc23: " . $e->getMessage());
+                    error_log("Erro ao buscar atividade disponível: " . $e->getMessage());
                 }
                 
                 // Se ainda não encontrou, usar fallback baseado no tipo

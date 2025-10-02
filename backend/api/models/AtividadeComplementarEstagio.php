@@ -86,6 +86,14 @@ class AtividadeComplementarEstagio {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Primeiro, buscar a matrícula do aluno
+            $sqlMatricula = "SELECT matricula FROM Aluno WHERE usuario_id = ?";
+            $stmtMatricula = $db->prepare($sqlMatricula);
+            $stmtMatricula->bind_param("i", $aluno_id);
+            $stmtMatricula->execute();
+            $resultMatricula = $stmtMatricula->get_result();
+            $matricula = $resultMatricula->fetch_assoc()['matricula'] ?? '';
+            
             $sql = "SELECT 
                         est.id,
                         est.empresa,
@@ -99,8 +107,14 @@ class AtividadeComplementarEstagio {
                         est.data_avaliacao,
                         est.observacoes_avaliacao,
                         u.nome as avaliador_nome,
-                        CONCAT('Estágio - ', est.empresa, ' - ', est.area) as atividade_titulo
+                        CONCAT('Estágio - ', est.empresa, ' - ', est.area) as atividade_titulo,
+                        CASE 
+                            WHEN SUBSTRING(?, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_disponivel_titulo
                     FROM atividadecomplementarestagio est
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON est.atividade_disponivel_id = ad23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON est.atividade_disponivel_id = ad17.id
                     LEFT JOIN Coordenador c ON est.avaliador_id = c.usuario_id
                     LEFT JOIN Usuario u ON c.usuario_id = u.id
                     WHERE est.aluno_id = ?
@@ -111,7 +125,7 @@ class AtividadeComplementarEstagio {
                 throw new Exception("Erro ao preparar query: " . $db->error);
             }
             
-            $stmt->bind_param("i", $aluno_id);
+            $stmt->bind_param("si", $matricula, $aluno_id);
             
             if (!$stmt->execute()) {
                 throw new Exception("Erro ao executar query: " . $stmt->error);
@@ -143,10 +157,16 @@ class AtividadeComplementarEstagio {
                         est.*,
                         u.nome as avaliador_nome,
                         al.matricula,
-                        ua.nome as aluno_nome
+                        ua.nome as aluno_nome,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_disponivel_titulo
                     FROM atividadecomplementarestagio est
                     INNER JOIN Aluno al ON est.aluno_id = al.usuario_id
                     INNER JOIN Usuario ua ON al.usuario_id = ua.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON est.atividade_disponivel_id = ad23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON est.atividade_disponivel_id = ad17.id
                     LEFT JOIN Coordenador c ON est.avaliador_id = c.usuario_id
                     LEFT JOIN Usuario u ON c.usuario_id = u.id
                     WHERE est.id = ?";
@@ -218,10 +238,16 @@ class AtividadeComplementarEstagio {
                         est.*,
                         ua.nome as aluno_nome,
                         al.matricula,
-                        u.nome as avaliador_nome
+                        u.nome as avaliador_nome,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_disponivel_titulo
                     FROM atividadecomplementarestagio est
                     INNER JOIN Aluno al ON est.aluno_id = al.usuario_id
                     INNER JOIN Usuario ua ON al.usuario_id = ua.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON est.atividade_disponivel_id = ad23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON est.atividade_disponivel_id = ad17.id
                     LEFT JOIN Coordenador c ON est.avaliador_id = c.usuario_id
                     LEFT JOIN Usuario u ON c.usuario_id = u.id";
             

@@ -6,14 +6,13 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../controllers/AtividadesDisponiveisController.php';
-require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
+require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
 try {
-    \backend\api\middleware\ApiKeyMiddleware::validateApiKey();
-    
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $controller = new \backend\api\controllers\AtividadesDisponiveisController();
-        $controller->listar();
+        // Usar o novo método que filtra por matrícula e valida JWT internamente
+        $controller->listarPorMatricula();
     } else {
         http_response_code(405);
         echo json_encode(['success' => false, 'error' => 'Método não permitido']);

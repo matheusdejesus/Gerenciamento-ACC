@@ -213,11 +213,9 @@
 
         async function carregarAtividades() {
             try {
-                const response = await fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php', {
-                    method: 'GET',
-                    headers: {
-                        'X-API-Key': 'frontend-gerenciamento-acc-2025'
-                    }
+                // Usar AuthClient.fetch para incluir automaticamente o JWT token
+                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php', {
+                    method: 'GET'
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -228,9 +226,11 @@
                     renderizarAtividades();
                     document.getElementById('alertaAtividades').classList.add('hidden');
                 } else {
+                    console.error('Erro na resposta da API:', data);
                     document.getElementById('alertaAtividades').classList.remove('hidden');
                 }
             } catch (e) {
+                console.error('Erro ao carregar atividades:', e);
                 document.getElementById('alertaAtividades').classList.remove('hidden');
             }
         }

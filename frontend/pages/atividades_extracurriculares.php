@@ -10,16 +10,74 @@
     <script>
         // Verificar autenticação ao carregar a página
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Verificando autenticação...');
-            console.log('Token:', AuthClient.getToken());
-            console.log('Usuário:', AuthClient.getUser());
-            console.log('Está logado:', AuthClient.isLoggedIn());
+            console.log('🔐 === VERIFICAÇÃO DE AUTENTICAÇÃO (DOMContentLoaded) ===');
+            console.log('📍 Página atual:', window.location.pathname);
+            console.log('🕐 Timestamp:', new Date().toISOString());
             
-            if (!AuthClient.isLoggedIn()) {
-                alert('Você precisa estar logado para acessar esta página.');
+            // Verificar se AuthClient está disponível
+            if (typeof AuthClient === 'undefined') {
+                console.error('❌ AuthClient não está disponível no DOMContentLoaded!');
+                alert('Erro: Sistema de autenticação não carregado.');
                 window.location.href = 'login.php';
                 return;
             }
+            console.log('✅ AuthClient está disponível');
+            
+            // Verificar localStorage diretamente
+            const token = localStorage.getItem('acc_jwt_token');
+            const apiKey = localStorage.getItem('acc_api_key');
+            const userData = localStorage.getItem('acc_user_data');
+            
+            console.log('🎫 Token presente:', !!token);
+            console.log('🔑 API Key presente:', !!apiKey);
+            console.log('👤 User Data presente:', !!userData);
+            
+            if (token) {
+                console.log('🎫 Token (primeiros 50 chars):', token.substring(0, 50) + '...');
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const now = Math.floor(Date.now() / 1000);
+                    console.log('⏰ Token expira em:', new Date(payload.exp * 1000));
+                    console.log('⏰ Hora atual:', new Date());
+                    console.log('⏰ Token válido:', payload.exp > now);
+                } catch (e) {
+                    console.error('❌ Erro ao decodificar token:', e);
+                }
+            }
+            
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('👤 Tipo de usuário:', user.tipo);
+                    console.log('👤 ID do usuário:', user.id);
+                    console.log('👤 Nome do usuário:', user.nome);
+                } catch (e) {
+                    console.error('❌ Erro ao parsear dados do usuário:', e);
+                }
+            }
+            
+            // Verificar AuthClient methods
+            console.log('🔍 AuthClient.getToken():', AuthClient.getToken());
+            console.log('🔍 AuthClient.getUser():', AuthClient.getUser());
+            console.log('🔍 AuthClient.isLoggedIn():', AuthClient.isLoggedIn());
+            
+            const isLoggedIn = AuthClient.isLoggedIn();
+            
+            if (!isLoggedIn) {
+                console.log('❌ Usuário não autenticado no DOMContentLoaded, redirecionando para login');
+                alert('Sua sessão expirou. Você será redirecionado para a página de login.');
+                window.location.href = 'login.php';
+                return;
+            }
+            
+            const user = AuthClient.getUser();
+            if (!user || user.tipo !== 'aluno') {
+                console.log('❌ Usuário não é aluno ou dados inválidos, fazendo logout');
+                AuthClient.logout();
+                return;
+            }
+            
+            console.log('✅ Autenticação válida no DOMContentLoaded para aluno:', user.nome || user.email);
         });
     </script>
 </head>
@@ -273,15 +331,75 @@
     <script>
         // Verificar autenticação
         function verificarAutenticacao() {
-            if (!AuthClient.isLoggedIn()) {
+            console.log('🔐 === VERIFICAÇÃO DE AUTENTICAÇÃO ===');
+            console.log('📍 Página atual:', window.location.pathname);
+            
+            // Verificar se AuthClient está disponível
+            if (typeof AuthClient === 'undefined') {
+                console.error('❌ AuthClient não está disponível!');
                 window.location.href = 'login.php';
                 return false;
             }
+            
+            // Verificar token JWT
+            const token = localStorage.getItem('acc_jwt_token');
+            console.log('🎫 Token JWT presente:', !!token);
+            if (token) {
+                console.log('🎫 Token JWT (primeiros 50 chars):', token.substring(0, 50) + '...');
+                
+                // Verificar se o token não está expirado
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const now = Math.floor(Date.now() / 1000);
+                    console.log('⏰ Token expira em:', new Date(payload.exp * 1000));
+                    console.log('⏰ Hora atual:', new Date());
+                    console.log('⏰ Token válido:', payload.exp > now);
+                } catch (e) {
+                    console.error('❌ Erro ao decodificar token:', e);
+                }
+            }
+            
+            // Verificar API Key
+            const apiKey = localStorage.getItem('acc_api_key');
+            console.log('🔑 API Key presente:', !!apiKey);
+            if (apiKey) {
+                console.log('🔑 API Key (primeiros 20 chars):', apiKey.substring(0, 20) + '...');
+            }
+            
+            // Verificar dados do usuário
+            const userData = localStorage.getItem('acc_user_data');
+            console.log('👤 Dados do usuário presentes:', !!userData);
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('👤 Tipo de usuário:', user.tipo);
+                    console.log('👤 ID do usuário:', user.id);
+                } catch (e) {
+                    console.error('❌ Erro ao parsear dados do usuário:', e);
+                }
+            }
+            
+            // Verificar se está logado usando AuthClient
+            const isLoggedIn = AuthClient.isLoggedIn();
+            console.log('✅ AuthClient.isLoggedIn():', isLoggedIn);
+            
+            if (!isLoggedIn) {
+                console.log('❌ Usuário não autenticado, redirecionando para login');
+                alert('Sua sessão expirou. Você será redirecionado para a página de login.');
+                window.location.href = 'login.php';
+                return false;
+            }
+            
             const user = AuthClient.getUser();
+            console.log('👤 Dados do usuário via AuthClient:', user);
+            
             if (!user || user.tipo !== 'aluno') {
+                console.log('❌ Usuário não é aluno ou dados inválidos, fazendo logout');
                 AuthClient.logout();
                 return false;
             }
+            
+            console.log('✅ Autenticação válida para aluno:', user.nome || user.email);
             return true;
         }
         
@@ -402,10 +520,45 @@
         // Carregar atividades de uma categoria específica via JWT
         async function carregarAtividades(categoria) {
             try {
-                console.log('🔍 Carregando atividades para categoria:', categoria);
+                console.log('🔍 === CARREGANDO ATIVIDADES ===');
+                console.log('📂 Categoria solicitada:', categoria);
+                
+                // Verificar se AuthClient está disponível
+                if (typeof AuthClient === 'undefined') {
+                    console.error('❌ AuthClient não disponível para fazer requisição');
+                    throw new Error('AuthClient não disponível');
+                }
+                
+                // Verificar token antes da requisição
+                const token = localStorage.getItem('acc_jwt_token');
+                const apiKey = localStorage.getItem('acc_api_key');
+                console.log('🎫 Token disponível para requisição:', !!token);
+                console.log('🔑 API Key disponível para requisição:', !!apiKey);
+                
+                if (!token) {
+                    console.error('❌ Token JWT não encontrado no localStorage');
+                    throw new Error('Token JWT não encontrado');
+                }
+                
+                if (!apiKey) {
+                    console.error('❌ API Key não encontrada no localStorage');
+                    throw new Error('API Key não encontrada');
+                }
+                
+                console.log('🌐 Fazendo requisição para: ../../backend/api/routes/listar_atividades.php');
+                
                 const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades.php', {
                     method: 'GET'
                 });
+                
+                console.log('📡 Status da resposta:', response.status);
+                console.log('📡 Headers da resposta:', Object.fromEntries(response.headers.entries()));
+                
+                if (!response.ok) {
+                    console.error('❌ Resposta não OK:', response.status, response.statusText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 console.log('📊 Resposta da API:', data);
                 

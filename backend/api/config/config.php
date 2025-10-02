@@ -1,7 +1,7 @@
 <?php
 // Configurações da API
 define('API_VERSION', '1.0.0');
-define('JWT_SECRET', 'sua_chave_secreta_jwt_muito_segura_aqui_2024');
+define('JWT_SECRET', 'gerenciamento-acc-secret-key-2025');
 // define('JWT_SECRET', getenv('JWT_SECRET'));
 define('JWT_EXPIRATION', 3600); // 1 hora em segundos
 

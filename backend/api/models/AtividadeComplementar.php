@@ -716,27 +716,17 @@ class AtividadeComplementar {
             $atividades = [];
 
             // 1. Buscar atividades complementares (ACC) pendentes
-            // Primeiro, determinar qual tabela de categoria usar baseado no curso
-            $tabelaCategoria = '';
-            $tabelaAtividades = '';
-            
-            if ($curso_id == 1) { // Agronomia - BCC17
-                $tabelaCategoria = 'categoriaatividadebcc17';
-                $tabelaAtividades = 'atividadesdisponiveisbcc17';
-            } elseif ($curso_id == 27) { // Ciência da Computação - BCC23
-                $tabelaCategoria = 'categoriaatividadebcc23';
-                $tabelaAtividades = 'atividadesdisponiveisbcc23';
-            } else {
-                // Para outros cursos, tentar usar as tabelas genéricas ou a primeira disponível
-                $tabelaCategoria = 'categoriaatividadebcc17';
-                $tabelaAtividades = 'atividadesdisponiveisbcc17';
-            }
+            // Usar lógica dinâmica baseada na matrícula do aluno
             
             $sqlACC = "
                 SELECT 
                     ac.id,
                     COALESCE(ac.curso_evento_nome, 'Atividade Complementar') as titulo,
-                    ad.titulo as atividade_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ad17.titulo
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                        ELSE COALESCE(ad23.titulo, ad17.titulo)
+                    END as atividade_nome,
                     ac.horas_realizadas as carga_horaria_aprovada,
                     ac.status,
                     ac.data_submissao as data_envio,
@@ -748,15 +738,21 @@ class AtividadeComplementar {
                     ac.observacoes_avaliacao as observacoes_Analise,
                     ac.atividade_disponivel_id,
                     ac.categoria_id,
-                    cat.descricao as categoria_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN cat17.descricao
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN cat23.descricao
+                        ELSE COALESCE(cat23.descricao, cat17.descricao)
+                    END as categoria_nome,
                     'acc' as tipo,
                     ac.data_submissao
                 FROM atividadecomplementaracc ac
                 INNER JOIN aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN usuario u ON a.usuario_id = u.id
                 INNER JOIN curso c ON a.curso_id = c.id
-                LEFT JOIN $tabelaCategoria cat ON ac.categoria_id = cat.id
-                LEFT JOIN $tabelaAtividades ad ON ac.atividade_disponivel_id = ad.id
+                LEFT JOIN categoriaatividadebcc17 cat17 ON ac.categoria_id = cat17.id
+                LEFT JOIN categoriaatividadebcc23 cat23 ON ac.categoria_id = cat23.id
+                LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ac.atividade_disponivel_id = ad17.id
+                LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ac.atividade_disponivel_id = ad23.id
                 WHERE c.id = ?
                   AND ac.status = 'Aguardando avaliação'
                   AND ac.declaracao_caminho IS NOT NULL
@@ -780,7 +776,11 @@ class AtividadeComplementar {
                 SELECT 
                     ae.id,
                     COALESCE(ae.nome_disciplina, ae.nome_disciplina_laboratorio, 'Disciplinas em áreas correlatas cursadas em outras IES') as titulo,
-                    ad.titulo as atividade_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ad17.titulo
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                        ELSE COALESCE(ad23.titulo, ad17.titulo)
+                    END as atividade_nome,
                     ae.carga_horaria as carga_horaria_aprovada,
                     ae.status,
                     ae.data_submissao as data_envio,
@@ -791,15 +791,21 @@ class AtividadeComplementar {
                     c.nome as curso_nome,
                     ae.observacoes_avaliacao as observacoes_Analise,
                     ae.categoria_id,
-                    ca.descricao as categoria_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ca17.descricao
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ca23.descricao
+                        ELSE COALESCE(ca23.descricao, ca17.descricao)
+                    END as categoria_nome,
                     'ensino' as tipo,
                     ae.data_submissao
                 FROM atividadecomplementarensino ae
                 INNER JOIN aluno a ON ae.aluno_id = a.usuario_id
                 INNER JOIN usuario u ON a.usuario_id = u.id
                 INNER JOIN curso c ON a.curso_id = c.id
-                LEFT JOIN $tabelaCategoria ca ON ae.categoria_id = ca.id
-                LEFT JOIN $tabelaAtividades ad ON ae.atividade_disponivel_id = ad.id
+                LEFT JOIN categoriaatividadebcc17 ca17 ON ae.categoria_id = ca17.id
+                LEFT JOIN categoriaatividadebcc23 ca23 ON ae.categoria_id = ca23.id
+                LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ae.atividade_disponivel_id = ad17.id
+                LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ae.atividade_disponivel_id = ad23.id
                 WHERE c.id = ?
                   AND ae.status = 'Aguardando avaliação'
             ";
@@ -862,7 +868,11 @@ class AtividadeComplementar {
                         WHEN ap.nome_artigo IS NOT NULL AND ap.nome_artigo != '' THEN ap.nome_artigo
                         ELSE 'Atividade de Pesquisa'
                     END as titulo,
-                    ad.titulo as atividade_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ad17.titulo
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                        ELSE COALESCE(ad23.titulo, ad17.titulo)
+                    END as atividade_nome,
                     ap.horas_realizadas as carga_horaria_aprovada,
                     ap.status,
                     ap.data_submissao as data_envio,
@@ -881,7 +891,8 @@ class AtividadeComplementar {
                 INNER JOIN aluno a ON ap.aluno_id = a.usuario_id
                 INNER JOIN usuario u ON a.usuario_id = u.id
                 INNER JOIN curso c ON a.curso_id = c.id
-                LEFT JOIN $tabelaAtividades ad ON ap.atividade_disponivel_id = ad.id
+                LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ap.atividade_disponivel_id = ad17.id
+                LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ap.atividade_disponivel_id = ad23.id
                 WHERE c.id = ?
                   AND ap.status = 'Aguardando avaliação'
                   AND ap.declaracao_caminho IS NOT NULL
@@ -951,7 +962,11 @@ class AtividadeComplementar {
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ad.titulo as atividade_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ad17.titulo
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                        ELSE COALESCE(ad23.titulo, ad17.titulo)
+                    END as atividade_nome,
                     ac.observacoes_avaliacao as observacoes_Analise,
                     1 as categoria_id,
                     'Complementar' as categoria_nome,
@@ -961,7 +976,8 @@ class AtividadeComplementar {
                 INNER JOIN Aluno a ON ac.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                LEFT JOIN atividadesdisponiveisbcc23 ad ON ac.atividade_disponivel_id = ad.id
+                LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ac.atividade_disponivel_id = ad17.id
+                LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ac.atividade_disponivel_id = ad23.id
                 WHERE c.id = ?
                   AND (ac.status = 'aprovado' OR ac.status = 'rejeitado')
                   AND ac.declaracao_caminho IS NOT NULL
@@ -1008,7 +1024,11 @@ class AtividadeComplementar {
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ad.titulo as atividade_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ad17.titulo
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                        ELSE COALESCE(ad23.titulo, ad17.titulo)
+                    END as atividade_nome,
                     ae.observacoes_avaliacao as observacoes_Analise,
                     3 as categoria_id,
                     'Ensino' as categoria_nome,
@@ -1018,7 +1038,8 @@ class AtividadeComplementar {
                 INNER JOIN Aluno a ON ae.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN atividadesdisponiveisbcc23 ad ON ae.atividade_disponivel_id = ad.id
+                LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ae.atividade_disponivel_id = ad17.id
+                LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ae.atividade_disponivel_id = ad23.id
                 WHERE c.id = ?
                   AND (ae.status = 'aprovado' OR ae.status = 'rejeitado')
                   AND ae.declaracao_caminho IS NOT NULL
@@ -1117,7 +1138,11 @@ class AtividadeComplementar {
                     u.nome as aluno_nome,
                     a.matricula as aluno_matricula,
                     c.nome as curso_nome,
-                    ad.titulo as atividade_nome,
+                    CASE 
+                        WHEN SUBSTR(a.matricula, 1, 4) BETWEEN '2017' AND '2022' THEN ad17.titulo
+                        WHEN SUBSTR(a.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                        ELSE COALESCE(ad23.titulo, ad17.titulo)
+                    END as atividade_nome,
                     ap.observacoes_avaliacao as observacoes_Analise,
                     2 as categoria_id,
                     'Pesquisa' as categoria_nome,
@@ -1127,7 +1152,8 @@ class AtividadeComplementar {
                 INNER JOIN Aluno a ON ap.aluno_id = a.usuario_id
                 INNER JOIN Usuario u ON a.usuario_id = u.id
                 INNER JOIN Curso c ON a.curso_id = c.id
-                INNER JOIN atividadesdisponiveisbcc23 ad ON ap.atividade_disponivel_id = ad.id
+                LEFT JOIN atividadesdisponiveisbcc17 ad17 ON ap.atividade_disponivel_id = ad17.id
+                LEFT JOIN atividadesdisponiveisbcc23 ad23 ON ap.atividade_disponivel_id = ad23.id
                 WHERE c.id = ?
                   AND (ap.status = 'aprovado' OR ap.status = 'rejeitado')
                   AND ap.declaracao_caminho IS NOT NULL
@@ -1207,6 +1233,32 @@ class AtividadeComplementar {
         }
     }
 
+    /**
+     * Determina as tabelas de atividades e categorias baseado na matrícula do aluno
+     */
+    private static function determinarTabelasPorMatricula($matricula) {
+        if (!$matricula) {
+            return [
+                'atividades' => 'atividadesdisponiveisbcc23',
+                'categorias' => 'categoriaatividadebcc23'
+            ];
+        }
+        
+        $anoMatricula = (int)substr($matricula, 0, 4);
+        
+        if ($anoMatricula >= 2017 && $anoMatricula <= 2022) {
+            return [
+                'atividades' => 'atividadesdisponiveisbcc17',
+                'categorias' => 'categoriaatividadebcc17'
+            ];
+        } else {
+            return [
+                'atividades' => 'atividadesdisponiveisbcc23',
+                'categorias' => 'categoriaatividadebcc23'
+            ];
+        }
+    }
+
     public static function listarCategorias($userData = null) {
         try {
             // Log dos dados recebidos para debug
@@ -1214,15 +1266,32 @@ class AtividadeComplementar {
             
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
-            // Primeiro tentar a tabela categoriaatividadebcc23, se não existir usar categoriaatividade
-            $sql = "SELECT id, descricao as nome FROM categoriaatividadebcc23 ORDER BY descricao";
+            // Determinar tabela baseada na matrícula do aluno
+            $matricula = null;
+            if ($userData && isset($userData['matricula'])) {
+                $matricula = $userData['matricula'];
+            }
+            
+            $tabelas = self::determinarTabelasPorMatricula($matricula);
+            $tabelaCategoria = $tabelas['categorias'];
+            
+            error_log("Usando tabela de categoria: " . $tabelaCategoria);
+            
+            // Tentar a tabela determinada pela matrícula
+            $sql = "SELECT id, descricao as nome FROM {$tabelaCategoria} ORDER BY descricao";
             $result = $db->query($sql);
             
-            // Se a query falhar, tentar a tabela padrão
+            // Se a query falhar, tentar fallbacks
             if (!$result) {
-                error_log("Tabela categoriaatividadebcc23 não encontrada, usando categoriaatividade");
-                $sql = "SELECT id, descricao as nome FROM categoriaatividade ORDER BY descricao";
+                error_log("Tabela {$tabelaCategoria} não encontrada, tentando categoriaatividadebcc23");
+                $sql = "SELECT id, descricao as nome FROM categoriaatividadebcc23 ORDER BY descricao";
                 $result = $db->query($sql);
+                
+                if (!$result) {
+                    error_log("Tabela categoriaatividadebcc23 não encontrada, usando categoriaatividade");
+                    $sql = "SELECT id, descricao as nome FROM categoriaatividade ORDER BY descricao";
+                    $result = $db->query($sql);
+                }
             }
             
             $categorias = [];
@@ -1269,8 +1338,19 @@ class AtividadeComplementar {
             // Fallback para a tabela padrão em caso de erro
             try {
                 $db = \backend\api\config\Database::getInstance()->getConnection();
-                $sql = "SELECT id, descricao as nome FROM categoriaatividade ORDER BY descricao";
-                $result = $db->query($sql);
+                
+                // Tentar fallbacks em ordem
+                $tabelasFallback = ['categoriaatividadebcc23', 'categoriaatividadebcc17', 'categoriaatividade'];
+                $result = null;
+                
+                foreach ($tabelasFallback as $tabela) {
+                    $sql = "SELECT id, descricao as nome FROM {$tabela} ORDER BY descricao";
+                    $result = $db->query($sql);
+                    if ($result) {
+                        error_log("Fallback usando tabela: " . $tabela);
+                        break;
+                    }
+                }
                 
                 $categorias = [];
                 if ($result) {

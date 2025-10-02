@@ -34,8 +34,20 @@ class AtividadeComplementarACC {
                 throw new Exception("Erro ao preparar query: " . $db->error);
             }
 
+            // Buscar matrícula do aluno para determinar a tabela
+            $stmt_aluno = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+            $stmt_aluno->bind_param("i", $dados['aluno_id']);
+            $stmt_aluno->execute();
+            $result_aluno = $stmt_aluno->get_result();
+            $aluno_data = $result_aluno->fetch_assoc();
+            $matricula = $aluno_data ? $aluno_data['matricula'] : null;
+            
+            // Determinar tabela baseada na matrícula
+            $ano_matricula = substr($matricula, 0, 4);
+            $tabela_atividades = ($ano_matricula >= '2023') ? 'atividadesdisponiveisbcc23' : 'atividadesdisponiveisbcc17';
+            
             // Buscar categoria_id da atividade disponível
-            $stmt_categoria = $db->prepare("SELECT categoria_id FROM atividadesdisponiveisbcc23 WHERE id = ?");
+            $stmt_categoria = $db->prepare("SELECT categoria_id FROM {$tabela_atividades} WHERE id = ?");
             $stmt_categoria->bind_param("i", $dados['atividade_disponivel_id']);
             $stmt_categoria->execute();
             $result_categoria = $stmt_categoria->get_result();
@@ -99,6 +111,14 @@ class AtividadeComplementarACC {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Buscar matrícula do aluno para determinar a tabela
+            $stmt_aluno = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+            $stmt_aluno->bind_param("i", $aluno_id);
+            $stmt_aluno->execute();
+            $result_aluno = $stmt_aluno->get_result();
+            $aluno_data = $result_aluno->fetch_assoc();
+            $matricula = $aluno_data ? $aluno_data['matricula'] : null;
+            
             $sql = "SELECT 
                         acc.id,
                         acc.curso_evento_nome,
@@ -112,14 +132,25 @@ class AtividadeComplementarACC {
                         acc.data_submissao,
                         acc.data_avaliacao,
                         acc.observacoes_avaliacao,
-                        ad.titulo as atividade_nome,
+                        CASE 
+                            WHEN SUBSTRING(?, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_nome,
                         acc.curso_evento_nome as titulo,
-                        ad.carga_horaria_maxima_por_atividade as horas_maximas,
-                        ca.descricao as categoria_nome,
+                        CASE 
+                            WHEN SUBSTRING(?, 1, 4) >= '2023' THEN ad23.carga_horaria_maxima_por_atividade
+                            ELSE ad17.carga_horaria_maxima_por_atividade
+                        END as horas_maximas,
+                        CASE 
+                            WHEN SUBSTRING(?, 1, 4) >= '2023' THEN ca23.descricao
+                            ELSE ca17.descricao
+                        END as categoria_nome,
                         u.nome as avaliador_nome
                     FROM atividadecomplementaracc acc
-                    INNER JOIN atividadesdisponiveisbcc23 ad ON acc.atividade_disponivel_id = ad.id
-                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON acc.atividade_disponivel_id = ad23.id
+                    LEFT JOIN categoriaatividadebcc23 ca23 ON ad23.categoria_id = ca23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON acc.atividade_disponivel_id = ad17.id
+                    LEFT JOIN categoriaatividadebcc17 ca17 ON ad17.categoria_id = ca17.id
                     LEFT JOIN Coordenador c ON acc.avaliador_id = c.usuario_id
                     LEFT JOIN Usuario u ON c.usuario_id = u.id
                     WHERE acc.aluno_id = ?
@@ -130,7 +161,7 @@ class AtividadeComplementarACC {
                 throw new Exception("Erro ao preparar query: " . $db->error);
             }
             
-            $stmt->bind_param("i", $aluno_id);
+            $stmt->bind_param("sssi", $matricula, $matricula, $matricula, $aluno_id);
             
             if (!$stmt->execute()) {
                 throw new Exception("Erro ao executar query: " . $stmt->error);
@@ -162,15 +193,26 @@ class AtividadeComplementarACC {
             
             $sql = "SELECT 
                         acc.*,
-                        ad.titulo as atividade_nome,
-                        ad.carga_horaria_maxima_por_atividade as horas_maximas,
-                        ca.descricao as categoria_nome,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_nome,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ad23.carga_horaria_maxima_por_atividade
+                            ELSE ad17.carga_horaria_maxima_por_atividade
+                        END as horas_maximas,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ca23.descricao
+                            ELSE ca17.descricao
+                        END as categoria_nome,
                         u.nome as avaliador_nome,
                         al.matricula,
                         ua.nome as aluno_nome
                     FROM atividadecomplementaracc acc
-                    INNER JOIN atividadesdisponiveisbcc23 ad ON acc.atividade_disponivel_id = ad.id
-                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON acc.atividade_disponivel_id = ad23.id
+                    LEFT JOIN categoriaatividadebcc23 ca23 ON ad23.categoria_id = ca23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON acc.atividade_disponivel_id = ad17.id
+                    LEFT JOIN categoriaatividadebcc17 ca17 ON ad17.categoria_id = ca17.id
                     INNER JOIN Aluno al ON acc.aluno_id = al.usuario_id
                     INNER JOIN Usuario ua ON al.usuario_id = ua.id
                     LEFT JOIN Coordenador c ON acc.avaliador_id = c.usuario_id
@@ -244,14 +286,22 @@ class AtividadeComplementarACC {
                         acc.status,
                         acc.data_submissao,
                         acc.data_avaliacao,
-                        ad.titulo as atividade_nome,
-                        ca.descricao as categoria_nome,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ad23.titulo
+                            ELSE ad17.titulo
+                        END as atividade_nome,
+                        CASE 
+                            WHEN SUBSTRING(al.matricula, 1, 4) >= '2023' THEN ca23.descricao
+                            ELSE ca17.descricao
+                        END as categoria_nome,
                         ua.nome as aluno_nome,
                         al.matricula,
                         u.nome as avaliador_nome
                     FROM atividadecomplementaracc acc
-                    INNER JOIN atividadesdisponiveisbcc23 ad ON acc.atividade_disponivel_id = ad.id
-                    INNER JOIN categoriaatividadebcc23 ca ON ad.categoria_id = ca.id
+                    LEFT JOIN atividadesdisponiveisbcc23 ad23 ON acc.atividade_disponivel_id = ad23.id
+                    LEFT JOIN categoriaatividadebcc23 ca23 ON ad23.categoria_id = ca23.id
+                    LEFT JOIN atividadesdisponiveisbcc17 ad17 ON acc.atividade_disponivel_id = ad17.id
+                    LEFT JOIN categoriaatividadebcc17 ca17 ON ad17.categoria_id = ca17.id
                     INNER JOIN Aluno al ON acc.aluno_id = al.usuario_id
                     INNER JOIN Usuario ua ON al.usuario_id = ua.id
                     LEFT JOIN Coordenador c ON acc.avaliador_id = c.usuario_id
