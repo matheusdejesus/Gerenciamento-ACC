@@ -11,6 +11,14 @@
         if (!localStorage.getItem('acc_jwt_token')) {
             window.location.href = 'login.php';
         }
+        
+        // Debug global para verificar se as funções estão sendo chamadas
+        window.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' && e.target.textContent.includes('Selecionar')) {
+                console.log('🔴 CLICK DETECTADO NO BOTÃO SELECIONAR:', e.target);
+                console.log('🔴 ONCLICK ATTRIBUTE:', e.target.getAttribute('onclick'));
+            }
+        });
     </script>
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -192,16 +200,16 @@
                         <div id="nomeEvento-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
                     </div>
                     
-                    <!-- Carga Horária -->
+                    <!-- Quantidade de Apresentações -->
                     <div>
-                        <label for="cargaHoraria" class="block text-sm font-medium text-gray-700 mb-2">
-                            Carga Horária (horas) <span class="text-red-500">*</span>
+                        <label for="quantidadeApresentacoes" class="block text-sm font-medium text-gray-700 mb-2">
+                            Quantidade de Apresentações <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" id="cargaHoraria" name="cargaHoraria" min="1" max="999"
+                        <input type="number" id="quantidadeApresentacoes" name="quantidadeApresentacoes" min="1" max="10"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                               placeholder="Ex: 20"
-                               oninput="validarCampoEvento('cargaHoraria')" required>
-                        <div id="cargaHoraria-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                               placeholder="Ex: 2"
+                               oninput="validarCampoEvento('quantidadeApresentacoes')" required>
+                        <div id="quantidadeApresentacoes-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
                     </div>
                     
                     <!-- Local/Instituição -->
@@ -633,7 +641,22 @@
             }
             
             container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${todasAtividades.map(atividade => `
+                ${todasAtividades.map(atividade => {
+                    // Determinar qual função chamar baseado no nome da atividade
+                    let funcaoSelecionar = '';
+                    if (atividade.nome === 'Membro efetivo e/ou assistente em eventos científicos e profissionais') {
+                        funcaoSelecionar = `abrirModalCadastroEvento(${atividade.id})`;
+                    } else if (atividade.nome === 'Apresentação em eventos científicos (por trabalho)') {
+                        funcaoSelecionar = `abrirModalEventoCientifico(${atividade.id})`;
+                    } else if (atividade.nome === 'Participação em projeto de Iniciação Científica') {
+                        funcaoSelecionar = `abrirModalIniciacaoCientifica(${atividade.id})`;
+                    } else if (atividade.nome === 'Publicação de artigo em anais, periódicos ou capítulo de livro (por trabalho)') {
+                        funcaoSelecionar = `abrirModalPublicacaoArtigo(${atividade.id})`;
+                    } else {
+                        funcaoSelecionar = `abrirModalSelecao(${atividade.id})`;
+                    }
+                    
+                    return `
                     <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
                         <div class="p-4" style="background-color: #0969DA">
                             <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
@@ -659,7 +682,7 @@
                                         style="color: #0969DA">
                                     Ver Detalhes
                                 </button>
-                                <button onclick="${atividade.nome === 'Membro efetivo e/ou assistente em eventos científicos e profissionais' ? 'abrirModalCadastroEvento(' + atividade.id + ')' : atividade.nome === 'Apresentação em eventos científicos (por trabalho)' ? 'abrirModalEventoCientifico(' + atividade.id + ')' : atividade.nome === 'Participação em projeto de Iniciação Científica' ? 'abrirModalIniciacaoCientifica(' + atividade.id + ')' : atividade.nome === 'Publicação de artigo em anais, periódicos ou capítulo de livro (por trabalho)' ? 'abrirModalPublicacaoArtigo(' + atividade.id + ')' : 'abrirModalSelecao(' + atividade.id + ')'}"
+                                <button onclick="console.log('🔴 BOTÃO CLICADO - Atividade:', '${atividade.nome}', 'ID:', ${atividade.id}); ${funcaoSelecionar}"
                                         class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200"
                                         style="background-color: #0969DA">
                                     Selecionar
@@ -667,7 +690,8 @@
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>`;
         }
 
@@ -1160,25 +1184,38 @@
         // Função para abrir modal de evento científico
         function abrirModalEventoCientifico(id) {
             console.log('🔵 ABRINDO MODAL EVENTO CIENTÍFICO - ID:', id);
+            console.log('🔍 Elemento modal encontrado:', document.getElementById('modalEventoCientifico'));
+            
             atividadeEventoCientificoId = id;
             elementoAnteriorFocoEvento = document.activeElement;
             
             // Buscar dados da atividade para obter horas máximas
             const atividade = todasAtividades.find(a => a.id === id);
+            console.log('🔍 Atividade encontrada:', atividade);
+            
             if (atividade) {
                 horasMaximasEventoCientifico = parseInt(atividade.horas_max);
                 // Atualizar o atributo max do campo de carga horária
                 const campoCargaHoraria = document.getElementById('cargaHoraria');
-                campoCargaHoraria.max = horasMaximasEventoCientifico;
-                campoCargaHoraria.placeholder = `Digite a carga horária (máximo ${horasMaximasEventoCientifico}h)`;
+                if (campoCargaHoraria) {
+                    campoCargaHoraria.max = horasMaximasEventoCientifico;
+                    campoCargaHoraria.placeholder = `Digite a carga horária (máximo ${horasMaximasEventoCientifico}h)`;
+                }
             }
             
             const modal = document.getElementById('modalEventoCientifico');
+            console.log('🔍 Modal antes de mostrar - classes:', modal.className);
+            
             modal.classList.remove('hidden');
+            console.log('🔍 Modal após remover hidden - classes:', modal.className);
             
             // Focar no primeiro campo
             setTimeout(() => {
-                document.getElementById('nomeEvento').focus();
+                const nomeEventoField = document.getElementById('nomeEvento');
+                console.log('🔍 Campo nomeEvento encontrado:', nomeEventoField);
+                if (nomeEventoField) {
+                    nomeEventoField.focus();
+                }
             }, 100);
             
             // Limpar formulário
@@ -1251,17 +1288,17 @@
                     }
                     break;
                     
-                case 'cargaHoraria':
-                    const horas = parseInt(valor);
+                case 'quantidadeApresentacoes':
+                    const quantidade = parseInt(valor);
                     if (!valor) {
                         valido = false;
-                        mensagem = 'A carga horária é obrigatória';
-                    } else if (isNaN(horas) || horas < 1) {
+                        mensagem = 'A quantidade de apresentações é obrigatória';
+                    } else if (isNaN(quantidade) || quantidade < 1) {
                         valido = false;
-                        mensagem = 'A carga horária deve ser um número positivo';
-                    } else if (horasMaximasEventoCientifico && horas > horasMaximasEventoCientifico) {
+                        mensagem = 'A quantidade deve ser um número positivo';
+                    } else if (quantidade > 10) {
                         valido = false;
-                        mensagem = `A carga horária não pode exceder ${horasMaximasEventoCientifico} horas`;
+                        mensagem = 'A quantidade não pode exceder 10 apresentações';
                     }
                     break;
                     
@@ -1322,16 +1359,16 @@
         // Função para verificar se o formulário do evento é válido
         function verificarFormularioEventoValido() {
             const nomeEvento = document.getElementById('nomeEvento').value.trim();
-            const cargaHoraria = document.getElementById('cargaHoraria').value;
+            const quantidadeApresentacoes = document.getElementById('quantidadeApresentacoes').value;
             const localEvento = document.getElementById('localEvento').value.trim();
             const declaracao = document.getElementById('declaracao').files;
             
             const nomeValido = nomeEvento.length >= 3;
-            const cargaValida = cargaHoraria && parseInt(cargaHoraria) >= 1 && parseInt(cargaHoraria) <= 999;
+            const quantidadeValida = quantidadeApresentacoes && parseInt(quantidadeApresentacoes) >= 1 && parseInt(quantidadeApresentacoes) <= 10;
             const localValido = localEvento.length >= 2;
             const declaracaoValida = declaracao && declaracao.length > 0;
             
-            const formularioValido = nomeValido && cargaValida && localValido && declaracaoValida;
+            const formularioValido = nomeValido && quantidadeValida && localValido && declaracaoValida;
             
             document.getElementById('btnConfirmarEvento').disabled = !formularioValido;
         }
@@ -1349,7 +1386,7 @@
             console.log('✓ atividadeEventoCientificoId definido:', atividadeEventoCientificoId);
             
             // Verificar se todos os campos existem
-            const campos = ['nomeEvento', 'cargaHoraria', 'localEvento', 'declaracao'];
+            const campos = ['nomeEvento', 'quantidadeApresentacoes', 'localEvento', 'declaracao'];
             let todosValidos = true;
             
             // Validar cada campo individualmente
@@ -1376,7 +1413,7 @@
                 // Debug: verificar valores dos campos antes do envio
                 console.log('Valores dos campos antes do envio:');
                 console.log('nomeEvento:', document.getElementById('nomeEvento').value);
-                console.log('cargaHoraria:', document.getElementById('cargaHoraria').value);
+                console.log('quantidadeApresentacoes:', document.getElementById('quantidadeApresentacoes').value);
                 console.log('localEvento:', document.getElementById('localEvento').value);
                 console.log('declaracao files:', document.getElementById('declaracao').files.length);
                 
@@ -1389,7 +1426,54 @@
                 const formData = new FormData();
                 formData.append('atividade_disponivel_id', atividadeEventoCientificoId);
                 formData.append('tipo_atividade', 'apresentacao_evento');
-                formData.append('horas_realizadas', document.getElementById('cargaHoraria').value);
+                
+                // Verificar se o campo existe e tem valor
+                const quantidadeElement = document.getElementById('quantidadeApresentacoes');
+                const quantidadeValue = quantidadeElement ? quantidadeElement.value : '';
+                console.log('Elemento quantidadeApresentacoes:', quantidadeElement);
+                console.log('Valor quantidadeApresentacoes:', quantidadeValue);
+                
+                if (!quantidadeValue || quantidadeValue.trim() === '') {
+                    alert('Erro: Quantidade de apresentações não foi preenchida');
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.textContent = 'Confirmar';
+                    return;
+                }
+                
+                formData.append('quantidade_apresentacoes', quantidadeValue);
+                
+                // Buscar dados da atividade para determinar horas máximas permitidas
+                const atividade = todasAtividades.find(a => a.id === atividadeEventoCientificoId);
+                console.log('🔍 Debug - Atividade encontrada:', atividade);
+                
+                const horasMaximas = atividade ? parseInt(atividade.horas_max) : 20;
+                console.log('📊 Debug - Horas máximas da atividade:', horasMaximas);
+                console.log('📊 Debug - Tipo de horasMaximas:', typeof horasMaximas);
+                
+                // Calcular horas realizadas baseado na quantidade de apresentações
+                // BCC23 tem máximo ≤ 9h (usa 5h por apresentação)
+                // BCC17 tem máximo > 9h (usa 10h por apresentação)
+                const horasPorApresentacao = horasMaximas <= 9 ? 5 : 10;
+                console.log('⚡ Debug - Horas por apresentação calculadas:', horasPorApresentacao);
+                console.log('⚡ Debug - Lógica: horasMaximas (' + horasMaximas + ') <= 9 ? 5 : 10 = ' + horasPorApresentacao);
+                
+                const horasCalculadas = parseInt(quantidadeValue) * horasPorApresentacao;
+                console.log('🧮 Debug - Horas calculadas (quantidade × horas_por_apresentacao):', quantidadeValue + ' × ' + horasPorApresentacao + ' = ' + horasCalculadas);
+                
+                const horasRealizadas = Math.min(horasCalculadas, horasMaximas);
+                console.log('✅ Debug - Horas realizadas finais (limitadas ao máximo):', horasRealizadas);
+                
+                console.log('=== RESUMO DO CÁLCULO ===');
+                console.log('- Atividade ID:', atividadeEventoCientificoId);
+                console.log('- Horas máximas permitidas:', horasMaximas);
+                console.log('- Quantidade de apresentações:', quantidadeValue);
+                console.log('- Horas por apresentação:', horasPorApresentacao);
+                console.log('- Horas calculadas:', horasCalculadas);
+                console.log('- Horas realizadas (final):', horasRealizadas);
+                console.log('========================');
+                
+                formData.append('horas_realizadas', horasRealizadas);
+                
                 formData.append('local_instituicao', document.getElementById('localEvento').value.trim());
                 formData.append('nome_evento', document.getElementById('nomeEvento').value.trim());
                 
@@ -1397,7 +1481,7 @@
                 console.log('Dados sendo enviados:');
                 console.log('atividade_disponivel_id:', atividadeEventoCientificoId);
                 console.log('tipo_atividade:', 'apresentacao_evento');
-                console.log('horas_realizadas:', document.getElementById('cargaHoraria').value);
+                console.log('quantidade_apresentacoes:', document.getElementById('quantidadeApresentacoes').value);
                 console.log('local_instituicao:', document.getElementById('localEvento').value.trim());
                 console.log('nome_evento:', document.getElementById('nomeEvento').value.trim());
                 

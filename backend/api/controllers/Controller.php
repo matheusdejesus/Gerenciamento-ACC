@@ -9,9 +9,15 @@ class Controller {
     }
     
     protected function sendJsonResponse($data, $statusCode = 200) {
+        // Garantir que não há saída anterior
+        if (ob_get_level()) {
+            ob_clean();
+        }
+        
         http_response_code($statusCode);
         header('Content-Type: application/json');
         echo json_encode($data);
+        exit();
     }
     
     protected function validateRequiredFields($data, $requiredFields) {

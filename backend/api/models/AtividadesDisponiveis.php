@@ -284,6 +284,13 @@ class AtividadesDisponiveis {
             if ($matricula) {
                 $tabelas = self::determinarTabelasPorMatricula($matricula);
                 
+                // Verificar se é aluno com matrícula 2023+ e categoria é "Atividades sociais e comunitárias"
+                $anoMatricula = (int)substr($matricula, 0, 4);
+                if ($anoMatricula >= 2023 && stripos($categoria, 'sociais e comunitárias') !== false) {
+                    error_log("Filtro aplicado: Aluno 2023+ não pode ver atividades sociais e comunitárias");
+                    return []; // Retorna array vazio para alunos 2023+
+                }
+                
                 $sql = "SELECT 
                             ad.id,
                             ad.titulo as nome,
@@ -505,6 +512,25 @@ class AtividadesDisponiveis {
             // Se matrícula foi fornecida, usar tabela específica
             if ($matricula) {
                 $tabelas = self::determinarTabelasPorMatricula($matricula);
+                
+                // Primeiro, verificar se a categoria é "Atividades sociais e comunitárias"
+                $sqlCategoria = "SELECT descricao FROM {$tabelas['categoria']} WHERE id = ?";
+                $stmtCategoria = $db->prepare($sqlCategoria);
+                $stmtCategoria->bind_param("i", $categoria_id);
+                $stmtCategoria->execute();
+                $resultCategoria = $stmtCategoria->get_result();
+                
+                if ($resultCategoria->num_rows > 0) {
+                    $categoria = $resultCategoria->fetch_assoc();
+                    $nomeCategoria = $categoria['descricao'];
+                    
+                    // Verificar se é aluno com matrícula 2023+ e categoria é "Atividades sociais e comunitárias"
+                    $anoMatricula = (int)substr($matricula, 0, 4);
+                    if ($anoMatricula >= 2023 && stripos($nomeCategoria, 'sociais e comunitárias') !== false) {
+                        error_log("Filtro aplicado por categoria ID: Aluno 2023+ não pode ver atividades sociais e comunitárias");
+                        return []; // Retorna array vazio para alunos 2023+
+                    }
+                }
                 
                 $sql = "SELECT 
                             ad.id,

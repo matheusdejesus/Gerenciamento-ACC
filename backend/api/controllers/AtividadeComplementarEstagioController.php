@@ -57,6 +57,9 @@ class AtividadeComplementarEstagioController {
             $input['aluno_id'] = $usuario['id'];
             $input['status'] = 'Aguardando avaliação';
             $input['data_submissao'] = date('Y-m-d H:i:s');
+            
+            // Definir categoria_id como 4 para atividades de estágio
+            $input['categoria_id'] = 4;
 
             // Processar upload de arquivo se enviado
             if (isset($_FILES['declaracao']) && $_FILES['declaracao']['error'] === UPLOAD_ERR_OK) {

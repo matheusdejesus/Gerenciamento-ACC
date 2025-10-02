@@ -1,4 +1,11 @@
 <?php
+// Configurar error reporting para não mostrar erros na saída
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+// Iniciar buffer de saída para controlar a resposta
+ob_start();
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -77,9 +84,18 @@ try {
     
 } catch (Exception $e) {
     error_log("Erro na rota de atividades de pesquisa: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
+    // Garantir que não há saída anterior
+    if (ob_get_level()) {
+        ob_clean();
+    }
+    
     http_response_code(500);
+    header('Content-Type: application/json');
     echo json_encode([
         'success' => false,
-        'error' => 'Erro interno do servidor'
+        'error' => 'Erro interno do servidor: ' . $e->getMessage()
     ]);
+    exit();
 }

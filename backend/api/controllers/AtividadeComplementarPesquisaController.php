@@ -21,46 +21,100 @@ class AtividadeComplementarPesquisaController extends Controller {
      */
     public function cadastrar($dados = null) {
         try {
+            error_log("=== INÍCIO CADASTRO ATIVIDADE PESQUISA ===");
+            
             // Verificar autenticação
             $usuario = AuthMiddleware::validateToken();
             
             if (!$usuario) {
+                error_log("ERRO: Usuário não autenticado");
                 http_response_code(403);
                 echo json_encode(['erro' => 'Acesso negado']);
                 return;
             }
+            
+            error_log("Usuário autenticado: " . json_encode($usuario));
 
             // Se não foram passados dados, pegar do POST
             if ($dados === null) {
                 $dados = $_POST;
             }
+            
+            error_log("Dados recebidos: " . json_encode($dados));
 
             // Adicionar o ID do aluno logado
             $dados['aluno_id'] = $usuario['id'];
+            
+            error_log("Dados após adicionar aluno_id: " . json_encode($dados));
 
             // Validar dados obrigatórios
+            error_log("Iniciando validação dos dados...");
             $this->validarDadosCadastro($dados);
+            error_log("Validação concluída com sucesso");
 
-            // Validar se a atividade disponível existe
-            $atividadeDisponivel = AtividadesDisponiveis::buscarPorId($dados['atividade_disponivel_id']);
+            // Buscar matrícula do aluno para usar na busca da atividade
+            $matricula = null;
+            if (isset($dados['aluno_id'])) {
+                $db = \backend\api\config\Database::getInstance()->getConnection();
+                $sqlMatricula = "SELECT matricula FROM Aluno WHERE usuario_id = ?";
+                $stmtMatricula = $db->prepare($sqlMatricula);
+                $stmtMatricula->bind_param("i", $dados['aluno_id']);
+                $stmtMatricula->execute();
+                $resultMatricula = $stmtMatricula->get_result();
+                if ($row = $resultMatricula->fetch_assoc()) {
+                    $matricula = $row['matricula'];
+                }
+            }
+            
+            // Validar se a atividade disponível existe (passando matrícula para usar tabela correta)
+            error_log("Buscando atividade disponível ID: " . $dados['atividade_disponivel_id'] . " para matrícula: " . $matricula);
+            $atividadeDisponivel = AtividadesDisponiveis::buscarPorId($dados['atividade_disponivel_id'], $matricula);
             if (!$atividadeDisponivel) {
+                error_log("ERRO: Atividade disponível não encontrada");
                 throw new Exception("Atividade disponível não encontrada");
             }
+            error_log("Atividade disponível encontrada: " . json_encode($atividadeDisponivel));
 
-            // Validar horas realizadas não excedem o máximo permitido
-            if ($dados['horas_realizadas'] > $atividadeDisponivel['carga_horaria_maxima_por_atividade']) {
-                throw new Exception("Horas realizadas excedem o máximo permitido para esta atividade");
+            // Verificar se há atividades já cadastradas para esta atividade específica
+            error_log("Verificando atividades já cadastradas para o aluno...");
+            $atividadesExistentes = AtividadeComplementarPesquisa::buscarPorAluno($dados['aluno_id']);
+            $horasJaCadastradas = 0;
+            
+            foreach ($atividadesExistentes as $atividade) {
+                if ($atividade['atividade_disponivel_id'] == $dados['atividade_disponivel_id'] && 
+                    ($atividade['status'] === 'aprovada' || $atividade['status'] === 'Aguardando avaliação')) {
+                    $horasJaCadastradas += $atividade['horas_realizadas'];
+                }
+            }
+            
+            $totalHoras = $horasJaCadastradas + $dados['horas_realizadas'];
+            
+            // Usar o campo correto baseado na estrutura retornada pelo modelo
+            $horasMaximas = $atividadeDisponivel['carga_horaria_maxima_por_atividade'] ?? $atividadeDisponivel['horas_max'] ?? 0;
+            
+            error_log("Validando horas: já cadastradas = {$horasJaCadastradas}, novas = {$dados['horas_realizadas']}, total = {$totalHoras}, máximo = {$horasMaximas}");
+            error_log("DEBUG: Estrutura da atividade disponível: " . json_encode($atividadeDisponivel));
+            
+            if ($totalHoras > $horasMaximas) {
+                error_log("ERRO: Total de horas excede o máximo permitido");
+                throw new Exception("Total de horas para esta atividade ({$totalHoras}h) excede o máximo permitido ({$horasMaximas}h). Você já possui {$horasJaCadastradas}h cadastradas.");
             }
 
             // Processar upload do arquivo se necessário
+            error_log("Verificando upload de arquivo...");
             if (isset($_FILES['declaracao']) && $_FILES['declaracao']['error'] === UPLOAD_ERR_OK) {
+                error_log("Processando upload do arquivo: " . $_FILES['declaracao']['name']);
                 $dados['declaracao_caminho'] = $this->processarUploadArquivo($_FILES['declaracao']);
+                error_log("Arquivo processado: " . $dados['declaracao_caminho']);
             } elseif (empty($dados['declaracao_caminho'])) {
+                error_log("ERRO: Declaração/Certificado não fornecido");
                 throw new Exception("Declaração/Certificado é obrigatório");
             }
 
             // Criar a atividade
+            error_log("Criando atividade no banco de dados...");
             $id = AtividadeComplementarPesquisa::create($dados);
+            error_log("Atividade criada com ID: " . $id);
 
             $this->sendJsonResponse([
                 'success' => true,
@@ -69,7 +123,14 @@ class AtividadeComplementarPesquisaController extends Controller {
             ]);
 
         } catch (Exception $e) {
-            error_log("Erro ao cadastrar atividade de pesquisa: " . $e->getMessage());
+            error_log("ERRO ao cadastrar atividade de pesquisa: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            
+            // Garantir que não há saída anterior
+            if (ob_get_level()) {
+                ob_clean();
+            }
+            
             $this->sendJsonResponse([
                 'success' => false,
                 'error' => $e->getMessage()
@@ -256,8 +317,42 @@ class AtividadeComplementarPesquisaController extends Controller {
             throw new Exception("Tipo de atividade inválido");
         }
 
-        if (empty($dados['horas_realizadas']) || !is_numeric($dados['horas_realizadas']) || $dados['horas_realizadas'] <= 0) {
-            throw new Exception("Horas realizadas deve ser um número positivo");
+        // Validar horas_realizadas ou quantidade_apresentacoes dependendo do tipo
+        if ($dados['tipo_atividade'] === 'apresentacao_evento') {
+            error_log("DEBUG: Validando quantidade_apresentacoes");
+            error_log("DEBUG: Valor recebido: " . print_r($dados['quantidade_apresentacoes'] ?? 'NÃO DEFINIDO', true));
+            error_log("DEBUG: Tipo do valor: " . gettype($dados['quantidade_apresentacoes'] ?? null));
+            
+            if (!isset($dados['quantidade_apresentacoes'])) {
+                throw new Exception("Campo quantidade_apresentacoes não foi enviado");
+            }
+            
+            $quantidade = trim($dados['quantidade_apresentacoes']);
+            error_log("DEBUG: Valor após trim: '$quantidade'");
+            
+            if ($quantidade === '' || $quantidade === null) {
+                throw new Exception("Quantidade de apresentações não pode estar vazia");
+            }
+            
+            if (!is_numeric($quantidade) || $quantidade <= 0) {
+                throw new Exception("Quantidade de apresentações deve ser um número positivo. Valor recebido: '$quantidade'");
+            }
+            
+            $dados['quantidade_apresentacoes'] = (int)$quantidade;
+            
+            if ($dados['quantidade_apresentacoes'] > 10) {
+                throw new Exception("Quantidade de apresentações não pode exceder 10");
+            }
+            // Para apresentação de eventos, usar as horas já calculadas pelo frontend
+            // O frontend já faz o cálculo correto baseado no currículo (BCC17: 10h, BCC23: 5h por apresentação)
+            // e limita ao máximo permitido pela atividade
+            if (empty($dados['horas_realizadas']) || !is_numeric($dados['horas_realizadas']) || $dados['horas_realizadas'] <= 0) {
+                throw new Exception("Horas realizadas deve ser um número positivo");
+            }
+        } else {
+            if (empty($dados['horas_realizadas']) || !is_numeric($dados['horas_realizadas']) || $dados['horas_realizadas'] <= 0) {
+                throw new Exception("Horas realizadas deve ser um número positivo");
+            }
         }
 
         // Validar local_instituicao apenas para tipos que requerem

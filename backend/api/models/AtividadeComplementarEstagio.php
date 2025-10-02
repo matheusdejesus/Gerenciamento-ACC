@@ -14,7 +14,7 @@ class AtividadeComplementarEstagio {
     public static function create($dados) {
         try {
             // Validar dados obrigatórios
-            $camposObrigatorios = ['aluno_id', 'atividade_disponivel_id', 'empresa', 'area', 'data_inicio', 'data_fim', 'horas', 'declaracao_caminho'];
+            $camposObrigatorios = ['aluno_id', 'categoria_id', 'empresa', 'area', 'data_inicio', 'data_fim', 'horas', 'declaracao_caminho'];
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
                     throw new Exception("Campo obrigatório não informado: $campo");
@@ -26,8 +26,8 @@ class AtividadeComplementarEstagio {
             $db->begin_transaction();
 
             $sql = "INSERT INTO atividadecomplementarestagio 
-                    (aluno_id, atividade_disponivel_id, empresa, area, data_inicio, data_fim, horas, declaracao_caminho, status, data_submissao) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Aguardando avaliação', NOW())";
+                    (aluno_id, atividade_disponivel_id, categoria_id, empresa, area, data_inicio, data_fim, horas, declaracao_caminho, status, data_submissao) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Aguardando avaliação', NOW())";
 
             $stmt = $db->prepare($sql);
             if (!$stmt) {
@@ -36,7 +36,8 @@ class AtividadeComplementarEstagio {
             
             // Preparar variáveis para bind_param (não pode passar expressões por referência)
             $aluno_id = $dados['aluno_id'];
-            $atividade_disponivel_id = $dados['atividade_disponivel_id'];
+            $atividade_disponivel_id = $dados['atividade_disponivel_id'] ?? null;
+            $categoria_id = $dados['categoria_id'];
             $empresa = $dados['empresa'];
             $area = $dados['area'];
             $data_inicio = $dados['data_inicio'];
@@ -45,9 +46,10 @@ class AtividadeComplementarEstagio {
             $declaracao_caminho = $dados['declaracao_caminho'];
 
             $stmt->bind_param(
-                "iissssss",
+                "iiissssss",
                 $aluno_id,
                 $atividade_disponivel_id,
+                $categoria_id,
                 $empresa,
                 $area,
                 $data_inicio,

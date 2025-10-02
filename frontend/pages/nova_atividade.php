@@ -199,8 +199,13 @@
                     </div>
                 `;
             } else {
-                // Interface normal para alunos de 2023 em diante - FILTRAR "Ação Social"
-                const categoriasFiltradas = todasCategorias.filter(categoria => categoria.nome !== 'Ação Social');
+                // Interface normal para alunos de 2023 em diante - FILTRAR categorias sociais
+                const categoriasFiltradas = todasCategorias.filter(categoria => {
+                    const nome = categoria.nome.toLowerCase();
+                    return !(nome.includes('ação social') || 
+                            nome.includes('social e comunitária') || 
+                            nome.includes('atividades sociais'));
+                });
                 
                 container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     ${categoriasFiltradas.map(categoria => {

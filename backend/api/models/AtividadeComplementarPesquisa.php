@@ -13,28 +13,58 @@ class AtividadeComplementarPesquisa {
      */
     public static function create($dados) {
         try {
+            error_log("=== INÍCIO CREATE ATIVIDADE PESQUISA ===");
+            error_log("Dados recebidos no model: " . json_encode($dados));
+            
             // Validar dados obrigatórios
             $camposObrigatorios = ['aluno_id', 'atividade_disponivel_id', 'tipo_atividade', 'horas_realizadas', 'declaracao_caminho'];
             
             foreach ($camposObrigatorios as $campo) {
                 if (empty($dados[$campo])) {
+                    error_log("ERRO: Campo obrigatório vazio: " . $campo);
                     throw new Exception("Campo obrigatório não informado: $campo");
                 }
             }
+            error_log("Validação de campos obrigatórios concluída");
 
             $db = Database::getInstance()->getConnection();
+            if (!$db) {
+                error_log("ERRO: Falha ao obter conexão com banco de dados");
+                throw new Exception("Erro de conexão com banco de dados");
+            }
+            error_log("Conexão com banco de dados obtida");
             
-            // Campos base
-            $campos = "aluno_id, atividade_disponivel_id, tipo_atividade, horas_realizadas, declaracao_caminho";
-            $placeholders = "?, ?, ?, ?, ?";
-            $tipos = "iisis";
+            // Buscar matrícula do aluno para determinar categoria correta
+            $sqlMatricula = "SELECT matricula FROM Aluno WHERE usuario_id = ?";
+            $stmtMatricula = $db->prepare($sqlMatricula);
+            $stmtMatricula->bind_param("i", $dados['aluno_id']);
+            $stmtMatricula->execute();
+            $resultMatricula = $stmtMatricula->get_result();
+            $matricula = '';
+            if ($row = $resultMatricula->fetch_assoc()) {
+                $matricula = $row['matricula'];
+            }
+            error_log("Matrícula do aluno: " . $matricula);
+            
+            // Determinar categoria_id baseado no currículo (sempre categoria 2 = Pesquisa)
+            $categoria_id = 2; // Pesquisa é sempre categoria 2 em ambas as tabelas
+            error_log("Categoria determinada: " . $categoria_id);
+            
+            // Campos base incluindo categoria_id
+            $campos = "aluno_id, atividade_disponivel_id, categoria_id, tipo_atividade, horas_realizadas, declaracao_caminho";
+            $placeholders = "?, ?, ?, ?, ?, ?";
+            $tipos = "iiiiss";
             $valores = [
                 $dados['aluno_id'],
                 $dados['atividade_disponivel_id'],
+                $categoria_id,
                 $dados['tipo_atividade'],
                 $dados['horas_realizadas'],
                 $dados['declaracao_caminho']
             ];
+            
+            error_log("Campos base preparados: " . $campos);
+            error_log("Valores base: " . json_encode($valores));
 
             // Adicionar local_instituicao se fornecido e não vazio
             if (!empty($dados['local_instituicao']) && trim($dados['local_instituicao']) !== '') {
@@ -42,6 +72,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['local_instituicao'];
+                error_log("Adicionado local_instituicao: " . $dados['local_instituicao']);
             }
 
             // Campos opcionais específicos por tipo de atividade
@@ -50,6 +81,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['tema'];
+                error_log("Adicionado tema: " . $dados['tema']);
             }
 
             if (!empty($dados['quantidade_apresentacoes'])) {
@@ -57,6 +89,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "i";
                 $valores[] = $dados['quantidade_apresentacoes'];
+                error_log("Adicionado quantidade_apresentacoes: " . $dados['quantidade_apresentacoes']);
             }
 
             if (!empty($dados['nome_evento'])) {
@@ -64,6 +97,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['nome_evento'];
+                error_log("Adicionado nome_evento: " . $dados['nome_evento']);
             }
 
             if (!empty($dados['nome_projeto'])) {
@@ -71,6 +105,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['nome_projeto'];
+                error_log("Adicionado nome_projeto: " . $dados['nome_projeto']);
             }
 
             if (!empty($dados['data_inicio'])) {
@@ -78,6 +113,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['data_inicio'];
+                error_log("Adicionado data_inicio: " . $dados['data_inicio']);
             }
 
             if (!empty($dados['data_fim'])) {
@@ -85,6 +121,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['data_fim'];
+                error_log("Adicionado data_fim: " . $dados['data_fim']);
             }
 
             if (!empty($dados['nome_artigo'])) {
@@ -92,6 +129,7 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "s";
                 $valores[] = $dados['nome_artigo'];
+                error_log("Adicionado nome_artigo: " . $dados['nome_artigo']);
             }
 
             if (!empty($dados['quantidade_publicacoes'])) {
@@ -99,25 +137,36 @@ class AtividadeComplementarPesquisa {
                 $placeholders .= ", ?";
                 $tipos .= "i";
                 $valores[] = $dados['quantidade_publicacoes'];
+                error_log("Adicionado quantidade_publicacoes: " . $dados['quantidade_publicacoes']);
             }
 
             $sql = "INSERT INTO atividadecomplementarpesquisa ($campos) VALUES ($placeholders)";
             
+            error_log("SQL preparado: " . $sql);
+            error_log("Tipos de parâmetros: " . $tipos);
+            error_log("Valores finais: " . json_encode($valores));
+            
             $stmt = $db->prepare($sql);
             if (!$stmt) {
+                error_log("ERRO ao preparar consulta: " . $db->error);
                 throw new Exception("Erro ao preparar consulta: " . $db->error);
             }
 
             $stmt->bind_param($tipos, ...$valores);
             
             if (!$stmt->execute()) {
+                error_log("ERRO ao executar consulta: " . $stmt->error);
                 throw new Exception("Erro ao executar consulta: " . $stmt->error);
             }
 
-            return $db->insert_id;
+            $id = $db->insert_id;
+            error_log("Atividade criada com sucesso. ID: " . $id);
+            
+            return $id;
 
         } catch (Exception $e) {
-            error_log("Erro ao criar atividade de pesquisa: " . $e->getMessage());
+            error_log("ERRO no model create: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             throw $e;
         }
     }

@@ -359,7 +359,16 @@ class AtividadesDisponiveisController {
                 return;
             }
 
-            $atividades = AtividadesDisponiveis::buscarPorCategoriaId($categoria_id);
+            // Validar autenticação JWT para obter a matrícula do usuário
+            $usuario = \backend\api\middleware\AuthMiddleware::validateToken();
+            $matricula = null;
+            
+            // Se for aluno, usar sua matrícula para filtrar
+            if ($usuario && $usuario['tipo'] === 'aluno') {
+                $matricula = $usuario['matricula'] ?? null;
+            }
+
+            $atividades = AtividadesDisponiveis::buscarPorCategoriaId($categoria_id, $matricula);
             
             $this->sendJsonResponse([
                 'success' => true,

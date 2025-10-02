@@ -273,9 +273,10 @@ INSERT INTO atividadesdisponiveisbcc23 (titulo, categoria_id, carga_horaria_maxi
 ('Curso de extensão em áreas afins', 3, 10, 'No máximo 10h por certificado'),
 ('Curso de extensão na área específica', 3, 20, 'No máximo 20h por certificado'),
 ('Curso de língua estrangeira', 3, 25, 'Limitada a uma validação por idioma'),
-('Participação em eventos acadêmicos diversos', 3, 40, 'Carga horária conforme evento'),
+('Participação em seminários, simpósios, convenções, conferências, palestras, congressos, jornadas, fóruns, debates, visitas técnicas, viagens de estudos, workshops, programas de treinamento e eventos promovidos pela UFOPA e/ou outras IES', 3, 40, 'Carga horária conforme evento'),
 ('Missões nacionais e internacionais', 3, 15, ''),
 ('Eventos de educação ambiental e diversidade cultural', 3, 40, 'Carga horária conforme evento'),
+('Membro efetivo e/ou assistente em eventos de extensão e profissionais.', 3, 40, 'Carga horária conforme o evento'),
 ('PET – Programa de Educação Tutorial', 3, 40, ''),
 ('Estágio curricular não obrigatório', 4, 90, '');
 
@@ -290,7 +291,7 @@ INSERT INTO atividadesdisponiveisbcc17 (titulo, categoria_id, carga_horaria_maxi
 ('Curso de extensão em áreas afins', 3, 20, 'No máximo 20h por certificado'),
 ('Curso de extensão na área específica', 3, 40, 'No máximo 40h por certificado'),
 ('Curso de língua estrangeira', 3, 50, 'Limitada a uma validação por idioma'),
-('Participação em eventos acadêmicos diversos', 3, 80, 'Carga horária conforme evento'),
+('Seminários, simpósios, convenções, conferências, palestras, congressos, jornadas, fóruns, debates, visitas técnicas, viagens de estudos, workshops, programas de treinamento e eventos promovidos pela UFOPA e/ou outras IES', 3, 80, 'Carga horária conforme evento'),
 ('Missões nacionais e internacionais', 3, 30, ''),
 ('Estágio curricular não obrigatório', 4, 100, ''),
 ('Ação social e comunitária', 5, 30, 'Participação em ações comunitárias/sociais');
