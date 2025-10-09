@@ -178,7 +178,7 @@ class AtividadesDisponiveis {
         try {
             $db = \backend\api\config\Database::getInstance()->getConnection();
             
-            // Se matrícula foi fornecida, usar tabela específica
+            // CORREÇÃO CRÍTICA: Se matrícula foi fornecida, usar APENAS a tabela específica
             if ($matricula) {
                 $tabelas = self::determinarTabelasPorMatricula($matricula);
                 
@@ -194,12 +194,11 @@ class AtividadesDisponiveis {
                 $result = $stmt->get_result();
                 $atividade = $result->fetch_assoc();
                 
-                if ($atividade) {
-                    return $atividade;
-                }
+                // IMPORTANTE: Retornar resultado (mesmo que null) sem fallback quando matrícula é fornecida
+                return $atividade;
             }
             
-            // Fallback: tentar nas tabelas na ordem de prioridade
+            // Fallback APENAS quando matrícula NÃO é fornecida
             // Primeiro tentar a tabela atividadesdisponiveisbcc23 com categoriaatividadebcc23
             $sql = "SELECT ad.*, ca.descricao as categoria_nome 
                     FROM atividadesdisponiveisbcc23 ad

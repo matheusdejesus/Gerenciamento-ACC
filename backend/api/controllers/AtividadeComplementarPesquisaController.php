@@ -6,15 +6,74 @@ require_once __DIR__ . '/../models/AtividadeComplementarPesquisa.php';
 require_once __DIR__ . '/../models/AtividadesDisponiveis.php';
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../services/HorasLimiteService.php';
 
 use backend\api\config\Database;
 use backend\api\models\AtividadeComplementarPesquisa;
 use backend\api\models\AtividadesDisponiveis;
 use backend\api\controllers\Controller;
 use backend\api\middleware\AuthMiddleware;
+use backend\api\services\HorasLimiteService;
 use Exception;
 
 class AtividadeComplementarPesquisaController extends Controller {
+
+    /**
+     * Cadastrar nova atividade de pesquisa com JWT
+     */
+    public function cadastrarComJWT($aluno_id, $dados) {
+        try {
+            // VALIDAÇÃO CRÍTICA: Verificar se o aluno já atingiu o limite total de 240h
+            $totalHorasAtual = HorasLimiteService::calcularTotalHorasAluno($aluno_id);
+            if ($totalHorasAtual >= 240) {
+                throw new Exception("🚫 Limite total de 240 horas já foi atingido. Não é possível cadastrar novas atividades em nenhuma categoria.");
+            }
+
+            // Adicionar o ID do aluno aos dados
+            $dados['aluno_id'] = $aluno_id;
+            
+            // Validar dados obrigatórios
+            $this->validarDadosCadastro($dados);
+            
+            // VALIDAÇÃO CRÍTICA: Verificar limite da categoria Pesquisa (80h)
+            $horasAtualPesquisa = HorasLimiteService::calcularHorasCategoria($aluno_id, 'pesquisa');
+            $limitePesquisa = HorasLimiteService::getLimiteCategoria('pesquisa');
+            $horasSolicitadas = (int)$dados['horas_realizadas'];
+            
+            // Verificar se já atingiu o limite da categoria
+            if ($horasAtualPesquisa >= $limitePesquisa) {
+                throw new Exception("🚫 Limite máximo de {$limitePesquisa} horas para atividades de Pesquisa já foi atingido. Você já possui {$horasAtualPesquisa}h cadastradas nesta categoria.");
+            }
+            
+            // Verificar se a nova atividade excederia o limite da categoria
+            $totalComNovaAtividade = $horasAtualPesquisa + $horasSolicitadas;
+            if ($totalComNovaAtividade > $limitePesquisa) {
+                $horasRestantes = $limitePesquisa - $horasAtualPesquisa;
+                throw new Exception("⚠️ Limite da categoria Pesquisa seria excedido. Você possui {$horasAtualPesquisa}h cadastradas e pode adicionar no máximo {$horasRestantes}h adicionais nesta categoria. Reduza as horas desta atividade para prosseguir.");
+            }
+
+            // NOVA FUNCIONALIDADE: Validar limite de 80h para alunos 2017-2022
+            $this->validarLimite80hExtracurriculares($aluno_id, (int)$dados['horas_realizadas']);
+
+            // Processar upload se houver arquivo
+            if (isset($_FILES['declaracao']) && $_FILES['declaracao']['error'] === UPLOAD_ERR_OK) {
+                $dados['declaracao_caminho'] = $this->processarUploadArquivo($_FILES['declaracao']);
+            }
+
+            // Criar atividade
+            $atividade_id = AtividadeComplementarPesquisa::create($dados);
+
+            if (!$atividade_id) {
+                throw new Exception("Falha ao criar atividade de pesquisa");
+            }
+
+            return $atividade_id;
+            
+        } catch (Exception $e) {
+            error_log("Erro em AtividadeComplementarPesquisaController::cadastrarComJWT: " . $e->getMessage());
+            throw $e;
+        }
+    }
 
     /**
      * Cadastrar nova atividade de pesquisa
@@ -47,10 +106,36 @@ class AtividadeComplementarPesquisaController extends Controller {
             
             error_log("Dados após adicionar aluno_id: " . json_encode($dados));
 
+            // VALIDAÇÃO CRÍTICA: Verificar se o aluno já atingiu o limite total de 240h
+            $totalHorasAtual = HorasLimiteService::calcularTotalHorasAluno($usuario['id']);
+            if ($totalHorasAtual >= 240) {
+                throw new Exception("🚫 Limite total de 240 horas já foi atingido. Não é possível cadastrar novas atividades em nenhuma categoria.");
+            }
+
             // Validar dados obrigatórios
             error_log("Iniciando validação dos dados...");
             $this->validarDadosCadastro($dados);
             error_log("Validação concluída com sucesso");
+            
+            // VALIDAÇÃO CRÍTICA: Verificar limite da categoria Pesquisa (80h)
+            $horasAtualPesquisa = HorasLimiteService::calcularHorasCategoria($usuario['id'], 'pesquisa');
+            $limitePesquisa = HorasLimiteService::getLimiteCategoria('pesquisa');
+            $horasSolicitadas = (int)$dados['horas_realizadas'];
+            
+            // Verificar se já atingiu o limite da categoria
+            if ($horasAtualPesquisa >= $limitePesquisa) {
+                throw new Exception("🚫 Limite máximo de {$limitePesquisa} horas para atividades de Pesquisa já foi atingido. Você já possui {$horasAtualPesquisa}h cadastradas nesta categoria.");
+            }
+            
+            // Verificar se a nova atividade excederia o limite da categoria
+            $totalComNovaAtividade = $horasAtualPesquisa + $horasSolicitadas;
+            if ($totalComNovaAtividade > $limitePesquisa) {
+                $horasRestantes = $limitePesquisa - $horasAtualPesquisa;
+                throw new Exception("⚠️ Limite da categoria Pesquisa seria excedido. Você possui {$horasAtualPesquisa}h cadastradas e pode adicionar no máximo {$horasRestantes}h adicionais nesta categoria. Reduza as horas desta atividade para prosseguir.");
+            }
+
+            // NOVA FUNCIONALIDADE: Validar limite de 80h para alunos 2017-2022
+            $this->validarLimite80hExtracurriculares($usuario['id'], (int)$dados['horas_realizadas']);
 
             // Buscar matrícula do aluno para usar na busca da atividade
             $matricula = null;
@@ -87,17 +172,56 @@ class AtividadeComplementarPesquisaController extends Controller {
                 }
             }
             
-            $totalHoras = $horasJaCadastradas + $dados['horas_realizadas'];
-            
             // Usar o campo correto baseado na estrutura retornada pelo modelo
             $horasMaximas = $atividadeDisponivel['carga_horaria_maxima_por_atividade'] ?? $atividadeDisponivel['horas_max'] ?? 0;
             
-            error_log("Validando horas: já cadastradas = {$horasJaCadastradas}, novas = {$dados['horas_realizadas']}, total = {$totalHoras}, máximo = {$horasMaximas}");
+            error_log("Validando horas: já cadastradas = {$horasJaCadastradas}, novas = {$dados['horas_realizadas']}, máximo = {$horasMaximas}");
             error_log("DEBUG: Estrutura da atividade disponível: " . json_encode($atividadeDisponivel));
             
-            if ($totalHoras > $horasMaximas) {
-                error_log("ERRO: Total de horas excede o máximo permitido");
-                throw new Exception("Total de horas para esta atividade ({$totalHoras}h) excede o máximo permitido ({$horasMaximas}h). Você já possui {$horasJaCadastradas}h cadastradas.");
+            // Verificar se é uma atividade de "Apresentação em eventos científicos"
+            $nomeAtividade = $atividadeDisponivel['nome'] ?? '';
+            $isApresentacaoEvento = strpos($nomeAtividade, 'Apresentação em eventos científicos') !== false;
+            
+            error_log("DEBUG: Nome da atividade: '{$nomeAtividade}', É apresentação em evento: " . ($isApresentacaoEvento ? 'SIM' : 'NÃO'));
+            error_log("DEBUG: Horas recebidas do frontend: {$dados['horas_realizadas']}");
+            error_log("DEBUG: Matrícula do aluno: {$matricula}");
+            
+            if ($isApresentacaoEvento) {
+                // Para apresentações em eventos científicos, verificar o ano da matrícula para definir o limite
+                $anoMatricula = (int) substr($matricula, 0, 4);
+                $limiteHoras = ($anoMatricula >= 2023) ? 9 : 20;
+                
+                error_log("Apresentação em eventos científicos detectada. Ano matrícula: {$anoMatricula}, Limite aplicado: {$limiteHoras}h");
+                error_log("Horas já cadastradas: {$horasJaCadastradas}, Horas novas: {$dados['horas_realizadas']}");
+                
+                if ($horasJaCadastradas >= $limiteHoras) {
+                    // Se já atingiu o limite máximo, mostrar mensagem baseada no ano da matrícula
+                    error_log("Limite de {$limiteHoras}h já atingido. Bloqueando cadastro.");
+                    $mensagem = ($anoMatricula >= 2023) ? "Você já possui 9h cadastradas." : "Você já possui 20h cadastradas.";
+                    throw new Exception($mensagem);
+                }
+                
+                // Se as novas horas excedem o limite, ajustar para o máximo permitido
+                if ($horasJaCadastradas + $dados['horas_realizadas'] > $limiteHoras) {
+                    $horasRestantes = $limiteHoras - $horasJaCadastradas;
+                    $horasOriginais = $dados['horas_realizadas'];
+                    $dados['horas_realizadas'] = $horasRestantes;
+                    error_log("Ajustando horas de {$horasOriginais} para {$horasRestantes} (limite restante para matrícula {$anoMatricula}).");
+                }
+                
+                $totalHoras = $horasJaCadastradas + $dados['horas_realizadas'];
+                error_log("Apresentação em eventos científicos: total final = {$totalHoras}h, limite = {$limiteHoras}h");
+                error_log("Validação especial concluída para apresentação em eventos científicos");
+                
+            } else {
+                // Para outras atividades, manter a validação original
+                $totalHoras = $horasJaCadastradas + $dados['horas_realizadas'];
+                
+                error_log("DEBUG: Validação geral - Total: {$totalHoras}h, Máximo: {$horasMaximas}h");
+                
+                if ($totalHoras > $horasMaximas) {
+                    throw new Exception("Você já possui {$horasJaCadastradas}h cadastradas.");
+                }
             }
 
             // Processar upload do arquivo se necessário
@@ -125,15 +249,29 @@ class AtividadeComplementarPesquisaController extends Controller {
         } catch (Exception $e) {
             error_log("ERRO ao cadastrar atividade de pesquisa: " . $e->getMessage());
             error_log("Stack trace: " . $e->getTraceAsString());
+            error_log("Dados que causaram o erro: " . json_encode($dados ?? []));
+            error_log("POST data: " . json_encode($_POST));
+            error_log("FILES data: " . json_encode($_FILES));
             
             // Garantir que não há saída anterior
             if (ob_get_level()) {
                 ob_clean();
             }
             
+            // Verificar se a mensagem de erro está vazia ou é muito genérica
+            $errorMessage = $e->getMessage();
+            if (empty($errorMessage) || $errorMessage === 'Exception') {
+                $errorMessage = 'Erro interno do servidor. Verifique os logs para mais detalhes.';
+            }
+            
             $this->sendJsonResponse([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $errorMessage,
+                'debug_info' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'code' => $e->getCode()
+                ]
             ], 400);
         }
     }
@@ -430,5 +568,98 @@ class AtividadeComplementarPesquisaController extends Controller {
         }
 
         return 'uploads/atividades_pesquisa/' . $nomeArquivo;
+    }
+    
+    /**
+     * NOVA FUNCIONALIDADE: Validar limite de 80h para alunos 2017-2022
+     */
+    private function validarLimite80hExtracurriculares($aluno_id, $horas_solicitadas) {
+        try {
+            // Buscar matrícula do aluno
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+            $stmt->bind_param("i", $aluno_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $aluno_data = $result->fetch_assoc();
+            
+            if (!$aluno_data) {
+                throw new Exception("Dados do aluno não encontrados");
+            }
+            
+            $matricula = $aluno_data['matricula'];
+            $anoMatricula = (int) substr($matricula, 0, 4);
+            
+            // Verificar se é aluno elegível para limite de 80h (matrículas 2017-2022)
+            if ($anoMatricula >= 2017 && $anoMatricula <= 2022) {
+                error_log("DEBUG LIMITE 80H PESQUISA - Aluno elegível detectado. Matrícula: {$matricula}, Ano: {$anoMatricula}");
+                
+                // Calcular total de horas já utilizadas em TODAS as atividades extracurriculares
+                $horasAcumuladasTotal = $this->calcularHorasExtracurricularesTotais($aluno_id);
+                error_log("DEBUG LIMITE 80H PESQUISA - Horas acumuladas atuais: {$horasAcumuladasTotal}h");
+                
+                // Verificar se já atingiu o limite de 80h
+                if ($horasAcumuladasTotal >= 80) {
+                    throw new Exception("🚫 Limite máximo de 80 horas atingido para atividades extracurriculares. Você já possui {$horasAcumuladasTotal}h cadastradas. Não é possível cadastrar novas atividades.");
+                }
+                
+                // Verificar se a nova atividade excederia o limite de 80h
+                $totalComNovaAtividade = $horasAcumuladasTotal + $horas_solicitadas;
+                if ($totalComNovaAtividade > 80) {
+                    $horasRestantes = 80 - $horasAcumuladasTotal;
+                    throw new Exception("⚠️ Limite de 80 horas seria excedido. Você possui {$horasAcumuladasTotal}h cadastradas e pode adicionar no máximo {$horasRestantes}h adicionais. Reduza as horas desta atividade para prosseguir.");
+                }
+                
+                error_log("DEBUG LIMITE 80H PESQUISA - Validação aprovada. Total após cadastro: {$totalComNovaAtividade}h de 80h");
+            }
+            
+        } catch (Exception $e) {
+            error_log("Erro na validação de limite 80h: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * NOVA FUNCIONALIDADE: Calcular total de horas extracurriculares para limite de 80h
+     */
+    private function calcularHorasExtracurricularesTotais($aluno_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $horasTotal = 0;
+            
+            // Definir todas as tabelas de atividades extracurriculares e seus campos de horas
+            $tabelas = [
+                'atividadecomplementaracc' => 'horas_realizadas',
+                'AtividadeComplementarEnsino' => 'carga_horaria', 
+                'atividadecomplementarestagio' => 'horas',
+                'atividadecomplementarpesquisa' => 'horas_realizadas',
+                'AtividadeSocialComunitaria' => 'horas_realizadas'
+            ];
+            
+            foreach ($tabelas as $tabela => $campoHoras) {
+                $sql = "SELECT SUM({$campoHoras}) as total_horas 
+                        FROM {$tabela} 
+                        WHERE aluno_id = ? 
+                        AND status IN ('Aguardando avaliação', 'aprovado', 'aprovada')";
+                        
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $aluno_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $row = $result->fetch_assoc();
+                
+                $horasTabela = $row && $row['total_horas'] ? (int) $row['total_horas'] : 0;
+                error_log("DEBUG CALC 80H PESQUISA - Tabela {$tabela}: {$horasTabela}h");
+                
+                $horasTotal += $horasTabela;
+            }
+            
+            error_log("DEBUG CALC 80H PESQUISA - Total calculado para aluno {$aluno_id}: {$horasTotal}h");
+            return $horasTotal;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao calcular horas extracurriculares totais: " . $e->getMessage());
+            return 0;
+        }
     }
 }

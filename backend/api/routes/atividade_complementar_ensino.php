@@ -28,8 +28,14 @@ try {
     $uri = strtok($uri, '?');
     
     // Extrair o path após /backend/api/routes/atividade_complementar_ensino.php
-    $basePath = '/Gerenciamento-ACC/backend/api/routes/atividade_complementar_ensino.php';
+    $basePath = '/backend/api/routes/atividade_complementar_ensino.php';
     $path = str_replace($basePath, '', $uri);
+    
+    // Fallback para desenvolvimento local
+    if ($path === $uri) {
+        $basePath = '/Gerenciamento-ACC/backend/api/routes/atividade_complementar_ensino.php';
+        $path = str_replace($basePath, '', $uri);
+    }
     
     // Se não há path adicional, usar a raiz
     if (empty($path) || $path === '/') {

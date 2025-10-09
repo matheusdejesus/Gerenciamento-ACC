@@ -273,7 +273,7 @@ try {
         try {
             // Cadastrar atividade
             error_log("[DEBUG] Chamando controller->cadastrarComJWT...");
-            $atividadeId = $controller->cadastrarComJWT($dados);
+            $atividadeId = $controller->cadastrarComJWT($usuario['id'], $dados);
             error_log("[DEBUG] Atividade cadastrada com ID: " . $atividadeId);
             
             error_log("[DEBUG] Enviando resposta de sucesso...");

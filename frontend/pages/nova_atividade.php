@@ -11,6 +11,12 @@
             background-color: #0D1117;
         }
     </style>
+    <script>
+        console.log('🔥 HEAD SCRIPT - Página carregando...');
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('🔥 DOM LOADED - Página pronta!');
+        });
+    </script>
 </head>
 <body class="bg-pattern font-montserrat min-h-screen flex flex-col">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
@@ -94,6 +100,9 @@
     
     <script src="auth.js"></script>
     <script>
+        // Forçar logs no console
+        console.log('🎯 Script carregado - nova_atividade.php');
+        
         // Verificar autenticação JWT
         function verificarAutenticacao() {
             if (!AuthClient.isLoggedIn()) {
@@ -125,19 +134,28 @@
         }
 
         async function carregarCategorias() {
+            console.log('🔄 Iniciando carregamento de categorias...');
             try {
-                const response = await AuthClient.fetch('../../backend/api/routes/listar_categorias.php', {
+                console.log('📡 Fazendo requisição para listar_categorias.php');
+                const response = await AuthClient.fetch('/api/routes/listar_categorias.php', {
                     method: 'POST'
                 });
+                console.log('📥 Resposta recebida:', response.status, response.statusText);
+                
                 const data = await response.json();
+                console.log('📊 Dados da resposta:', data);
+                
                 if (data.success) {
                     todasCategorias = data.data || [];
+                    console.log('✅ Categorias carregadas:', todasCategorias);
                     renderizarCategorias();
                     document.getElementById('alertaCategorias').classList.add('hidden');
                 } else {
+                    console.error('❌ Erro na resposta da API:', data);
                     document.getElementById('alertaCategorias').classList.remove('hidden');
                 }
             } catch (e) {
+                console.error('💥 Erro ao carregar categorias:', e);
                 document.getElementById('alertaCategorias').classList.remove('hidden');
             }
         }
@@ -253,7 +271,9 @@
         }
 
         // Inicializar verificação e carregar categorias
+        console.log('🚀 Iniciando página nova_atividade.php');
         verificarAlunoAntigo();
+        console.log('🔍 Chamando carregarCategorias()...');
         carregarCategorias();
     </script>
 </body>

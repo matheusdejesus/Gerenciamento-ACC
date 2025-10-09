@@ -235,6 +235,24 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                    placeholder="Ex: 10" min="1" max="" required>
                             <p class="text-xs text-gray-500 mt-1">Máximo: <span id="maxHoras">--</span> horas</p>
+                            
+                            <!-- Contador de horas para Curso de extensão em áreas afins -->
+                            <div id="contadorHorasCursoExtensao" class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                                <div class="text-sm text-blue-800">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-medium">Horas já cadastradas:</span>
+                                        <span id="horasJaCadastradas" class="font-semibold">0h</span>
+                                    </div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-medium">Horas disponíveis:</span>
+                                        <span id="horasDisponiveis" class="font-semibold text-green-600">0h</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-medium">Limite máximo:</span>
+                                        <span id="limiteMaximo" class="font-semibold">0h</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Data de Início -->
@@ -710,8 +728,22 @@
             // Configurar limite máximo de horas
             const inputHoras = document.getElementById('horasRealizadas');
             const spanMaxHoras = document.getElementById('maxHoras');
-            inputHoras.max = atividadeSelecionada.horas_max;
-            spanMaxHoras.textContent = atividadeSelecionada.horas_max;
+            
+            // Verificar se é "Curso de extensão em áreas afins" para aplicar validação específica
+            const isCursoExtensaoAreasAfins = atividadeSelecionada.nome.toLowerCase().includes('curso de extensão em áreas afins');
+            
+            if (isCursoExtensaoAreasAfins) {
+                // Para "Curso de extensão em áreas afins", verificar limite baseado no ano da matrícula
+                verificarLimiteCursoExtensaoAreasAfins(atividadeSelecionada, inputHoras, spanMaxHoras);
+            } else {
+                // Para outras atividades, usar o limite padrão
+                inputHoras.max = atividadeSelecionada.horas_max;
+                spanMaxHoras.textContent = atividadeSelecionada.horas_max;
+                
+                // Esconder contador de horas para outras atividades
+                const contadorDiv = document.getElementById('contadorHorasCursoExtensao');
+                contadorDiv.classList.add('hidden');
+            }
             
             // Detectar atividades específicas
             const isPET = atividadeSelecionada.nome.toLowerCase().includes('pet – programa de educação tutorial');
@@ -1038,6 +1070,166 @@
                 console.error('Erro ao atualizar Minhas Atividades:', error);
             }
         }
+
+        // Função para verificar limite específico para "Curso de extensão em áreas afins"
+        async function verificarLimiteCursoExtensaoAreasAfins(atividade, inputHoras, spanMaxHoras) {
+            try {
+                console.log('🔍 Verificando limite para Curso de extensão em áreas afins');
+                
+                // Buscar dados do usuário para determinar o limite baseado no ano da matrícula
+                const user = AuthClient.getUser();
+                if (!user || !user.matricula) {
+                    console.error('Dados do usuário não encontrados');
+                    // Usar limite padrão se não conseguir determinar
+                    inputHoras.max = atividade.horas_max;
+                    spanMaxHoras.textContent = atividade.horas_max;
+                    return;
+                }
+                
+                const matricula = user.matricula;
+                const anoMatricula = parseInt(matricula.substring(0, 4));
+                
+                // Definir limite baseado no ano da matrícula
+                const limiteHoras = (anoMatricula >= 2023) ? 10 : 20;
+                
+                console.log(`📅 Matrícula: ${matricula}, Ano: ${anoMatricula}, Limite: ${limiteHoras}h`);
+                
+                // Buscar horas já cadastradas desta atividade específica
+                const response = await AuthClient.request('../../backend/api/routes/verificar_horas_curso_extensao.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        atividade_disponivel_id: atividade.id
+                    })
+                });
+                
+                let horasJaCadastradas = 0;
+                if (response.success && response.data) {
+                    horasJaCadastradas = response.data.horas_ja_cadastradas || 0;
+                }
+                
+                console.log(`⏰ Horas já cadastradas: ${horasJaCadastradas}h de ${limiteHoras}h`);
+                
+                // Calcular horas restantes
+                const horasRestantes = Math.max(0, limiteHoras - horasJaCadastradas);
+                
+                // Atualizar interface
+                inputHoras.max = horasRestantes;
+                spanMaxHoras.textContent = horasRestantes;
+                
+                // Mostrar contador de horas para Curso de extensão em áreas afins
+                const contadorDiv = document.getElementById('contadorHorasCursoExtensao');
+                contadorDiv.classList.remove('hidden');
+                
+                // Atualizar valores do contador
+                document.getElementById('horasJaCadastradas').textContent = `${horasJaCadastradas}h`;
+                document.getElementById('horasDisponiveis').textContent = `${horasRestantes}h`;
+                document.getElementById('limiteMaximo').textContent = `${limiteHoras}h`;
+                
+                // Atualizar cor das horas disponíveis
+                const horasDisponiveisSpan = document.getElementById('horasDisponiveis');
+                horasDisponiveisSpan.className = horasRestantes > 0 ? 'font-semibold text-green-600' : 'font-semibold text-red-600';
+                
+                // Atualizar informações da atividade selecionada
+                const infoDiv = document.getElementById('infoAtividadeSelecionada');
+                infoDiv.innerHTML = `
+                    <div class="space-y-1">
+                        <p><strong>Nome:</strong> ${atividade.nome}</p>
+                        <p><strong>Categoria:</strong> ${atividade.categoria}</p>
+                        <p><strong>Tipo:</strong> ${atividade.tipo}</p>
+                        <p><strong>Limite Total:</strong> ${limiteHoras}h</p>
+                        <p><strong>Horas Já Cadastradas:</strong> ${horasJaCadastradas}h</p>
+                        <p><strong>Horas Disponíveis:</strong> <span class="font-semibold ${horasRestantes > 0 ? 'text-green-600' : 'text-red-600'}">${horasRestantes}h</span></p>
+                    </div>
+                `;
+                
+                // Se não há horas restantes, mostrar aviso
+                if (horasRestantes === 0) {
+                    alert(`Limite máximo de ${limiteHoras}h atingido para esta atividade. Você não pode cadastrar mais horas.`);
+                    fecharModalSelecao();
+                    return;
+                }
+                
+                // Se há poucas horas restantes, mostrar aviso
+                if (horasRestantes < limiteHoras) {
+                    const mensagem = `Atenção: Você já possui ${horasJaCadastradas}h cadastradas desta atividade. ` +
+                                   `Você pode cadastrar no máximo ${horasRestantes}h adicionais (limite total: ${limiteHoras}h).`;
+                    
+                    // Mostrar aviso visual na interface
+                    const avisoDiv = document.createElement('div');
+                    avisoDiv.className = 'mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg';
+                    avisoDiv.innerHTML = `
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">${mensagem}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Inserir aviso após as informações da atividade
+                    infoDiv.parentNode.insertBefore(avisoDiv, infoDiv.nextSibling);
+                }
+                
+            } catch (error) {
+                console.error('Erro ao verificar limite:', error);
+                // Em caso de erro, usar limite padrão
+                inputHoras.max = atividade.horas_max;
+                spanMaxHoras.textContent = atividade.horas_max;
+            }
+        }
+
+        // Adicionar validação em tempo real no campo de horas
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputHoras = document.getElementById('horasRealizadas');
+            
+            inputHoras.addEventListener('input', function() {
+                // Verificar se é "Curso de extensão em áreas afins"
+                if (atividadeSelecionada && atividadeSelecionada.nome.toLowerCase().includes('curso de extensão em áreas afins')) {
+                    const valorDigitado = parseInt(this.value) || 0;
+                    const maxPermitido = parseInt(this.max) || 0;
+                    
+                    // Atualizar contador em tempo real
+                    const horasJaCadastradas = parseInt(document.getElementById('horasJaCadastradas').textContent) || 0;
+                    const limiteMaximo = parseInt(document.getElementById('limiteMaximo').textContent) || 0;
+                    const horasDisponiveis = Math.max(0, limiteMaximo - horasJaCadastradas);
+                    
+                    // Limitar o valor ao máximo permitido
+                    if (valorDigitado > maxPermitido) {
+                        this.value = maxPermitido;
+                        
+                        // Mostrar mensagem de erro
+                        const mensagemErro = document.getElementById('mensagemErroHoras') || document.createElement('div');
+                        mensagemErro.id = 'mensagemErroHoras';
+                        mensagemErro.className = 'mt-1 text-sm text-red-600';
+                        mensagemErro.textContent = `Máximo permitido: ${maxPermitido}h (você já possui ${horasJaCadastradas}h cadastradas)`;
+                        
+                        if (!document.getElementById('mensagemErroHoras')) {
+                            this.parentNode.appendChild(mensagemErro);
+                        }
+                        
+                        // Remover mensagem após 3 segundos
+                        setTimeout(() => {
+                            if (mensagemErro.parentNode) {
+                                mensagemErro.parentNode.removeChild(mensagemErro);
+                            }
+                        }, 3000);
+                    } else {
+                        // Remover mensagem de erro se existir
+                        const mensagemErro = document.getElementById('mensagemErroHoras');
+                        if (mensagemErro) {
+                            mensagemErro.parentNode.removeChild(mensagemErro);
+                        }
+                    }
+                }
+            });
+        });
 
         // Inicializar página - carregar diretamente as atividades extracurriculares
         carregarAtividades('extracurriculares');

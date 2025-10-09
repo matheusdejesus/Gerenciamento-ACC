@@ -45,18 +45,9 @@
                     </h2>
                     <p class="text-gray-600">Aqui estão suas Atividades ACC.</p>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
-                        <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Horas Certificadas</h3>
-                        <p id="horasValidadas" class="text-3xl font-bold" style="color: #1A7F37">-</p>
-                        <p class="text-xs text-gray-500 mt-1">Atividades concluídas e validadas</p>
-                    </div>
-                    <div class="p-6 rounded-lg shadow-sm" style="background-color: #FFFFFF">
-                        <h3 class="text-lg font-regular mb-2" style="color: #0969DA">Horas Pendentes</h3>
-                        <p id="horasPendentes" class="text-3xl font-bold" style="color: #B45309">120</p>
-                        <p class="text-xs text-gray-500 mt-1">Aguardando conclusão ou avaliação</p>
-                    </div>
-                </div>
+                
+                <!-- Dashboard 80h Component -->
+                <?php include '../components/dashboard_240h.php'; ?>
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
                     <div class="p-4" style="background-color: #151B23">
                         <h3 class="text-xl font-bold text-white">Minhas Atividades</h3>
@@ -221,8 +212,8 @@
 
                 // Fazer requisições paralelas para todas as categorias
                 const promises = [
-                    // Atividades ACC (extracurriculares) - CORRIGIDO: usar rota específica
-                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividade_complementar_acc.php?aluno_id=${alunoId}`)
+                    // Atividades ACC (extracurriculares) - CORRIGIDO: usar caminho relativo
+                    AuthClient.fetch(`../../backend/api/routes/atividade_complementar_acc.php?aluno_id=${alunoId}`)
                         .then(response => response.json())
                         .catch(error => {
                             console.warn('Erro ao carregar atividades ACC:', error);
@@ -230,7 +221,7 @@
                         }),
                     
                     // Atividades de Ensino
-                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividade_complementar_ensino.php?aluno_id=${alunoId}`)
+                    AuthClient.fetch(`../../backend/api/routes/atividade_complementar_ensino.php?aluno_id=${alunoId}`)
                         .then(response => response.json())
                         .catch(error => {
                             console.warn('Erro ao carregar atividades de Ensino:', error);
@@ -238,7 +229,7 @@
                         }),
                     
                     // Atividades de Estágio
-                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividades_estagio.php?aluno_id=${alunoId}`)
+                    AuthClient.fetch(`../../backend/api/routes/atividades_estagio.php?aluno_id=${alunoId}`)
                         .then(response => response.json())
                         .catch(error => {
                             console.warn('Erro ao carregar atividades de Estágio:', error);
@@ -246,7 +237,7 @@
                         }),
                     
                     // Atividades de Pesquisa
-                    AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/atividade_complementar_pesquisa.php?aluno_id=${alunoId}`)
+                    AuthClient.fetch(`../../backend/api/routes/atividade_complementar_pesquisa.php?aluno_id=${alunoId}`)
                         .then(response => response.json())
                         .catch(error => {
                             console.warn('Erro ao carregar atividades de Pesquisa:', error);
@@ -419,24 +410,7 @@
 
         // Função para atualizar as estatísticas
         function atualizarEstatisticas() {
-            // Calcular horas certificadas (aprovadas pelo coordenador)
-            const horasValidadas = minhasAtividades
-                .filter(a => {
-                    // Verificar se foi aprovado pelo coordenador (certificado aprovado)
-                    return a.status === 'aprovado' || 
-                           (a.observacoes_Analise && 
-                            a.observacoes_Analise.includes('[CERTIFICADO APROVADO PELO COORDENADOR')) ||
-                           (a.observacoes_avaliacao && 
-                            a.observacoes_avaliacao.includes('[CERTIFICADO APROVADO PELO COORDENADOR'));
-                })
-                .reduce((total, a) => total + (a.carga_horaria_aprovada || 0), 0);
-
-            // Calcular horas pendentes (total necessário - horas certificadas)
-            const totalHorasNecessarias = 120; // Total de horas ACC necessárias
-            const horasPendentes = Math.max(0, totalHorasNecessarias - horasValidadas);
-
-            document.getElementById('horasValidadas').textContent = horasValidadas;
-            document.getElementById('horasPendentes').textContent = horasPendentes;
+            // Esta função foi mantida para compatibilidade, mas não atualiza mais os cards removidos
         }
 
         // Função para exibir detalhes da atividade
@@ -547,7 +521,20 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 DOM carregado, iniciando funções...');
             carregarMinhasAtividades();
+            
+            // Aguardar um pouco para garantir que o AuthClient esteja pronto
+            setTimeout(() => {
+                console.log('⏰ Timeout executado, chamando carregarDashboard240h...');
+                console.log('🔍 Verificando se a função carregarDashboard240h existe:', typeof carregarDashboard240h);
+                if (typeof carregarDashboard240h === 'function') {
+                    console.log('✅ Função existe, executando...');
+                    carregarDashboard240h(); // Carregar dashboard 240h
+                } else {
+                    console.error('❌ Função carregarDashboard240h não encontrada!');
+                }
+            }, 1000);
         });
 
         function solicitarCertificado(atividadeId) {

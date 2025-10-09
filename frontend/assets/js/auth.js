@@ -147,14 +147,16 @@ class AuthClient {
                         try {
                             const errorData = JSON.parse(errorText);
                             console.error('Dados do erro parseados:', errorData);
-                            throw new Error(errorData.error || errorData.message || `Erro ${response.status}`);
+                            throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
                         } catch (parseError) {
                             console.error('Erro ao fazer parse do JSON de erro:', parseError);
-                            throw new Error(`Erro ${response.status}: ${response.statusText} - ${errorText}`);
+                            throw new Error(`Erro ${response.status}: ${response.statusText} - ${errorText.substring(0, 100)}`);
                         }
+                    } else {
+                        throw new Error(`Erro ${response.status}: ${response.statusText}`);
                     }
-                } catch (parseError) {
-                    console.error('Erro ao ler resposta de erro:', parseError);
+                } catch (readError) {
+                    console.error('Erro ao ler resposta de erro:', readError);
                     throw new Error(`Erro ${response.status}: ${response.statusText}`);
                 }
             }

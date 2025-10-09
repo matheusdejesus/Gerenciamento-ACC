@@ -97,7 +97,7 @@ CREATE TABLE atividadecomplementaracc (
   avaliador_id int(11) DEFAULT NULL,
   FOREIGN KEY (avaliador_id) REFERENCES usuario(id),
   FOREIGN KEY (aluno_id) REFERENCES usuario(id),
-  FOREIGN KEY (atividade_disponivel_id) REFERENCES atividadesdisponiveisbcc23(id),
+  FOREIGN KEY (atividade_disponivel_id) REFERENCES atividadesdisponiveisbcc17(id),
   FOREIGN KEY (categoria_id) REFERENCES categoriaatividadebcc23(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -183,10 +183,18 @@ CREATE TABLE atividadessociaiscomunitarias (
   categoria_id int(11) NOT NULL,
   horas_realizadas int(11) NOT NULL,
   local_instituicao varchar(255) NOT NULL,
-  descricao text DEFAULT NULL,
+  local_realizacao varchar(255) DEFAULT NULL,
+  descricao_atividades text DEFAULT NULL,
+  declaracao_caminho varchar(500) NOT NULL,
+  status enum('Aguardando avaliação','aprovado','rejeitado') DEFAULT 'Aguardando avaliação',
+  data_submissao datetime DEFAULT current_timestamp(),
+  data_avaliacao datetime DEFAULT NULL,
+  observacoes_avaliacao text DEFAULT NULL,
+  avaliador_id int(11) DEFAULT NULL,
   FOREIGN KEY (aluno_id) REFERENCES aluno(usuario_id),
-  FOREIGN KEY (atividade_disponivel_id) REFERENCES atividadesdisponiveisbcc23(id),
-  FOREIGN KEY (categoria_id) REFERENCES categoriaatividadebcc23(id)
+  FOREIGN KEY (atividade_disponivel_id) REFERENCES atividadesdisponiveisbcc17(id),
+  FOREIGN KEY (categoria_id) REFERENCES categoriaatividadebcc17(id),
+  FOREIGN KEY (avaliador_id) REFERENCES usuario(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE apikeys (

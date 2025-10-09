@@ -2,10 +2,12 @@
 require_once __DIR__ . '/../models/AtividadeComplementarEnsino.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../services/HorasLimiteService.php';
 
 use backend\api\models\AtividadeComplementarEnsino;
 use backend\api\middleware\AuthMiddleware;
 use backend\api\config\Database;
+use backend\api\services\HorasLimiteService;
 use Exception;
 
 class AtividadeComplementarEnsinoController {
@@ -18,6 +20,15 @@ class AtividadeComplementarEnsinoController {
             if (!$usuario || $usuario['tipo'] !== 'aluno') {
                 http_response_code(403);
                 echo json_encode(['erro' => 'Acesso negado. Apenas alunos podem cadastrar atividades.']);
+                return;
+            }
+
+            // VALIDAÇÃO CRÍTICA: Verificar se o aluno já atingiu o limite total de 240h
+            $totalHorasAtual = HorasLimiteService::calcularTotalHorasAluno($usuario['id']);
+            
+            if ($totalHorasAtual >= 240) {
+                http_response_code(400);
+                echo json_encode(['erro' => '🚫 Limite total de 240 horas já foi atingido. Não é possível cadastrar novas atividades em nenhuma categoria.']);
                 return;
             }
 
@@ -54,6 +65,30 @@ class AtividadeComplementarEnsinoController {
 
             // Adicionar o ID do aluno logado
             $input['aluno_id'] = $usuario['id'];
+            
+            // VALIDAÇÃO CRÍTICA: Verificar limite da categoria Ensino (80h)
+            $horasAtualEnsino = HorasLimiteService::calcularHorasCategoria($usuario['id'], 'ensino');
+            $limiteEnsino = HorasLimiteService::getLimiteCategoria('ensino');
+            $horasSolicitadas = $input['carga_horaria'] ?? 0;
+            
+            // Verificar se já atingiu o limite da categoria
+            if ($horasAtualEnsino >= $limiteEnsino) {
+                http_response_code(400);
+                echo json_encode(['erro' => "🚫 Limite máximo de {$limiteEnsino} horas para atividades de Ensino já foi atingido. Você já possui {$horasAtualEnsino}h cadastradas nesta categoria."]);
+                return;
+            }
+            
+            // Verificar se a nova atividade excederia o limite da categoria
+            $totalComNovaAtividade = $horasAtualEnsino + $horasSolicitadas;
+            if ($totalComNovaAtividade > $limiteEnsino) {
+                $horasRestantes = $limiteEnsino - $horasAtualEnsino;
+                http_response_code(400);
+                echo json_encode(['erro' => "⚠️ Limite da categoria Ensino seria excedido. Você possui {$horasAtualEnsino}h cadastradas e pode adicionar no máximo {$horasRestantes}h adicionais nesta categoria. Reduza as horas desta atividade para prosseguir."]);
+                return;
+            }
+
+            // NOVA FUNCIONALIDADE: Validação de limite de 80h para alunos 2017-2022
+            $this->validarLimite80hCategoriaEnsino($usuario['id'], $input['carga_horaria'] ?? 0);
 
             // Validar campos específicos baseado na categoria
             $tipo_atividade = $input['tipo_atividade'] ?? '';
@@ -271,6 +306,129 @@ if ($tipo_atividade === 'Outras IES') {
             error_log("Erro em AtividadeComplementarEnsinoController::buscarPorId: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['erro' => 'Erro interno do servidor']);
+        }
+    }
+    
+    /**
+     * NOVA FUNCIONALIDADE: Validar limite específico de 80h para categoria Ensino (alunos 2017-2022)
+     */
+    private function validarLimite80hCategoriaEnsino($aluno_id, $horas_solicitadas) {
+        try {
+            // Buscar matrícula do aluno
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+            $stmt->bind_param("i", $aluno_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $aluno_data = $result->fetch_assoc();
+            
+            if (!$aluno_data) {
+                throw new Exception("Dados do aluno não encontrados");
+            }
+            
+            $matricula = $aluno_data['matricula'];
+            $anoMatricula = (int) substr($matricula, 0, 4);
+            
+            // Verificar se é aluno elegível para limite específico por categoria (matrículas 2017-2022)
+            if ($anoMatricula >= 2017 && $anoMatricula <= 2022) {
+                error_log("DEBUG LIMITE ENSINO 80H - Aluno elegível detectado. Matrícula: {$matricula}, Ano: {$anoMatricula}");
+                
+                // Calcular total de horas já utilizadas APENAS na categoria Ensino
+                $horasEnsinoAtual = $this->calcularHorasCategoriaEnsino($aluno_id);
+                error_log("DEBUG LIMITE ENSINO 80H - Horas Ensino atuais: {$horasEnsinoAtual}h");
+                
+                // Verificar se já atingiu o limite de 80h para Ensino
+                if ($horasEnsinoAtual >= 80) {
+                    throw new Exception("🚫 Limite máximo de 80 horas atingido para atividades de Ensino. Você já possui {$horasEnsinoAtual}h cadastradas nesta categoria. Não é possível cadastrar novas atividades de Ensino.");
+                }
+                
+                // Verificar se a nova atividade excederia o limite de 80h para Ensino
+                $totalComNovaAtividade = $horasEnsinoAtual + $horas_solicitadas;
+                if ($totalComNovaAtividade > 80) {
+                    $horasRestantes = 80 - $horasEnsinoAtual;
+                    throw new Exception("⚠️ Limite de 80 horas para categoria Ensino seria excedido. Você possui {$horasEnsinoAtual}h cadastradas em Ensino e pode adicionar no máximo {$horasRestantes}h adicionais nesta categoria. Reduza as horas desta atividade para prosseguir.");
+                }
+                
+                error_log("DEBUG LIMITE ENSINO 80H - Validação aprovada. Total Ensino após cadastro: {$totalComNovaAtividade}h de 80h");
+            }
+            
+        } catch (Exception $e) {
+            error_log("Erro na validação de limite categoria Ensino: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * NOVA FUNCIONALIDADE: Calcular horas específicas da categoria Ensino para limite de 80h
+     * Soma apenas horas da tabela AtividadeComplementarEnsino para alunos 2017-2022
+     */
+    private function calcularHorasCategoriaEnsino($aluno_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            $sql = "SELECT SUM(carga_horaria) as total_horas 
+                    FROM AtividadeComplementarEnsino 
+                    WHERE aluno_id = ? 
+                    AND status IN ('Aguardando avaliação', 'aprovado', 'aprovada')";
+                    
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("i", $aluno_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            
+            $horasEnsino = $row && $row['total_horas'] ? (int) $row['total_horas'] : 0;
+            error_log("DEBUG CALC ENSINO - Total Ensino para aluno {$aluno_id}: {$horasEnsino}h");
+            
+            return $horasEnsino;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao calcular horas categoria Ensino: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * NOVA FUNCIONALIDADE: Calcular total de horas extracurriculares para limite de 80h
+     */
+    private function calcularHorasExtracurricularesTotais($aluno_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $horasTotal = 0;
+            
+            // Definir todas as tabelas de atividades extracurriculares e seus campos de horas
+            $tabelas = [
+                'atividadecomplementaracc' => 'horas_realizadas',
+                'AtividadeComplementarEnsino' => 'carga_horaria', 
+                'atividadecomplementarestagio' => 'horas',
+                'atividadecomplementarpesquisa' => 'horas_realizadas',
+                'AtividadeSocialComunitaria' => 'horas_realizadas'
+            ];
+            
+            foreach ($tabelas as $tabela => $campoHoras) {
+                $sql = "SELECT SUM({$campoHoras}) as total_horas 
+                        FROM {$tabela} 
+                        WHERE aluno_id = ? 
+                        AND status IN ('Aguardando avaliação', 'aprovado', 'aprovada')";
+                        
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $aluno_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $row = $result->fetch_assoc();
+                
+                $horasTabela = $row && $row['total_horas'] ? (int) $row['total_horas'] : 0;
+                error_log("DEBUG CALC 80H ENSINO - Tabela {$tabela}: {$horasTabela}h");
+                
+                $horasTotal += $horasTabela;
+            }
+            
+            error_log("DEBUG CALC 80H ENSINO - Total calculado para aluno {$aluno_id}: {$horasTotal}h");
+            return $horasTotal;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao calcular horas extracurriculares totais: " . $e->getMessage());
+            return 0;
         }
     }
 }

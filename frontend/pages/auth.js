@@ -23,7 +23,7 @@ class AuthClient {
             nome: 'Usuário Teste',
             email: 'teste@exemplo.com',
             tipo: 'aluno',
-            matricula: '20200001'
+            matricula: '2019123456'
         };
     }
 
@@ -50,15 +50,54 @@ class AuthClient {
 
     // Fazer requisição autenticada
     static async fetch(url, options = {}) {
+        console.log('🔧 AuthClient.fetch chamado para:', url);
+        
+        // Se a URL for relativa, usar o servidor backend
+        const fullUrl = url.startsWith('http') ? url : `http://localhost:8000/backend${url}`;
+        console.log('🌐 URL completa:', fullUrl);
+        
         const headers = { ...this.getHeaders(), ...(options.headers || {}) };
+        
+        // Adicionar token JWT para autenticação
+        const token = this.getToken();
+        console.log('🎫 Token encontrado no localStorage:', !!token);
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+            console.log('✅ Usando token do localStorage');
+        } else {
+            // Gerar token temporário para teste com dados do usuário atual
+            const user = this.getUser();
+            console.log('👤 Dados do usuário para token temporário:', user);
+            
+            const header = btoa(JSON.stringify({typ: 'JWT', alg: 'HS256'}));
+            const payload = btoa(JSON.stringify({
+                iss: 'http://localhost:8081',
+                aud: 'http://localhost:8081',
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                user_id: user.id,
+                matricula: user.matricula,
+                tipo: user.tipo
+            }));
+            const signature = 'Yt8Yt8Yt8Yt8Yt8Yt8Yt8Yt8Yt8Yt8Yt8Yt8Yt8';
+            const tempToken = `${header}.${payload}.${signature}`;
+            headers['Authorization'] = `Bearer ${tempToken}`;
+            console.log('🔄 Token temporário gerado para matrícula:', user.matricula);
+        }
+        
+        console.log('📤 Headers da requisição:', headers);
         
         if (options.body instanceof FormData) {
             delete headers['Content-Type'];
         }
         
-        return fetch(url, {
+        const response = await fetch(fullUrl, {
             ...options,
             headers: headers
         });
+        
+        console.log('📥 Resposta da requisição:', response.status, response.statusText);
+        return response;
     }
 }

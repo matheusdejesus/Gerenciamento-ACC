@@ -205,11 +205,63 @@
                         <label for="quantidadeApresentacoes" class="block text-sm font-medium text-gray-700 mb-2">
                             Quantidade de Apresentações <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" id="quantidadeApresentacoes" name="quantidadeApresentacoes" min="1" max="10"
+                        <input type="number" id="quantidadeApresentacoes" name="quantidadeApresentacoes" min="1" max="999"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                                placeholder="Ex: 2"
-                               oninput="validarCampoEvento('quantidadeApresentacoes')" required>
+                               oninput="calcularCargaHorariaEvento(); validarCampoEvento('quantidadeApresentacoes')" required>
                         <div id="quantidadeApresentacoes-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                        <p id="limite-horas-texto" class="text-xs text-gray-500 mt-1">Qualquer quantidade permitida - carga horária limitada a 20h no total</p>
+                    </div>
+                    
+                    <!-- Tipo de Evento -->
+                    <div>
+                        <label for="tipoEvento" class="block text-sm font-medium text-gray-700 mb-2">
+                            Tipo de Evento <span class="text-red-500">*</span>
+                        </label>
+                        <select id="tipoEvento" name="tipoEvento"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                                onchange="calcularCargaHorariaEvento(); validarCampoEvento('tipoEvento')" required>
+                            <option value="">Selecione o tipo de evento</option>
+                            <option value="local">Local/Nacional (10h por apresentação)</option>
+                            <option value="internacional">Internacional (15h por apresentação)</option>
+                        </select>
+                        <div id="tipoEvento-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                        <p id="tipo-evento-texto" class="text-xs text-gray-500 mt-1">Local/Nacional: 10h por apresentação | Internacional: 15h por apresentação (máximo 20h)</p>
+                    </div>
+                    
+                    <!-- Carga Horária (Calculada Automaticamente) -->
+                    <div>
+                        <label for="cargaHorariaEvento" class="block text-sm font-medium text-gray-700 mb-2">
+                            Carga Horária <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" id="cargaHorariaEvento" name="cargaHorariaEvento" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                               placeholder="Calculado automaticamente">
+                        <div id="cargaHorariaEvento-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                        
+                        <!-- Exibição do cálculo automático -->
+                        <div id="cargaHorariaEvento-info" class="mt-2 hidden">
+                            <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span id="calculo-detalhes" class="text-sm font-medium text-blue-800"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Aviso de limitação -->
+                        <div id="cargaHorariaEvento-warning" class="mt-2 hidden">
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span class="text-sm font-medium text-yellow-800">Carga horária limitada ao máximo de 20h</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Local/Instituição -->
@@ -292,7 +344,6 @@
                     </label>
                     <input type="number" id="cargaHorariaCadastro" name="cargaHorariaCadastro" min="1" max="40"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                           placeholder="Digite a carga horária em horas (máx. 40h)"
                            oninput="validarCampoCadastro('cargaHorariaCadastro')" required>
                     <div id="cargaHorariaCadastro-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
                     <p class="text-xs text-gray-500 mt-1">Esta atividade tem limite máximo de 40 horas</p>
@@ -488,28 +539,53 @@
                     <div id="nomeArtigo-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
                 </div>
                 
-                <!-- Carga Horária -->
-                <div>
-                    <label for="cargaHorariaArtigo" class="block text-sm font-medium text-gray-700 mb-2">
-                        Carga Horária <span class="text-red-500">*</span>
-                    </label>
-                    <input type="number" id="cargaHorariaArtigo" name="cargaHorariaArtigo" min="1" max="999"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                           placeholder="Digite a carga horária em horas"
-                           oninput="validarCampoPublicacaoArtigo('cargaHorariaArtigo')" required>
-                    <div id="cargaHorariaArtigo-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
-                </div>
-                
                 <!-- Quantidade de Publicações -->
                 <div>
                     <label for="quantidadePublicacoes" class="block text-sm font-medium text-gray-700 mb-2">
                         Quantidade de Publicações <span class="text-red-500">*</span>
                     </label>
-                    <input type="number" id="quantidadePublicacoes" name="quantidadePublicacoes" min="1" max="50"
+                    <input type="number" id="quantidadePublicacoes" name="quantidadePublicacoes" min="1" max="999"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                            placeholder="Digite a quantidade de publicações"
-                           oninput="validarCampoPublicacaoArtigo('quantidadePublicacoes')" required>
+                           oninput="calcularCargaHorariaArtigo(); validarCampoPublicacaoArtigo('quantidadePublicacoes')" required>
                     <div id="quantidadePublicacoes-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                    <p class="text-xs text-gray-500 mt-1">Quantidade ilimitada, máximo 40h total</p>
+                </div>
+                
+                <!-- Carga Horária -->
+                <div>
+                    <label for="cargaHorariaArtigo" class="block text-sm font-medium text-gray-700 mb-2">
+                        Carga Horária <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" id="cargaHorariaArtigo" name="cargaHorariaArtigo" min="20" max="40"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                           placeholder="Calculado automaticamente (20h por publicação)"
+                           readonly required>
+                    <div id="cargaHorariaArtigo-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                    
+                    <!-- Exibição do cálculo automático -->
+                    <div id="calculo-artigo-info" class="mt-2 hidden">
+                        <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                </svg>
+                                <span id="calculo-artigo-detalhes" class="text-sm font-medium text-blue-800"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Aviso de limitação -->
+                    <div id="calculo-artigo-warning" class="mt-2 hidden">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                <span class="text-sm font-medium text-yellow-800">Carga horária limitada ao máximo de 40h</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
 
@@ -650,7 +726,11 @@
                         funcaoSelecionar = `abrirModalEventoCientifico(${atividade.id})`;
                     } else if (atividade.nome === 'Participação em projeto de Iniciação Científica') {
                         funcaoSelecionar = `abrirModalIniciacaoCientifica(${atividade.id})`;
+                    } else if (atividade.nome === 'Atividades de iniciação científica (por semestre)') {
+                        funcaoSelecionar = `selecionarAtividadeIniciacaoCientifica(${atividade.id})`;
                     } else if (atividade.nome === 'Publicação de artigo em anais, periódicos ou capítulo de livro (por trabalho)') {
+                        funcaoSelecionar = `abrirModalPublicacaoArtigo(${atividade.id})`;
+                    } else if (atividade.nome === 'Publicação de artigo em periódicos ou capítulo de livro') {
                         funcaoSelecionar = `abrirModalPublicacaoArtigo(${atividade.id})`;
                     } else {
                         funcaoSelecionar = `abrirModalSelecao(${atividade.id})`;
@@ -1189,6 +1269,36 @@
             atividadeEventoCientificoId = id;
             elementoAnteriorFocoEvento = document.activeElement;
             
+            // Obter dados do usuário para verificar o ano da matrícula
+            const userData = localStorage.getItem('acc_user_data');
+            let limiteHoras = 20; // Padrão para matrículas anteriores a 2023
+            
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    if (user && user.matricula) {
+                        const anoMatricula = parseInt(user.matricula.substring(0, 4));
+                        if (anoMatricula >= 2023) {
+                            limiteHoras = 9;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Erro ao processar dados do usuário:', e);
+                }
+            }
+            
+            // Atualizar textos do formulário baseado no limite de horas
+            const limiteHorasTexto = document.getElementById('limite-horas-texto');
+            const tipoEventoTexto = document.getElementById('tipo-evento-texto');
+            
+            if (limiteHorasTexto) {
+                limiteHorasTexto.textContent = `Qualquer quantidade permitida - carga horária limitada a ${limiteHoras}h no total`;
+            }
+            
+            if (tipoEventoTexto) {
+                tipoEventoTexto.textContent = `Local/Nacional: 10h por apresentação | Internacional: 15h por apresentação (máximo ${limiteHoras}h)`;
+            }
+            
             // Buscar dados da atividade para obter horas máximas
             const atividade = todasAtividades.find(a => a.id === id);
             console.log('🔍 Atividade encontrada:', atividade);
@@ -1260,6 +1370,110 @@
             document.getElementById('btnConfirmarEvento').disabled = true;
         }
 
+        // Função para calcular carga horária do evento científico
+        function calcularCargaHorariaEvento() {
+            const quantidadeInput = document.getElementById('quantidadeApresentacoes');
+            const tipoEventoSelect = document.getElementById('tipoEvento');
+            const cargaHorariaInput = document.getElementById('cargaHorariaEvento');
+            const infoDiv = document.getElementById('cargaHorariaEvento-info');
+            const warningDiv = document.getElementById('cargaHorariaEvento-warning');
+            const calculoDetalhes = document.getElementById('calculo-detalhes');
+            
+            if (!quantidadeInput || !tipoEventoSelect || !cargaHorariaInput) {
+                return;
+            }
+            
+            const quantidade = parseInt(quantidadeInput.value) || 0;
+            const tipoEvento = tipoEventoSelect.value;
+            
+            let cargaHoraria = 0;
+            let detalhes = '';
+            
+            if (quantidade > 0 && tipoEvento) {
+                let cargaCalculada = 0;
+                if (tipoEvento === 'local') {
+                    cargaCalculada = quantidade * 10;
+                    detalhes = `${quantidade} apresentação${quantidade > 1 ? 'ões' : ''} × 10h = ${cargaCalculada}h`;
+                } else if (tipoEvento === 'internacional') {
+                    cargaCalculada = quantidade * 15;
+                    detalhes = `${quantidade} apresentação${quantidade > 1 ? 'ões' : ''} × 15h = ${cargaCalculada}h`;
+                }
+                
+                // Obter dados do usuário para verificar o ano da matrícula
+                const userData = localStorage.getItem('acc_user_data');
+                let limiteMaximo = 20; // Padrão para matrículas anteriores a 2023
+                
+                if (userData) {
+                    try {
+                        const user = JSON.parse(userData);
+                        if (user && user.matricula) {
+                            const anoMatricula = parseInt(user.matricula.substring(0, 4));
+                            if (anoMatricula >= 2023) {
+                                limiteMaximo = 9;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Erro ao processar dados do usuário:', e);
+                    }
+                }
+                
+                // Aplicar limite máximo baseado no ano da matrícula
+                cargaHoraria = Math.min(cargaCalculada, limiteMaximo);
+                
+                // Atualizar detalhes se houve limitação
+                if (cargaCalculada > limiteMaximo) {
+                    detalhes += ` → limitado a ${limiteMaximo}h`;
+                }
+            }
+            
+            // Atualizar campo de carga horária
+            cargaHorariaInput.value = cargaHoraria || '';
+            
+            // Mostrar/ocultar informações e avisos
+            if (quantidade >= 1 && tipoEvento) {
+                // Atualizar texto do cálculo detalhado
+                calculoDetalhes.textContent = detalhes;
+                infoDiv.classList.remove('hidden');
+                
+                // Verificar se houve limitação
+                if (cargaCalculada > limiteMaximo) {
+                    warningDiv.classList.remove('hidden');
+                } else {
+                    warningDiv.classList.add('hidden');
+                }
+                
+                // Aplicar estilos visuais aos campos
+                quantidadeInput.classList.remove('border-red-500');
+                quantidadeInput.classList.add('border-green-500');
+                tipoEventoSelect.classList.remove('border-red-500');
+                tipoEventoSelect.classList.add('border-green-500');
+                cargaHorariaInput.classList.remove('border-red-500');
+                cargaHorariaInput.classList.add('border-green-500');
+                
+                // Limpar qualquer erro do campo carga horária
+                const cargaHorariaError = document.getElementById('cargaHorariaEvento-error');
+                if (cargaHorariaError) {
+                    cargaHorariaError.classList.add('hidden');
+                    cargaHorariaError.textContent = '';
+                }
+            } else {
+                // Ocultar informações quando não há dados válidos
+                infoDiv.classList.add('hidden');
+                warningDiv.classList.add('hidden');
+                
+                // Resetar estilos dos campos
+                quantidadeInput.classList.remove('border-red-500', 'border-green-500');
+                quantidadeInput.classList.add('border-gray-300');
+                tipoEventoSelect.classList.remove('border-red-500', 'border-green-500');
+                tipoEventoSelect.classList.add('border-gray-300');
+                cargaHorariaInput.classList.remove('border-red-500', 'border-green-500');
+                cargaHorariaInput.classList.add('border-gray-300');
+            }
+            
+            // Verificar formulário após cálculo
+            verificarFormularioEventoValido();
+        }
+
         // Função de validação para campos do evento científico
         function validarCampoEvento(nomeCampo) {
             console.log('🔍 Validando campo:', nomeCampo);
@@ -1296,9 +1510,26 @@
                     } else if (isNaN(quantidade) || quantidade < 1) {
                         valido = false;
                         mensagem = 'A quantidade deve ser um número positivo';
-                    } else if (quantidade > 10) {
+                    }
+                    break;
+                    
+                case 'tipoEvento':
+                    if (!valor) {
                         valido = false;
-                        mensagem = 'A quantidade não pode exceder 10 apresentações';
+                        mensagem = 'O tipo de evento é obrigatório';
+                    }
+                    break;
+                    
+                case 'cargaHorariaEvento':
+                    // Campo calculado automaticamente - sempre válido se tem valor
+                    const cargaHoraria = parseInt(valor);
+                    if (valor && !isNaN(cargaHoraria) && cargaHoraria > 0) {
+                        valido = true;
+                        mensagem = '';
+                    } else {
+                        // Se não tem valor, não é erro - será calculado automaticamente
+                        valido = true;
+                        mensagem = '';
                     }
                     break;
                     
@@ -1360,15 +1591,19 @@
         function verificarFormularioEventoValido() {
             const nomeEvento = document.getElementById('nomeEvento').value.trim();
             const quantidadeApresentacoes = document.getElementById('quantidadeApresentacoes').value;
+            const tipoEvento = document.getElementById('tipoEvento').value;
+            const cargaHorariaEvento = document.getElementById('cargaHorariaEvento').value;
             const localEvento = document.getElementById('localEvento').value.trim();
             const declaracao = document.getElementById('declaracao').files;
             
             const nomeValido = nomeEvento.length >= 3;
-            const quantidadeValida = quantidadeApresentacoes && parseInt(quantidadeApresentacoes) >= 1 && parseInt(quantidadeApresentacoes) <= 10;
+            const quantidadeValida = quantidadeApresentacoes && parseInt(quantidadeApresentacoes) >= 1;
+            const tipoValido = tipoEvento !== '';
+            const cargaValida = cargaHorariaEvento && parseInt(cargaHorariaEvento) > 0 && parseInt(cargaHorariaEvento) <= 20;
             const localValido = localEvento.length >= 2;
             const declaracaoValida = declaracao && declaracao.length > 0;
             
-            const formularioValido = nomeValido && quantidadeValida && localValido && declaracaoValida;
+            const formularioValido = nomeValido && quantidadeValida && tipoValido && cargaValida && localValido && declaracaoValida;
             
             document.getElementById('btnConfirmarEvento').disabled = !formularioValido;
         }
@@ -1386,7 +1621,7 @@
             console.log('✓ atividadeEventoCientificoId definido:', atividadeEventoCientificoId);
             
             // Verificar se todos os campos existem
-            const campos = ['nomeEvento', 'quantidadeApresentacoes', 'localEvento', 'declaracao'];
+            const campos = ['nomeEvento', 'quantidadeApresentacoes', 'tipoEvento', 'cargaHorariaEvento', 'localEvento', 'declaracao'];
             let todosValidos = true;
             
             // Validar cada campo individualmente
@@ -1414,6 +1649,8 @@
                 console.log('Valores dos campos antes do envio:');
                 console.log('nomeEvento:', document.getElementById('nomeEvento').value);
                 console.log('quantidadeApresentacoes:', document.getElementById('quantidadeApresentacoes').value);
+                console.log('tipoEvento:', document.getElementById('tipoEvento').value);
+                console.log('cargaHorariaEvento:', document.getElementById('cargaHorariaEvento').value);
                 console.log('localEvento:', document.getElementById('localEvento').value);
                 console.log('declaracao files:', document.getElementById('declaracao').files.length);
                 
@@ -1427,38 +1664,27 @@
                 formData.append('atividade_disponivel_id', atividadeEventoCientificoId);
                 formData.append('tipo_atividade', 'apresentacao_evento');
                 
-                // Verificar se o campo existe e tem valor
-                const quantidadeElement = document.getElementById('quantidadeApresentacoes');
-                const quantidadeValue = quantidadeElement ? quantidadeElement.value : '';
-                console.log('Elemento quantidadeApresentacoes:', quantidadeElement);
-                console.log('Valor quantidadeApresentacoes:', quantidadeValue);
+                // Obter valores dos campos
+                const quantidadeValue = document.getElementById('quantidadeApresentacoes').value;
+                const tipoEventoValue = document.getElementById('tipoEvento').value;
+                const cargaHorariaValue = document.getElementById('cargaHorariaEvento').value;
                 
-                if (!quantidadeValue || quantidadeValue.trim() === '') {
-                    alert('Erro: Quantidade de apresentações não foi preenchida');
+                if (!quantidadeValue || !tipoEventoValue || !cargaHorariaValue) {
+                    alert('Erro: Todos os campos obrigatórios devem ser preenchidos');
                     btnConfirmar.disabled = false;
                     btnConfirmar.textContent = 'Confirmar';
                     return;
                 }
                 
                 formData.append('quantidade_apresentacoes', quantidadeValue);
+                formData.append('tipo_evento', tipoEventoValue);
                 
-                // Buscar dados da atividade para determinar horas máximas permitidas
-                const atividade = todasAtividades.find(a => a.id === atividadeEventoCientificoId);
-                console.log('🔍 Debug - Atividade encontrada:', atividade);
+                // Usar a carga horária calculada automaticamente
+                const horasCalculadas = parseInt(cargaHorariaValue);
+                console.log('🧮 Debug - Horas calculadas automaticamente:', horasCalculadas);
                 
-                const horasMaximas = atividade ? parseInt(atividade.horas_max) : 20;
-                console.log('📊 Debug - Horas máximas da atividade:', horasMaximas);
-                console.log('📊 Debug - Tipo de horasMaximas:', typeof horasMaximas);
-                
-                // Calcular horas realizadas baseado na quantidade de apresentações
-                // BCC23 tem máximo ≤ 9h (usa 5h por apresentação)
-                // BCC17 tem máximo > 9h (usa 10h por apresentação)
-                const horasPorApresentacao = horasMaximas <= 9 ? 5 : 10;
-                console.log('⚡ Debug - Horas por apresentação calculadas:', horasPorApresentacao);
-                console.log('⚡ Debug - Lógica: horasMaximas (' + horasMaximas + ') <= 9 ? 5 : 10 = ' + horasPorApresentacao);
-                
-                const horasCalculadas = parseInt(quantidadeValue) * horasPorApresentacao;
-                console.log('🧮 Debug - Horas calculadas (quantidade × horas_por_apresentacao):', quantidadeValue + ' × ' + horasPorApresentacao + ' = ' + horasCalculadas);
+                // Para apresentações em eventos científicos, o limite máximo é sempre 20h
+                const horasMaximas = 20;
                 
                 const horasRealizadas = Math.min(horasCalculadas, horasMaximas);
                 console.log('✅ Debug - Horas realizadas finais (limitadas ao máximo):', horasRealizadas);
@@ -1467,7 +1693,7 @@
                 console.log('- Atividade ID:', atividadeEventoCientificoId);
                 console.log('- Horas máximas permitidas:', horasMaximas);
                 console.log('- Quantidade de apresentações:', quantidadeValue);
-                console.log('- Horas por apresentação:', horasPorApresentacao);
+                console.log('- Tipo de evento:', tipoEventoValue);
                 console.log('- Horas calculadas:', horasCalculadas);
                 console.log('- Horas realizadas (final):', horasRealizadas);
                 console.log('========================');
@@ -1501,8 +1727,22 @@
                     },
                     body: formData
                 })
-                .then(response => response.json())
+                .then(response => {
+                    console.log('🔍 DEBUG - Status da resposta:', response.status);
+                    console.log('🔍 DEBUG - Headers da resposta:', response.headers);
+                    return response.text().then(text => {
+                        console.log('🔍 DEBUG - Resposta bruta do servidor:', text);
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.error('❌ Erro ao fazer parse do JSON:', e);
+                            console.error('❌ Texto recebido:', text);
+                            throw new Error('Resposta inválida do servidor: ' + text);
+                        }
+                    });
+                })
                 .then(async data => {
+                    console.log('🔍 DEBUG - Dados processados:', data);
                     if (data.success) {
                         // Mostrar mensagem de sucesso
                         alert('Atividade de pesquisa cadastrada com sucesso!');
@@ -1516,6 +1756,7 @@
                         // Recarregar lista de atividades
                         carregarAtividades();
                     } else {
+                        console.error('❌ Erro retornado pelo backend:', data);
                         alert('Erro ao cadastrar atividade: ' + (data.error || 'Erro desconhecido'));
                     }
                 })
@@ -1880,6 +2121,45 @@
         let elementoAnteriorFocoIniciacaoCientifica = null;
         let horasMaximasIniciacaoCientifica = null;
 
+        // Função para selecionar atividade de iniciação científica com verificação de matrícula
+        function selecionarAtividadeIniciacaoCientifica(id) {
+            console.log('🔴 FUNÇÃO CHAMADA - selecionarAtividadeIniciacaoCientifica, ID:', id);
+            
+            // Obter dados do usuário do localStorage
+            const userData = localStorage.getItem('acc_user_data');
+            console.log('🔴 DADOS DO USUÁRIO:', userData);
+            
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('🔴 USUÁRIO PARSEADO:', user);
+                    
+                    if (user && user.matricula) {
+                        const anoMatricula = parseInt(user.matricula.substring(0, 4));
+                        console.log('🔴 ANO DA MATRÍCULA:', anoMatricula);
+                        
+                        // Verificar se a matrícula está entre 2017 e 2022
+                        if (anoMatricula >= 2017 && anoMatricula <= 2022) {
+                            console.log('🔴 ALUNO ELEGÍVEL - Abrindo modal específico');
+                            abrirModalIniciacaoCientifica(id);
+                        } else {
+                            console.log('🔴 ALUNO NÃO ELEGÍVEL - Redirecionando para cadastro padrão');
+                            window.location.href = `cadastrar_atividade.php?id=${id}`;
+                        }
+                    } else {
+                        console.log('🔴 MATRÍCULA NÃO ENCONTRADA - Redirecionando para cadastro padrão');
+                        window.location.href = `cadastrar_atividade.php?id=${id}`;
+                    }
+                } catch (error) {
+                    console.error('🔴 ERRO AO PARSEAR DADOS DO USUÁRIO:', error);
+                    window.location.href = `cadastrar_atividade.php?id=${id}`;
+                }
+            } else {
+                console.log('🔴 DADOS DO USUÁRIO NÃO ENCONTRADOS - Redirecionando para cadastro padrão');
+                window.location.href = `cadastrar_atividade.php?id=${id}`;
+            }
+        }
+
         // Função para abrir modal de Iniciação Científica
         function abrirModalIniciacaoCientifica(id) {
             atividadeIniciacaoCientificaId = id;
@@ -2227,19 +2507,23 @@
 
         // Funções para o Modal de Publicação de Artigo
         function abrirModalPublicacaoArtigo(atividadeId) {
+            console.log('🔴 FUNÇÃO CHAMADA - abrirModalPublicacaoArtigo, ID:', atividadeId);
             atividadePublicacaoArtigoId = atividadeId;
             
             // Buscar dados da atividade para obter horas máximas
             const atividade = todasAtividades.find(a => a.id === atividadeId);
             if (atividade) {
+                console.log('🔴 ATIVIDADE ENCONTRADA:', atividade.nome, 'Horas máximas:', atividade.horas_max);
                 horasMaximasPublicacaoArtigo = parseInt(atividade.horas_max);
                 // Atualizar o atributo max do campo de carga horária
                 const campoCargaHoraria = document.getElementById('cargaHorariaArtigo');
                 campoCargaHoraria.max = horasMaximasPublicacaoArtigo;
-                campoCargaHoraria.placeholder = `Digite a carga horária (máximo ${horasMaximasPublicacaoArtigo}h)`;
+                
             }
             
+            console.log('🔴 ABRINDO MODAL DE PUBLICAÇÃO DE ARTIGO');
             document.getElementById('modalPublicacaoArtigo').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
             
             // Limpar formulário
             document.getElementById('formPublicacaoArtigo').reset();
@@ -2251,6 +2535,7 @@
                 const elemento = document.getElementById(campo);
                 const errorElement = document.getElementById(campo + '-error');
                 elemento.classList.remove('border-red-500', 'border-green-500');
+                elemento.classList.add('border-gray-300');
                 errorElement.classList.add('hidden');
             });
             
@@ -2264,8 +2549,64 @@
         }
 
         function fecharModalPublicacaoArtigo() {
+            console.log('🔴 FECHANDO MODAL DE PUBLICAÇÃO DE ARTIGO');
             document.getElementById('modalPublicacaoArtigo').classList.add('hidden');
+            document.body.style.overflow = 'auto';
             atividadePublicacaoArtigoId = null;
+        }
+
+        // Função para calcular automaticamente a carga horária baseada na quantidade de publicações
+        function calcularCargaHorariaArtigo() {
+            const quantidadeInput = document.getElementById('quantidadePublicacoes');
+            const cargaHorariaInput = document.getElementById('cargaHorariaArtigo');
+            const quantidadeError = document.getElementById('quantidadePublicacoes-error');
+            const infoDiv = document.getElementById('calculo-artigo-info');
+            const warningDiv = document.getElementById('calculo-artigo-warning');
+            const calculoDetalhes = document.getElementById('calculo-artigo-detalhes');
+            
+            const quantidade = parseInt(quantidadeInput.value) || 0;
+            let cargaCalculada = quantidade * 20; // 20h por publicação
+            
+            // Aplicar limite máximo de 40h
+            const cargaHoraria = Math.min(cargaCalculada, 40);
+            
+            // Atualizar o campo de carga horária
+            cargaHorariaInput.value = cargaHoraria > 0 ? cargaHoraria : '';
+            
+            // Mostrar/ocultar informações do cálculo
+            if (quantidade >= 1) {
+                // Preparar texto do cálculo detalhado
+                let detalhes = `${quantidade} publicação${quantidade > 1 ? 'ões' : ''} × 20h = ${cargaCalculada}h`;
+                
+                // Se houve limitação, adicionar informação
+                if (cargaCalculada > 40) {
+                    detalhes += ` → limitado a 40h`;
+                    warningDiv.classList.remove('hidden');
+                } else {
+                    warningDiv.classList.add('hidden');
+                }
+                
+                // Atualizar texto e mostrar informações
+                calculoDetalhes.textContent = detalhes;
+                infoDiv.classList.remove('hidden');
+                
+                // Validação visual - sempre válido se quantidade >= 1
+                quantidadeError.classList.add('hidden');
+                quantidadeInput.classList.remove('border-red-500');
+                quantidadeInput.classList.add('border-green-500');
+                cargaHorariaInput.classList.remove('border-red-500');
+                cargaHorariaInput.classList.add('border-green-500');
+            } else {
+                // Ocultar informações quando não há quantidade válida
+                infoDiv.classList.add('hidden');
+                warningDiv.classList.add('hidden');
+                
+                quantidadeError.classList.add('hidden');
+                quantidadeInput.classList.remove('border-red-500', 'border-green-500');
+                quantidadeInput.classList.add('border-gray-300');
+                cargaHorariaInput.classList.remove('border-red-500', 'border-green-500');
+                cargaHorariaInput.classList.add('border-gray-300');
+            }
         }
 
         // Função de validação para campos de Publicação de Artigo
@@ -2295,11 +2636,11 @@
                     if (!elemento.value) {
                         errorMessage = 'Carga horária é obrigatória';
                         isValid = false;
-                    } else if (carga < 1) {
-                        errorMessage = 'A carga horária deve ser um número positivo';
+                    } else if (carga < 20) {
+                        errorMessage = 'A carga horária mínima é 20 horas (1 publicação)';
                         isValid = false;
-                    } else if (horasMaximasPublicacaoArtigo && carga > horasMaximasPublicacaoArtigo) {
-                        errorMessage = `A carga horária não pode exceder ${horasMaximasPublicacaoArtigo} horas`;
+                    } else if (carga > 40) {
+                        errorMessage = 'A carga horária máxima é 40 horas';
                         isValid = false;
                     }
                     break;
@@ -2309,8 +2650,8 @@
                     if (!elemento.value) {
                         errorMessage = 'Quantidade de publicações é obrigatória';
                         isValid = false;
-                    } else if (quantidade < 1 || quantidade > 50) {
-                        errorMessage = 'Quantidade deve estar entre 1 e 50 publicações';
+                    } else if (quantidade < 1) {
+                        errorMessage = 'Quantidade deve ser pelo menos 1 publicação';
                         isValid = false;
                     }
                     break;

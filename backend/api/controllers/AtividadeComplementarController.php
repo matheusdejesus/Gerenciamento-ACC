@@ -45,6 +45,12 @@ class AtividadeComplementarController extends Controller {
                 throw new Exception("Carga horária solicitada deve ser maior que zero");
             }
             
+            // Validação específica para "Curso de extensão em áreas afins"
+            if (isset($dados['atividade_disponivel_id'])) {
+                $this->validarLimiteCursoExtensaoAreasAfins($dados);
+                $this->validarLimiteCursoExtensaoAreaEspecifica($dados);
+            }
+            
             // REMOVIDO: Validação obrigatória de orientador
             /*
             if (empty($dados['orientador_id']) || !is_numeric($dados['orientador_id'])) {
@@ -82,6 +88,210 @@ class AtividadeComplementarController extends Controller {
             
         } catch (Exception $e) {
             error_log("Erro em AtividadeComplementarController::cadastrarComJWT: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * Validar limite de horas para "Curso de extensão em áreas afins"
+     */
+    private function validarLimiteCursoExtensaoAreasAfins($dados) {
+        try {
+            // Buscar informações da atividade disponível
+            $atividadeDisponivel = AtividadesDisponiveis::buscarPorId($dados['atividade_disponivel_id']);
+            
+            if (!$atividadeDisponivel) {
+                return; // Se não encontrar a atividade, não aplicar validação específica
+            }
+            
+            $nomeAtividade = $atividadeDisponivel['titulo'] ?? $atividadeDisponivel['nome'] ?? '';
+            
+            // Verificar se é "Curso de extensão em áreas afins"
+            if (strpos($nomeAtividade, 'Curso de extensão em áreas afins') === false) {
+                return; // Não é a atividade específica, não aplicar validação
+            }
+            
+            error_log("DEBUG: Validando limite para 'Curso de extensão em áreas afins'");
+            error_log("DEBUG: Aluno ID: " . $dados['aluno_id']);
+            error_log("DEBUG: Horas solicitadas: " . $dados['carga_horaria_solicitada']);
+            
+            // Buscar matrícula do aluno para determinar o limite
+            $db = Database::getInstance()->getConnection();
+            $stmtAluno = $db->prepare("SELECT matricula FROM Usuario WHERE id = ?");
+            $stmtAluno->bind_param("i", $dados['aluno_id']);
+            $stmtAluno->execute();
+            $resultAluno = $stmtAluno->get_result();
+            $alunoData = $resultAluno->fetch_assoc();
+            
+            if (!$alunoData) {
+                throw new Exception("Dados do aluno não encontrados");
+            }
+            
+            $matricula = $alunoData['matricula'];
+            $anoMatricula = (int) substr($matricula, 0, 4);
+            
+            // Definir limite baseado no ano da matrícula
+            $limiteHoras = ($anoMatricula >= 2023) ? 10 : 20;
+            
+            error_log("DEBUG: Matrícula: {$matricula}, Ano: {$anoMatricula}, Limite: {$limiteHoras}h");
+            
+            // Buscar horas já cadastradas desta atividade específica
+            $horasJaCadastradas = 0;
+            
+            // Verificar em todas as tabelas de atividades complementares
+            $tabelas = [
+                'atividadecomplementaracc' => 'horas_realizadas',
+                'AtividadeComplementarEnsino' => 'carga_horaria',
+                'atividadecomplementarestagio' => 'carga_horaria',
+                'atividadecomplementarpesquisa' => 'horas_realizadas'
+            ];
+            
+            foreach ($tabelas as $tabela => $campoHoras) {
+                $sql = "SELECT SUM({$campoHoras}) as total_horas 
+                        FROM {$tabela} 
+                        WHERE aluno_id = ? 
+                        AND atividade_disponivel_id = ? 
+                        AND status IN ('Aguardando avaliação', 'aprovado')";
+                        
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("ii", $dados['aluno_id'], $dados['atividade_disponivel_id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $row = $result->fetch_assoc();
+                
+                if ($row && $row['total_horas']) {
+                    $horasJaCadastradas += (int) $row['total_horas'];
+                }
+            }
+            
+            error_log("DEBUG: Horas já cadastradas: {$horasJaCadastradas}h");
+            
+            // Verificar se já atingiu o limite máximo
+            if ($horasJaCadastradas >= $limiteHoras) {
+                throw new Exception("Limite máximo de {$limiteHoras}h atingido para esta atividade");
+            }
+            
+            // Verificar se as novas horas excedem o limite
+            $totalHoras = $horasJaCadastradas + $dados['carga_horaria_solicitada'];
+            if ($totalHoras > $limiteHoras) {
+                $horasRestantes = $limiteHoras - $horasJaCadastradas;
+                throw new Exception("Você pode cadastrar no máximo {$horasRestantes}h adicionais para esta atividade (limite total: {$limiteHoras}h)");
+            }
+            
+            error_log("DEBUG: Validação aprovada - Total após cadastro: {$totalHoras}h de {$limiteHoras}h");
+            
+        } catch (Exception $e) {
+            error_log("Erro na validação de limite para Curso de extensão em áreas afins: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Validar limite de horas para "Curso de extensão na área específica"
+     */
+    private function validarLimiteCursoExtensaoAreaEspecifica($dados) {
+        try {
+            // Buscar informações da atividade disponível
+            $atividadeDisponivel = AtividadesDisponiveis::buscarPorId($dados['atividade_disponivel_id']);
+            
+            if (!$atividadeDisponivel) {
+                return; // Se não encontrar a atividade, não aplicar validação específica
+            }
+            
+            $nomeAtividade = $atividadeDisponivel['titulo'] ?? $atividadeDisponivel['nome'] ?? '';
+            
+            // Verificar se é "Curso de extensão na área específica"
+            if (strpos($nomeAtividade, 'Curso de extensão na área específica') === false) {
+                return; // Não é a atividade específica, não aplicar validação
+            }
+            
+            error_log("DEBUG: Validando limite para 'Curso de extensão na área específica'");
+            error_log("DEBUG: Aluno ID: " . $dados['aluno_id']);
+            error_log("DEBUG: Horas solicitadas: " . $dados['carga_horaria_solicitada']);
+            
+            // Limite fixo de 40 horas para esta atividade
+            $limiteHoras = 40;
+            
+            error_log("DEBUG: Limite fixo: {$limiteHoras}h");
+            
+            // Buscar TODOS os IDs de atividades que contenham "Curso de extensão na área específica"
+            $db = Database::getInstance()->getConnection();
+            
+            // Buscar IDs de ambas as tabelas (BCC17 e BCC23)
+            $idsAtividades = [];
+            
+            // Buscar na tabela BCC23
+            $sqlBCC23 = "SELECT id FROM atividadesdisponiveisbcc23 WHERE titulo LIKE '%Curso de extensão na área específica%'";
+            $stmtBCC23 = $db->prepare($sqlBCC23);
+            $stmtBCC23->execute();
+            $resultBCC23 = $stmtBCC23->get_result();
+            while ($row = $resultBCC23->fetch_assoc()) {
+                $idsAtividades[] = $row['id'];
+            }
+            
+            // Buscar na tabela BCC17
+            $sqlBCC17 = "SELECT id FROM atividadesdisponiveisbcc17 WHERE titulo LIKE '%Curso de extensão na área específica%'";
+            $stmtBCC17 = $db->prepare($sqlBCC17);
+            $stmtBCC17->execute();
+            $resultBCC17 = $stmtBCC17->get_result();
+            while ($row = $resultBCC17->fetch_assoc()) {
+                $idsAtividades[] = $row['id'];
+            }
+            
+            error_log("DEBUG: IDs encontrados para 'Curso de extensão na área específica': " . implode(', ', $idsAtividades));
+            
+            // Buscar horas já cadastradas desta atividade específica em TODAS as tabelas
+            $horasJaCadastradas = 0;
+            
+            // Verificar em todas as tabelas de atividades complementares
+            $tabelas = [
+                'atividadecomplementaracc' => 'carga_horaria_solicitada',
+                'AtividadeComplementarEnsino' => 'carga_horaria',
+                'atividadecomplementarestagio' => 'carga_horaria',
+                'atividadecomplementarpesquisa' => 'horas_realizadas'
+            ];
+            
+            foreach ($tabelas as $tabela => $campoHoras) {
+                if (!empty($idsAtividades)) {
+                    $placeholders = str_repeat('?,', count($idsAtividades) - 1) . '?';
+                    $sql = "SELECT SUM({$campoHoras}) as total_horas 
+                            FROM {$tabela} 
+                            WHERE aluno_id = ? 
+                            AND atividade_disponivel_id IN ({$placeholders})
+                            AND status IN ('Aguardando avaliação', 'aprovado')";
+                            
+                    $stmt = $db->prepare($sql);
+                    $params = array_merge([$dados['aluno_id']], $idsAtividades);
+                    $types = str_repeat('i', count($params));
+                    $stmt->bind_param($types, ...$params);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $row = $result->fetch_assoc();
+                    
+                    if ($row && $row['total_horas']) {
+                        $horasJaCadastradas += (int) $row['total_horas'];
+                    }
+                }
+            }
+            
+            error_log("DEBUG: Horas já cadastradas TOTAL: {$horasJaCadastradas}h");
+            
+            // Verificar se já atingiu o limite máximo
+            if ($horasJaCadastradas >= $limiteHoras) {
+                throw new Exception("Limite máximo de {$limiteHoras}h atingido para 'Curso de extensão na área específica'. Você já possui {$horasJaCadastradas}h cadastradas.");
+            }
+            
+            // Verificar se as novas horas excedem o limite
+            $totalHoras = $horasJaCadastradas + $dados['carga_horaria_solicitada'];
+            if ($totalHoras > $limiteHoras) {
+                $horasRestantes = $limiteHoras - $horasJaCadastradas;
+                throw new Exception("Você pode cadastrar no máximo {$horasRestantes}h adicionais para 'Curso de extensão na área específica' (limite total: {$limiteHoras}h, já cadastradas: {$horasJaCadastradas}h)");
+            }
+            
+            error_log("DEBUG: Validação aprovada - Total após cadastro: {$totalHoras}h de {$limiteHoras}h");
+            
+        } catch (Exception $e) {
+            error_log("Erro na validação de limite para Curso de extensão na área específica: " . $e->getMessage());
             throw $e;
         }
     }

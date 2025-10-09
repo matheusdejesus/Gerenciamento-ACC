@@ -5,11 +5,13 @@ require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../models/AtividadeSocialComunitaria.php';
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/LogAcoesController.php';
+require_once __DIR__ . '/../services/HorasLimiteService.php';
 
 use backend\api\config\Database;
 use backend\api\models\AtividadeSocialComunitaria;
 use backend\api\controllers\Controller;
 use backend\api\controllers\LogAcoesController;
+use backend\api\services\HorasLimiteService;
 use Exception;
 use DateTime;
 
@@ -20,6 +22,13 @@ class AtividadeSocialComunitariaController extends Controller {
      */
     public function cadastrarComJWT($dados) {
         try {
+            // VALIDAÇÃO CRÍTICA: Verificar se o aluno já atingiu o limite total de 240h
+            $totalHorasAtual = HorasLimiteService::calcularTotalHorasAluno($dados['aluno_id']);
+            
+            if ($totalHorasAtual >= 240) {
+                throw new Exception("🚫 Limite total de 240 horas já foi atingido. Não é possível cadastrar novas atividades em nenhuma categoria.");
+            }
+            
             // Validações específicas
             if (empty($dados['nome_projeto']) || strlen(trim($dados['nome_projeto'])) < 3) {
                 throw new Exception("Nome do projeto deve ter pelo menos 3 caracteres");
@@ -45,18 +54,22 @@ class AtividadeSocialComunitariaController extends Controller {
                 $dados['local_realizacao'] = $dados['instituicao'];
             }
             
-            // Validar se já existe uma atividade social para este aluno
-            $atividadesExistentes = AtividadeSocialComunitaria::buscarPorAluno($dados['aluno_id']);
-            $horasJaCadastradas = 0;
+            // VALIDAÇÃO CRÍTICA: Verificar limite da categoria Ação Social (30h)
+            // Calcular horas já cadastradas incluindo todas as atividades pendentes e aprovadas
+            $horasJaCadastradas = $this->calcularHorasAcaoSocialCompleta($dados['aluno_id']);
+            $limiteSocial = 30;
+            $horasSolicitadas = $dados['carga_horaria'];
             
-            foreach ($atividadesExistentes as $atividade) {
-                if ($atividade['status'] === 'aprovada') {
-                    $horasJaCadastradas += $atividade['carga_horaria'];
-                }
+            // Verificar se já atingiu o limite da categoria
+            if ($horasJaCadastradas >= $limiteSocial) {
+                throw new Exception("🚫 Limite máximo de {$limiteSocial} horas para atividades de Ação Social já foi atingido. Você já possui {$horasJaCadastradas}h cadastradas nesta categoria (incluindo atividades pendentes de avaliação).");
             }
             
-            if (($horasJaCadastradas + $dados['carga_horaria']) > 30) {
-                throw new Exception("Total de horas em atividades sociais não pode exceder 30 horas. Você já possui {$horasJaCadastradas} horas aprovadas.");
+            // Verificar se a nova atividade excederia o limite da categoria
+            $totalComNovaAtividade = $horasJaCadastradas + $horasSolicitadas;
+            if ($totalComNovaAtividade > $limiteSocial) {
+                $horasRestantes = $limiteSocial - $horasJaCadastradas;
+                throw new Exception("⚠️ Limite da categoria Ação Social seria excedido. Você possui {$horasJaCadastradas}h cadastradas nesta categoria (incluindo atividades pendentes) e pode adicionar no máximo {$horasRestantes}h adicionais. Reduza as horas desta atividade para prosseguir.");
             }
             
             $atividade_id = AtividadeSocialComunitaria::create($dados);
@@ -289,6 +302,36 @@ class AtividadeSocialComunitariaController extends Controller {
                 'success' => false,
                 'error' => $e->getMessage()
             ];
+        }
+    }
+    
+    /**
+     * Calcular total de horas de Ação Social incluindo todas as atividades (pendentes e aprovadas)
+     */
+    private function calcularHorasAcaoSocialCompleta($aluno_id) {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Calcular horas de TODAS as atividades sociais (incluindo pendentes)
+            $sql = "SELECT SUM(horas_realizadas) as total_horas 
+                    FROM AtividadeSocialComunitaria 
+                    WHERE aluno_id = ? 
+                    AND status IN ('Aguardando avaliação', 'aprovado', 'aprovada', 'pendente')";
+                    
+            $stmt = $db->prepare($sql);
+            $stmt->bind_param("i", $aluno_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            
+            $horasCategoria = $row && $row['total_horas'] ? (int) $row['total_horas'] : 0;
+            error_log("DEBUG CALC ACAO SOCIAL COMPLETA - Horas calculadas para aluno {$aluno_id}: {$horasCategoria}h (incluindo pendentes)");
+            
+            return $horasCategoria;
+            
+        } catch (Exception $e) {
+            error_log("Erro ao calcular horas completas da categoria Ação Social: " . $e->getMessage());
+            return 0;
         }
     }
 }

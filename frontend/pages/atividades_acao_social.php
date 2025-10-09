@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atividades de Ação Social - Sistema ACC</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="auth.js"></script>
+    <script src="../assets/js/auth.js"></script>
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body class="bg-gray-50">
@@ -130,6 +130,9 @@
                         <input type="number" id="cargaHoraria" name="carga_horaria" min="1" max="200"
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                                placeholder="Ex: 40" required>
+                        <div id="cargaHoraria-error" class="text-red-500 text-sm mt-1 hidden" role="alert">
+                            A carga horária não pode exceder 30 horas
+                        </div>
                     </div>
 
                     <!-- Descrição das Atividades -->
@@ -197,8 +200,21 @@
                 return;
             }
 
-            // Atividades de ação social disponíveis para todos os alunos
+            // Verificar se a matrícula está entre 2017 e 2022
+            if (user && user.matricula) {
+                const anoMatricula = parseInt(user.matricula.substring(0, 4));
+                if (anoMatricula < 2017 || anoMatricula > 2022) {
+                    alert('Atividades de Ação Social estão disponíveis apenas para alunos com matrícula entre 2017 e 2022.');
+                    window.location.href = 'home_aluno.php';
+                    return;
+                }
+            } else {
+                alert('Não foi possível verificar sua matrícula. Entre em contato com o suporte.');
+                window.location.href = 'home_aluno.php';
+                return;
+            }
 
+            // Atividades de ação social disponíveis apenas para alunos 2017-2022
             carregarAtividades();
         });
 
@@ -392,7 +408,18 @@
                     body: formData
                 });
                 
-                const result = await response.json();
+                // Verificar se a resposta é válida antes de tentar fazer parse do JSON
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Erro ao fazer parse do JSON:', parseError);
+                    console.error('Resposta recebida:', responseText);
+                    throw new Error('Resposta inválida do servidor. Verifique os logs do console.');
+                }
                 
                 if (!response.ok || !result.success) {
                     throw new Error(result.error || 'Erro ao cadastrar atividade.');
@@ -420,6 +447,20 @@
         // Validação de carga horária em tempo real
         document.getElementById('cargaHoraria').addEventListener('input', function() {
             const valor = parseInt(this.value);
+            const errorDiv = document.getElementById('cargaHoraria-error');
+            
+            // Validação para mais de 30 horas
+            if (valor > 30) {
+                this.classList.add('border-red-500');
+                this.classList.remove('border-gray-300');
+                errorDiv.classList.remove('hidden');
+            } else {
+                this.classList.remove('border-red-500');
+                this.classList.add('border-gray-300');
+                errorDiv.classList.add('hidden');
+            }
+            
+            // Validação geral (1-200 horas)
             if (valor && (valor < 1 || valor > 200)) {
                 this.setCustomValidity('A carga horária deve estar entre 1 e 200 horas.');
             } else {

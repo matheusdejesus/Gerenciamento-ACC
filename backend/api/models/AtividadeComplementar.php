@@ -1262,9 +1262,17 @@ class AtividadeComplementar {
     public static function listarCategorias($userData = null) {
         try {
             // Log dos dados recebidos para debug
+            error_log("=== DEBUG listarCategorias INICIADO ===");
             error_log("listarCategorias - userData recebido: " . json_encode($userData));
             
             $db = \backend\api\config\Database::getInstance()->getConnection();
+            
+            if (!$db) {
+                error_log("ERRO: Conexão com banco de dados falhou");
+                throw new \Exception("Erro de conexão com banco de dados");
+            }
+            
+            error_log("Conexão com banco estabelecida com sucesso");
             
             // Determinar tabela baseada na matrícula do aluno
             $matricula = null;
@@ -1277,31 +1285,49 @@ class AtividadeComplementar {
             
             error_log("Usando tabela de categoria: " . $tabelaCategoria);
             
+            // Verificar se a tabela existe antes de fazer a query
+            $checkTable = $db->query("SHOW TABLES LIKE '{$tabelaCategoria}'");
+            if (!$checkTable || $checkTable->num_rows === 0) {
+                error_log("AVISO: Tabela {$tabelaCategoria} não existe, usando fallback");
+                $tabelaCategoria = 'categoriaatividadebcc23';
+            }
+            
             // Tentar a tabela determinada pela matrícula
             $sql = "SELECT id, descricao as nome FROM {$tabelaCategoria} ORDER BY descricao";
+            error_log("Executando SQL: " . $sql);
+            
             $result = $db->query($sql);
             
-            // Se a query falhar, tentar fallbacks
+            // Se a query falhar, usar fallback apenas para tabelas existentes
             if (!$result) {
+                error_log("ERRO na query principal: " . $db->error);
                 error_log("Tabela {$tabelaCategoria} não encontrada, tentando categoriaatividadebcc23");
                 $sql = "SELECT id, descricao as nome FROM categoriaatividadebcc23 ORDER BY descricao";
+                error_log("Executando SQL fallback: " . $sql);
                 $result = $db->query($sql);
                 
                 if (!$result) {
-                    error_log("Tabela categoriaatividadebcc23 não encontrada, usando categoriaatividade");
-                    $sql = "SELECT id, descricao as nome FROM categoriaatividade ORDER BY descricao";
-                    $result = $db->query($sql);
+                    error_log("ERRO no fallback: " . $db->error);
+                    error_log("Erro: Nenhuma tabela de categoria encontrada");
+                    throw new \Exception("Erro ao acessar tabelas de categoria");
                 }
             }
             
             $categorias = [];
             if ($result) {
+                error_log("Query executada com sucesso, processando resultados...");
+                $count = 0;
                 while ($row = $result->fetch_assoc()) {
                     $categorias[] = [
                         'id' => (int)$row['id'],
                         'nome' => $row['nome']
                     ];
+                    $count++;
                 }
+                error_log("Total de categorias encontradas: " . $count);
+                error_log("Categorias: " . json_encode($categorias));
+            } else {
+                error_log("ERRO: Resultado da query é null");
             }
             
             // Aplicar filtro para alunos com matrícula 2023+
@@ -1331,12 +1357,15 @@ class AtividadeComplementar {
                 error_log("Usuário não é aluno ou dados insuficientes - mantendo todas as categorias");
             }
             
+            error_log("=== DEBUG listarCategorias FINALIZADO - Retornando " . count($categorias) . " categorias ===");
             return $categorias;
         } catch (Exception $e) {
-            error_log("Erro em AtividadeComplementar::listarCategorias: " . $e->getMessage());
+            error_log("ERRO CRÍTICO em AtividadeComplementar::listarCategorias: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             
             // Fallback para a tabela padrão em caso de erro
             try {
+                error_log("Tentando fallback de emergência...");
                 $db = \backend\api\config\Database::getInstance()->getConnection();
                 
                 // Tentar fallbacks em ordem
@@ -1344,11 +1373,14 @@ class AtividadeComplementar {
                 $result = null;
                 
                 foreach ($tabelasFallback as $tabela) {
+                    error_log("Tentando tabela fallback: " . $tabela);
                     $sql = "SELECT id, descricao as nome FROM {$tabela} ORDER BY descricao";
                     $result = $db->query($sql);
                     if ($result) {
                         error_log("Fallback usando tabela: " . $tabela);
                         break;
+                    } else {
+                        error_log("Falha na tabela {$tabela}: " . $db->error);
                     }
                 }
                 
@@ -1360,6 +1392,7 @@ class AtividadeComplementar {
                             'nome' => $row['nome']
                         ];
                     }
+                    error_log("Fallback bem-sucedido - " . count($categorias) . " categorias encontradas");
                 }
                 
                 // Aplicar o mesmo filtro no fallback
@@ -1380,7 +1413,7 @@ class AtividadeComplementar {
                 
                 return $categorias;
             } catch (Exception $fallbackError) {
-                error_log("Erro no fallback: " . $fallbackError->getMessage());
+                error_log("ERRO CRÍTICO no fallback: " . $fallbackError->getMessage());
                 throw $e;
             }
         }
