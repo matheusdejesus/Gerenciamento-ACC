@@ -6,17 +6,15 @@
     <title>Nova Atividade - ACC Discente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    
+    <!-- Carregar AuthClient PRIMEIRO, antes de qualquer outro script -->
+    <script src="../assets/js/auth.js"></script>
+    
     <style>
         .bg-pattern {
             background-color: #0D1117;
         }
     </style>
-    <script>
-        console.log('🔥 HEAD SCRIPT - Página carregando...');
-        window.addEventListener('DOMContentLoaded', function() {
-            console.log('🔥 DOM LOADED - Página pronta!');
-        });
-    </script>
 </head>
 <body class="bg-pattern font-montserrat min-h-screen flex flex-col">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
@@ -65,25 +63,6 @@
             </main>
         </div>
     </div>
-    <div id="modalDetalhes" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
-            <div class="p-4" style="background-color: #151B23">
-                <h3 class="text-xl font-bold text-white">Detalhes da Atividade</h3>
-            </div>
-            <div class="p-6">
-                <div id="conteudoDetalhes">
-                </div>
-                <div class="flex justify-end gap-2 mt-6">
-                    <button onclick="fecharModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        Fechar
-                    </button>
-                    <button id="btnSelecionarModal" class="px-4 py-2 text-white rounded-lg" style="background-color: #1A7F37">
-                        Selecionar Atividade
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <footer class="w-full py-6" style="background-color: #151B23">
         <div class="max-w-7xl mx-auto px-4">
@@ -98,11 +77,8 @@
         </div>
     </footer>
     
-    <script src="auth.js"></script>
+
     <script>
-        // Forçar logs no console
-        console.log('🎯 Script carregado - nova_atividade.php');
-        
         // Verificar autenticação JWT
         function verificarAutenticacao() {
             if (!AuthClient.isLoggedIn()) {
@@ -121,7 +97,9 @@
 
         // Carregar categorias via JWT
         let todasCategorias = [];
-        let isAlunoAntigo = false; // Flag para identificar alunos de 2017-2022
+        let isAlunoAntigo = false;
+        let tentativasCarregamento = 0;
+        const MAX_TENTATIVAS = 3;
 
         // Verificar se o aluno tem matrícula entre 2017 e 2022
         function verificarAlunoAntigo() {
@@ -129,34 +107,145 @@
             if (user && user.matricula) {
                 const anoMatricula = parseInt(user.matricula.substring(0, 4));
                 isAlunoAntigo = anoMatricula >= 2017 && anoMatricula <= 2022;
-                console.log('Ano da matrícula:', anoMatricula, 'É aluno antigo:', isAlunoAntigo);
+                console.log('🎓 Aluno antigo detectado:', isAlunoAntigo, 'Ano matrícula:', anoMatricula);
+            }
+        }
+
+        // Função para aguardar um tempo específico
+        function aguardar(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Verificar se AuthClient está disponível e carregado
+        async function verificarAuthClientDisponivel() {
+            let tentativas = 0;
+            const maxTentativas = 10;
+            
+            while (tentativas < maxTentativas) {
+                if (typeof AuthClient !== 'undefined' && AuthClient.isLoggedIn()) {
+                    console.log('✅ AuthClient disponível e usuário logado');
+                    return true;
+                }
+                
+                console.log(`⏳ Aguardando AuthClient... Tentativa ${tentativas + 1}/${maxTentativas}`);
+                await aguardar(500); // Aguardar 500ms
+                tentativas++;
+            }
+            
+            console.error('❌ AuthClient não disponível após múltiplas tentativas');
+            return false;
+        }
+
+        // Verificar conectividade com o servidor
+        async function verificarConectividade() {
+            try {
+                console.log('🌐 Verificando conectividade com o servidor...');
+                const response = await fetch('../../backend/api/routes/listar_categorias.php', {
+                    method: 'HEAD',
+                    headers: {
+                        'X-API-Key': AuthClient.getApiKey() || 'frontend-gerenciamento-acc-2025'
+                    }
+                });
+                
+                console.log('📡 Status de conectividade:', response.status);
+                return response.status < 500; // Aceitar até erros 4xx, mas não 5xx
+            } catch (error) {
+                console.error('❌ Erro de conectividade:', error);
+                return false;
             }
         }
 
         async function carregarCategorias() {
-            console.log('🔄 Iniciando carregamento de categorias...');
             try {
-                console.log('📡 Fazendo requisição para listar_categorias.php');
-                const response = await AuthClient.fetch('/api/routes/listar_categorias.php', {
-                    method: 'POST'
+                tentativasCarregamento++;
+                console.log(`🔄 Iniciando carregamento de categorias - Tentativa ${tentativasCarregamento}/${MAX_TENTATIVAS}`);
+                
+                // Verificar se AuthClient está disponível
+                const authDisponivel = await verificarAuthClientDisponivel();
+                if (!authDisponivel) {
+                    throw new Error('AuthClient não disponível - redirecionando para login');
+                }
+                
+                // Verificar conectividade
+                const conectividade = await verificarConectividade();
+                if (!conectividade) {
+                    throw new Error('Servidor não disponível');
+                }
+                
+                // Verificar tokens antes da requisição
+                const token = AuthClient.getToken();
+                const apiKey = AuthClient.getApiKey();
+                const user = AuthClient.getUser();
+                
+                console.log('🎫 Token disponível:', !!token);
+                console.log('🔑 API Key disponível:', !!apiKey);
+                console.log('👤 Usuário disponível:', !!user);
+                
+                if (!token) {
+                    console.error('❌ Token JWT não encontrado - fazendo logout');
+                    AuthClient.logout();
+                    return;
+                }
+                
+                if (!apiKey) {
+                    console.error('❌ API Key não encontrada - usando padrão');
+                    localStorage.setItem('acc_api_key', 'frontend-gerenciamento-acc-2025');
+                }
+                
+                console.log('🌐 Fazendo requisição para categorias...');
+                
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_categorias.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
                 });
-                console.log('📥 Resposta recebida:', response.status, response.statusText);
+                
+                console.log('📡 Status da resposta:', response.status);
+                
+                if (!response.ok) {
+                    console.error('❌ Resposta não OK:', response.status, response.statusText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
-                console.log('📊 Dados da resposta:', data);
+                console.log('📊 Resposta da API:', data);
                 
-                if (data.success) {
-                    todasCategorias = data.data || [];
-                    console.log('✅ Categorias carregadas:', todasCategorias);
+                if (data.success && data.data) {
+                    todasCategorias = data.data;
+                    console.log('✅ Categorias carregadas com sucesso:', todasCategorias.length);
                     renderizarCategorias();
                     document.getElementById('alertaCategorias').classList.add('hidden');
+                    tentativasCarregamento = 0; // Reset contador em caso de sucesso
                 } else {
-                    console.error('❌ Erro na resposta da API:', data);
-                    document.getElementById('alertaCategorias').classList.remove('hidden');
+                    console.error('❌ Erro na resposta da API:', data.error || 'Erro desconhecido');
+                    throw new Error(data.error || 'Erro ao carregar categorias');
                 }
-            } catch (e) {
-                console.error('💥 Erro ao carregar categorias:', e);
-                document.getElementById('alertaCategorias').classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('💥 Erro ao carregar categorias:', error);
+                
+                // Mostrar alerta de erro
+                const alertaElement = document.getElementById('alertaCategorias');
+                alertaElement.classList.remove('hidden');
+                alertaElement.innerHTML = `
+                    <p class="text-yellow-800">⚠️ ${error.message}</p>
+                    ${tentativasCarregamento < MAX_TENTATIVAS ? 
+                        `<p class="text-yellow-600 text-sm mt-2">Tentando novamente em 3 segundos... (${tentativasCarregamento}/${MAX_TENTATIVAS})</p>` : 
+                        '<p class="text-red-600 text-sm mt-2">Máximo de tentativas atingido. Recarregue a página ou verifique sua conexão.</p>'
+                    }
+                `;
+                
+                // Retry automático se não atingiu o máximo de tentativas
+                if (tentativasCarregamento < MAX_TENTATIVAS) {
+                    console.log(`🔄 Tentando novamente em 3 segundos... (${tentativasCarregamento}/${MAX_TENTATIVAS})`);
+                    setTimeout(() => {
+                        carregarCategorias();
+                    }, 3000);
+                } else {
+                    console.error('❌ Máximo de tentativas atingido para carregamento de categorias');
+                }
             }
         }
 
@@ -176,7 +265,8 @@
                 'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
                 'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
                 'Estágio': { cor: '#F59E0B', icone: '💼' },
-                'Ação Social': { cor: '#DC2626', icone: '🤝' } // Nova categoria para alunos antigos
+                'Ação Social': { cor: '#DC2626', icone: '🤝' },
+                'Atividades sociais e comunitárias': { cor: '#DC2626', icone: '🤝' }
             };
 
             // Se for aluno antigo (2017-2022), mostrar interface especial
@@ -186,7 +276,7 @@
                     { nome: 'Ensino', config: categoriaConfig['Ensino'] },
                     { nome: 'Estágio', config: categoriaConfig['Estágio'] },
                     { nome: 'Pesquisa', config: categoriaConfig['Pesquisa'] },
-                    { nome: 'Ação Social', config: categoriaConfig['Ação Social'] }
+                    { nome: 'Atividades sociais e comunitárias', config: categoriaConfig['Atividades sociais e comunitárias'] }
                 ];
 
                 container.innerHTML = `
@@ -259,7 +349,8 @@
                 'Pesquisa': 'atividades_pesquisa.php',
                 'Atividades extracurriculares': 'atividades_extracurriculares.php',
                 'Estágio': 'atividades_estagio.php',
-                'Ação Social': 'atividades_acao_social.php' // Nova página para Ação Social
+                'Ação Social': 'atividades_acao_social.php',
+                'Atividades sociais e comunitárias': 'atividades_acao_social.php'
             };
             
             const pagina = paginasCategoria[nomeCategoria];
@@ -270,11 +361,34 @@
             }
         }
 
-        // Inicializar verificação e carregar categorias
-        console.log('🚀 Iniciando página nova_atividade.php');
-        verificarAlunoAntigo();
-        console.log('🔍 Chamando carregarCategorias()...');
-        carregarCategorias();
+        // Inicializar página com verificação de dependências
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 DOM carregado - iniciando verificações...');
+            
+            // Verificar se AuthClient está disponível
+            if (typeof AuthClient === 'undefined') {
+                console.error('❌ AuthClient não carregado - recarregando página');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+                return;
+            }
+            
+            // Verificar autenticação
+            if (!AuthClient.isLoggedIn()) {
+                console.log('❌ Usuário não autenticado - redirecionando para login');
+                window.location.href = 'login.php';
+                return;
+            }
+            
+            console.log('✅ Dependências verificadas - iniciando carregamento');
+            verificarAlunoAntigo();
+            
+            // Aguardar um pouco para garantir que tudo está carregado
+            setTimeout(() => {
+                carregarCategorias();
+            }, 100);
+        });
     </script>
 </body>
 </html>

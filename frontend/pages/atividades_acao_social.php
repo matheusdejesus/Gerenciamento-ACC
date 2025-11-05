@@ -42,6 +42,7 @@
                 </div>
                 
 
+
             </div>
 
             <!-- Lista de Atividades -->
@@ -135,21 +136,6 @@
                         </div>
                     </div>
 
-                    <!-- Descrição das Atividades -->
-                    <div>
-                        <label for="descricaoAtividades" class="block text-sm font-medium text-gray-700 mb-2">
-                            Descrição das Atividades Realizadas *
-                        </label>
-                        <textarea id="descricaoAtividades" name="descricao_atividades" rows="4"
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                                  placeholder="Descreva detalhadamente as atividades realizadas no projeto social..."
-                                  required></textarea>
-                    </div>
-
-
-
-
-
                     <!-- Comprovante -->
                     <div>
                         <label for="declaracao" class="block text-sm font-medium text-gray-700 mb-2">
@@ -228,8 +214,8 @@
             try {
                 console.log('Carregando atividades de ação social...');
                 
-                // Buscar atividade de Ação Social da API usando AuthClient.fetch()
-                const response = await AuthClient.fetch('../../backend/api/routes/atividade_social_comunitaria.php?disponiveis=true', {
+                // Buscar atividades de Ação Social da nova API usando AuthClient.fetch()
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?type=acao_social', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
@@ -244,7 +230,7 @@
                 const data = await response.json();
                 console.log('Dados recebidos da API:', data);
                 
-                if (!data.success || !data.data || data.data.length === 0) {
+                if (!data.success || !data.data || !data.data.atividades || data.data.atividades.length === 0) {
                     console.log('Nenhuma atividade encontrada ou erro na resposta');
                     container.classList.add('hidden');
                     mensagemVazia.classList.remove('hidden');
@@ -253,21 +239,21 @@
 
                 // Exibir todas as atividades disponíveis
                 let cardsHTML = '';
-                data.data.forEach((atividade, index) => {
+                data.data.atividades.forEach((atividade, index) => {
                     cardsHTML += `
                         <div class="atividade-card bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300">
                             <div class="p-4" style="background-color: #DC2626">
-                                <h3 class="text-lg font-bold text-white">${atividade.titulo}</h3>
+                                <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
                                 <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 mt-2">
-                                    ${atividade.categoria_nome || 'Ação Social'}
+                                    ${atividade.categoria || 'Ação Social'}
                                 </span>
                             </div>
                             <div class="p-4">
-                                <p class="text-gray-600 text-sm mb-4">${atividade.observacoes || 'Atividade de ação social voltada para projetos comunitários e voluntariado.'}</p>
+                                <p class="text-gray-600 text-sm mb-4">${atividade.observacoes || atividade.descricao || 'Atividade de ação social voltada para projetos comunitários e voluntariado.'}</p>
                                 <div class="space-y-2 mb-4">
                                     <div class="flex justify-between text-sm">
                                         <span class="font-medium" style="color: #DC2626">Horas Máximas:</span>
-                                        <span class="text-gray-600">${atividade.carga_horaria_maxima_por_atividade}h</span>
+                                        <span class="text-gray-600">${atividade.carga_horaria_maxima}h</span>
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
@@ -290,7 +276,7 @@
                 container.innerHTML = `<div class="atividades-grid">${cardsHTML}</div>`;
                 
                 // Armazenar todas as atividades para uso posterior
-                window.atividadesDisponiveis = data.data;
+                window.atividadesDisponiveis = data.data.atividades;
                 
             } catch (error) {
                 console.error('Erro ao carregar atividades:', error);
@@ -306,19 +292,19 @@
 
             document.getElementById('conteudoDetalhes').innerHTML = `
                 <div class="p-6">
-                    <h4 class="text-lg font-semibold mb-4" style="color: #DC2626">${atividade.titulo}</h4>
+                    <h4 class="text-lg font-semibold mb-4" style="color: #DC2626">${atividade.nome}</h4>
                     <div class="space-y-4">
                         <div>
                             <span class="font-medium text-gray-700">Descrição:</span>
-                            <p class="mt-1 text-gray-600">${atividade.observacoes || 'Atividade de ação social voltada para projetos comunitários, voluntariado e ações que beneficiem a sociedade.'}</p>
+                            <p class="mt-1 text-gray-600">${atividade.observacoes || atividade.descricao || 'Atividade de ação social voltada para projetos comunitários, voluntariado e ações que beneficiem a sociedade.'}</p>
                         </div>
                         <div>
                             <span class="font-medium text-gray-700">Carga Horária Máxima:</span>
-                            <span class="ml-2 text-gray-600">${atividade.carga_horaria_maxima_por_atividade} horas</span>
+                            <span class="ml-2 text-gray-600">${atividade.carga_horaria_maxima} horas</span>
                         </div>
                         <div>
                             <span class="font-medium text-gray-700">Categoria:</span>
-                            <span class="ml-2 text-gray-600">${atividade.categoria_nome || 'Ação Social'}</span>
+                            <span class="ml-2 text-gray-600">${atividade.categoria || 'Ação Social'}</span>
                         </div>
                         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                             <h5 class="font-medium text-yellow-800 mb-2">Documentos Necessários:</h5>
@@ -382,10 +368,9 @@
                 const nomeProjeto = formData.get('nome_projeto');
                 const instituicao = formData.get('instituicao');
                 const cargaHoraria = formData.get('carga_horaria');
-                const descricaoAtividades = formData.get('descricao_atividades');
                 const declaracao = formData.get('declaracao');
                 
-                if (!nomeProjeto || !instituicao || !cargaHoraria || !descricaoAtividades) {
+                if (!nomeProjeto || !instituicao || !cargaHoraria) {
                     throw new Error('Por favor, preencha todos os campos obrigatórios.');
                 }
                 
@@ -399,27 +384,32 @@
                     throw new Error('A carga horária deve estar entre 1 e 200 horas.');
                 }
                 
-                // Enviar para o endpoint
-                const response = await fetch('../../backend/api/routes/atividade_social_comunitaria.php', {
+                // Preparar dados para a API cadastrar_atividades.php
+                const apiFormData = new FormData();
+                
+                // Mapear campos do formulário para os campos esperados pela API
+                apiFormData.append('atividades_por_resolucao_id', document.getElementById('atividadeId').value);
+                apiFormData.append('titulo', nomeProjeto);
+                
+                // Usar apenas o nome da instituição como descrição
+                apiFormData.append('descricao', instituicao);
+                
+                apiFormData.append('ch_solicitada', cargaHoraria);
+                
+                // Adicionar arquivo se existir
+                if (declaracao && declaracao.size > 0) {
+                    apiFormData.append('declaracao', declaracao);
+                }
+                
+                // Enviar para o endpoint correto
+                const response = await AuthClient.fetch('../../backend/api/routes/cadastrar_atividades.php', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + AuthClient.getToken()
-                    },
-                    body: formData
+                    body: apiFormData
                 });
                 
-                // Verificar se a resposta é válida antes de tentar fazer parse do JSON
-                const responseText = await response.text();
-                console.log('Response text:', responseText);
-                
-                let result;
-                try {
-                    result = JSON.parse(responseText);
-                } catch (parseError) {
-                    console.error('Erro ao fazer parse do JSON:', parseError);
-                    console.error('Resposta recebida:', responseText);
-                    throw new Error('Resposta inválida do servidor. Verifique os logs do console.');
-                }
+                // AuthClient.fetch já processa o JSON, então podemos acessar diretamente
+                const result = response.data || await response.json();
+                console.log('Response data:', result);
                 
                 if (!response.ok || !result.success) {
                     throw new Error(result.error || 'Erro ao cadastrar atividade.');
@@ -467,6 +457,8 @@
                 this.setCustomValidity('');
             }
         });
+
+
     </script>
 </body>
 </html>

@@ -27,5 +27,27 @@ class Controller {
             }
         }
     }
+    
+    protected function enviarSucesso($dados = null, $mensagem = 'Sucesso') {
+        $response = [
+            'sucesso' => true,
+            'mensagem' => $mensagem
+        ];
+        
+        if ($dados !== null) {
+            $response['dados'] = $dados;
+        }
+        
+        $this->sendJsonResponse($response, 200);
+    }
+    
+    protected function enviarErro($mensagem, $codigo = 400) {
+        $response = [
+            'sucesso' => false,
+            'mensagem' => $mensagem
+        ];
+        
+        $this->sendJsonResponse($response, $codigo);
+    }
 }
 ?>

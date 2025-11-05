@@ -10,7 +10,7 @@ class Cadastro {
     public static function emailExists($email) {
         try {
             $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT id FROM Usuario WHERE email = ?");
+            $stmt = $db->prepare("SELECT id FROM usuario WHERE email = ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();

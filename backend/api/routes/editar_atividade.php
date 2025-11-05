@@ -14,14 +14,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     require_once __DIR__ . '/../config/config.php';
-    require_once __DIR__ . '/../controllers/AtividadesDisponiveisController.php';
+    require_once __DIR__ . '/../controllers/CadastrarAtividadesController.php';
     require_once __DIR__ . '/../middleware/AuthMiddleware.php';
     require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
     
     \backend\api\middleware\ApiKeyMiddleware::validateApiKey();
     
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $controller = new \backend\api\controllers\AtividadesDisponiveisController();
+        $controller = new \backend\api\controllers\CadastrarAtividadesController();
         $controller->editar();
     } else {
         http_response_code(405);

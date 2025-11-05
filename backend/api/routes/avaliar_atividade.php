@@ -1,252 +1,136 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost');
-header('Access-Control-Allow-Methods: GET, POST');
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
-header('Access-Control-Allow-Credentials: true');
 
+// Tratar requisições OPTIONS (CORS preflight)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Iniciar output buffering
 ob_start();
-ob_clean();
 
-require_once __DIR__ . '/../config/database.php';
+// Incluir dependências
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
-require_once __DIR__ . '/../controllers/AtividadeComplementarController.php';
+require_once __DIR__ . '/../controllers/AvaliarAtividadeController.php';
 
-use backend\api\controllers\AtividadeComplementarController;
 use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
+use backend\api\controllers\AvaliarAtividadeController;
 
-ApiKeyMiddleware::validateApiKey();
-
-function enviarErro($mensagem, $codigo = 500) {
-    while (ob_get_level()) {
-        ob_end_clean();
-    }
+// Função para enviar resposta de erro
+function enviarErro($mensagem, $codigo = 400) {
     http_response_code($codigo);
-    header('Content-Type: application/json');
     echo json_encode([
-        'success' => false,
-        'error' => $mensagem
+        'sucesso' => false,
+        'error' => $mensagem,
+        'timestamp' => date('Y-m-d H:i:s')
     ]);
-    exit;
+    ob_end_flush();
+    exit();
+}
+
+// Função para enviar resposta de sucesso
+function enviarSucesso($dados, $mensagem = 'Operação realizada com sucesso') {
+    http_response_code(200);
+    echo json_encode([
+        'sucesso' => true,
+        'mensagem' => $mensagem,
+        'dados' => $dados,
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+    ob_end_flush();
+    exit();
 }
 
 try {
-    error_log("=== AVALIAR_ATIVIDADE.PHP ===");
-    error_log("Method: " . $_SERVER['REQUEST_METHOD']);
-    error_log("GET: " . print_r($_GET, true));
-    error_log("POST: " . print_r($_POST, true));
-    error_log("FILES: " . print_r($_FILES, true));
+    // Verificar autenticação
+    $usuarioLogado = null;
     
-    // Rejeitar certificado (COORDENADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'rejeitar_certificado') {
-        error_log("=== ROTA COORDENADOR: REJEITAR CERTIFICADO ===");
-        
-        $usuario = AuthMiddleware::requireCoordenador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $atividade_id = $_POST['atividade_id'] ?? null;
-        $tipo = $_POST['tipo'] ?? null;
-        $observacoes = $_POST['observacoes'] ?? '';
-        
-        error_log("Parâmetros recebidos:");
-        error_log("- atividade_id: " . $atividade_id);
-        error_log("- tipo: " . $tipo);
-        error_log("- observacoes: " . $observacoes);
-        
-        if (!$atividade_id) {
-            error_log("ID da atividade não fornecido");
-            enviarErro('ID da atividade é obrigatório', 400);
+    // Tentar autenticação via API Key primeiro
+    $usuarioLogado = ApiKeyMiddleware::verificarApiKey();
+    if (!$usuarioLogado) {
+        // Se não tem API Key, tentar JWT
+        $usuarioLogado = AuthMiddleware::validateToken();
+        if (!$usuarioLogado) {
+            enviarErro('Token de autenticação inválido ou expirado', 401);
         }
-        
-        if (!$observacoes) {
-            error_log("Observações não fornecidas");
-            enviarErro('Observações são obrigatórias para rejeição', 400);
-        }
-        
-        error_log("Processando rejeição do certificado para atividade ID: " . $atividade_id);
-        
-        $controller = new AtividadeComplementarController();
-        $controller->rejeitarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes, $tipo);
-        exit;
+    }
+    
+    error_log("[DEBUG] Usuário autenticado: " . json_encode($usuarioLogado));
+
+    // Verificar se é coordenador
+    if ($usuarioLogado['tipo'] !== 'coordenador') {
+        error_log("Tipo de usuário inválido: " . $usuarioLogado['tipo']);
+        enviarErro('Acesso negado. Apenas coordenadores podem avaliar atividades.', 403);
     }
 
-    // Aprovar certificado (COORDENADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'aprovar_certificado') {
-        error_log("=== ROTA COORDENADOR: APROVAR CERTIFICADO ===");
+    // Instanciar o controller
+    $controller = new AvaliarAtividadeController();
+    
+    // Verificar método HTTP e ação
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $acao = $_GET['acao'] ?? '';
         
-        $usuario = AuthMiddleware::requireCoordenador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $atividade_id = $_POST['atividade_id'] ?? null;
-        $tipo = $_POST['tipo'] ?? null;
-        $observacoes = $_POST['observacoes'] ?? '';
-        
-        error_log("Parâmetros recebidos:");
-        error_log("- atividade_id: " . $atividade_id);
-        error_log("- tipo: " . $tipo);
-        error_log("- observacoes: " . $observacoes);
-        
-        if (!$atividade_id) {
-            error_log("ID da atividade não fornecido");
-            enviarErro('ID da atividade é obrigatório', 400);
+        switch ($acao) {
+            case 'certificados_processados':
+                $controller->listarCertificadosProcessados($usuarioLogado);
+                break;
+            default:
+                enviarErro('Ação não especificada ou inválida', 400);
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $acao = $_POST['acao'] ?? '';
         
-        error_log("Processando aprovação do certificado para atividade ID: " . $atividade_id);
-        
-        $controller = new AtividadeComplementarController();
-        $controller->aprovarCertificadoComJWT($usuario['id'], $atividade_id, $observacoes, $tipo);
-        exit;
-    }
-    
-    // Certificados pendentes (COORDENADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'certificados_pendentes') {
-        error_log("=== ROTA COORDENADOR: CERTIFICADOS PENDENTES ===");
-        error_log("Parâmetros GET: " . print_r($_GET, true));
-        
-        $usuario = AuthMiddleware::requireCoordenador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        error_log("ID do coordenador: " . $usuario['id']);
-        
-        $controller = new AtividadeComplementarController();
-        error_log("Controller criado, chamando listarCertificadosPendentesCoordenadorComJWT...");
-        $controller->listarCertificadosPendentesCoordenadorComJWT($usuario['id']);
-        exit;
-    }
-    
-    // Certificados processados (COORDENADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'certificados_processados') {
-        error_log("=== ROTA COORDENADOR: CERTIFICADOS PROCESSADOS ===");
-        
-        $usuario = AuthMiddleware::requireCoordenador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $controller = new AtividadeComplementarController();
-        $controller->listarCertificadosProcessadosCoordenadorComJWT($usuario['id']);
-        exit;
-    }
-
-
-    
-    // Enviar certificado (ALUNO)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'enviar_certificado_processado') {
-        error_log("=== ROTA ALUNO: ENVIAR CERTIFICADO ===");
-        
-        $usuario = AuthMiddleware::requireAluno();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $atividade_id = $_POST['atividade_id'] ?? null;
-        if (!$atividade_id) {
-            enviarErro('ID da atividade é obrigatório', 400);
+        switch ($acao) {
+            case 'aprovar_certificado':
+                $atividadeId = $_POST['atividade_id'] ?? null;
+                $observacoes = $_POST['observacoes'] ?? '';
+                $chAtribuida = $_POST['ch_atribuida'] ?? null;
+                
+                if (!$atividadeId) {
+                    enviarErro('ID da atividade é obrigatório', 400);
+                }
+                
+                if (!$chAtribuida || $chAtribuida <= 0) {
+                    enviarErro('Carga horária atribuída é obrigatória e deve ser maior que 0', 400);
+                }
+                
+                $controller->aprovarCertificado($atividadeId, $observacoes, $usuarioLogado, $chAtribuida);
+                break;
+                
+            case 'rejeitar_certificado':
+                $atividadeId = $_POST['atividade_id'] ?? null;
+                $observacoes = $_POST['observacoes'] ?? '';
+                
+                if (!$atividadeId) {
+                    enviarErro('ID da atividade é obrigatório', 400);
+                }
+                
+                if (empty(trim($observacoes))) {
+                    enviarErro('Observações são obrigatórias para rejeição', 400);
+                }
+                
+                $controller->rejeitarCertificado($atividadeId, $observacoes, $usuarioLogado);
+                break;
+                
+            default:
+                enviarErro('Ação não especificada ou inválida', 400);
         }
-        
-        $controller = new AtividadeComplementarController();
-        $controller->enviarCertificadoProcessado($usuario['id'], $atividade_id);
-        exit;
+    } else {
+        enviarErro('Método HTTP não permitido', 405);
     }
-    
-    // Upload de certificado pelo orientador
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'upload_certificado') {
-        error_log("=== ROTA ORIENTADOR: UPLOAD CERTIFICADO ===");
-        error_log("Ação detectada: upload_certificado");
-        
-        $usuario = AuthMiddleware::requireOrientador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $atividade_id = $_POST['atividade_id'] ?? null;
-        if (!$atividade_id) {
-            error_log("ID da atividade não fornecido");
-            enviarErro('ID da atividade é obrigatório', 400);
-        }
-        
-        // Verificar se há arquivo enviado
-        if (!isset($_FILES['certificado']) || $_FILES['certificado']['error'] !== UPLOAD_ERR_OK) {
-            error_log("Arquivo de certificado não encontrado ou com erro");
-            error_log("FILES: " . print_r($_FILES, true));
-            enviarErro('Arquivo de certificado é obrigatório', 400);
-        }
-        
-        error_log("Processando upload de certificado para atividade ID: " . $atividade_id);
-        
-        $controller = new AtividadeComplementarController();
-        $controller->processarUploadCertificado($usuario['id'], $atividade_id);
-        exit;
-    }
-    
-    // Avaliar atividade (ORIENTADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
-        if ($input && (isset($input['acao']) || isset($input['atividade_id']))) {
-            error_log("=== ROTA ORIENTADOR: AVALIAR ATIVIDADE (JSON) ===");
-            error_log("Dados JSON recebidos: " . print_r($input, true));
-            
-            $usuario = AuthMiddleware::requireOrientador();
-            error_log("Usuário validado: " . print_r($usuario, true));
-            
-            $controller = new AtividadeComplementarController();
-            $controller->avaliarAtividadeComJWT($usuario['id']);
-            exit;
-        }
-    }
-    
-    // Avaliar atividade (ORIENTADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'avaliar_atividade') {
-        error_log("=== ROTA ORIENTADOR: AVALIAR ATIVIDADE (POST) ===");
-        
-        $usuario = AuthMiddleware::requireOrientador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $controller = new AtividadeComplementarController();
-        $controller->avaliarAtividadeComJWT($usuario['id']);
-        exit;
-    }
-    
-    // Atividades pendentes (ORIENTADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['acao']) && $_GET['acao'] === 'atividades_pendentes') {
-        error_log("=== ROTA ORIENTADOR: ATIVIDADES PENDENTES ===");
-        
-        $usuario = AuthMiddleware::requireOrientador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $controller = new AtividadeComplementarController();
-        $controller->listarPendentesOrientadorComJWT($usuario['id']);
-        exit;
-    }
-
-    // Atividades avaliadas (ORIENTADOR)
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['acao'])) {
-        error_log("=== ROTA ORIENTADOR: ATIVIDADES AVALIADAS (SEM ACAO) ===");
-        
-        $usuario = AuthMiddleware::requireOrientador();
-        error_log("Usuário validado: " . print_r($usuario, true));
-        
-        $controller = new AtividadeComplementarController();
-        $controller->listarAvaliadasOrientadorComJWT($usuario['id']);
-        exit;
-    }
-
-    error_log("Nenhuma rota correspondente encontrada");
-    error_log("Method: " . $_SERVER['REQUEST_METHOD']);
-    error_log("Acao GET: " . ($_GET['acao'] ?? 'null'));
-    error_log("Acao POST: " . ($_POST['acao'] ?? 'null'));
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    error_log("Dados JSON: " . print_r($input, true));
-    
-    enviarErro('Rota não encontrada', 404);
 
 } catch (Exception $e) {
-    error_log("Erro na rota avaliar_atividade: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    enviarErro('Erro interno do servidor: ' . $e->getMessage());
+    error_log("[ERROR] Erro em avaliar_atividade.php: " . $e->getMessage());
+    error_log("[ERROR] Stack trace: " . $e->getTraceAsString());
+    enviarErro('Erro interno do servidor: ' . $e->getMessage(), 500);
 }
 
-if (ob_get_length()) {
-    ob_end_flush();
-}
+// Finalizar output buffering
+ob_end_flush();
 ?>

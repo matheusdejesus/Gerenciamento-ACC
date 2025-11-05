@@ -239,7 +239,13 @@ class AuthClient {
     // Método para fazer login
     static async login(email, senha) {
         try {
-            const response = await fetch('../../backend/api/routes/login.php', {
+            console.log('=== DEBUG LOGIN DETALHADO ===');
+            console.log('Email:', email);
+            console.log('Senha length:', senha.length);
+            console.log('URL da API:', 'http://localhost/Gerenciamento-ACC/backend/api/routes/login.php');
+            console.log('Dados enviados:', { email, senha });
+            
+            const response = await fetch('http://localhost/Gerenciamento-ACC/backend/api/routes/login.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -247,7 +253,11 @@ class AuthClient {
                 body: JSON.stringify({ email, senha })
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            
             const data = await response.json();
+            console.log('Response data:', data);
 
             if (data.success) {
                 // Salvar dados no localStorage
@@ -262,7 +272,8 @@ class AuthClient {
 
                 return data;
             } else {
-                throw new Error(data.error || 'Erro no login');
+                console.log('Login falhou - dados da resposta:', data);
+                throw new Error(data.error || data.message || 'Erro no login');
             }
         } catch (error) {
             console.error('Erro no login:', error);

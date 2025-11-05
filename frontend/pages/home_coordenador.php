@@ -154,6 +154,25 @@
                         </div>
                     </div>
 
+                    <!-- Campo de carga horária atribuída - visível apenas para certificados pendentes -->
+                    <div id="campoCargaHoraria" class="mb-6" style="display: none;">
+                        <h4 class="font-semibold text-gray-700 mb-3">Carga Horária Atribuída</h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="mb-2">
+                                <p class="text-sm text-gray-600">Carga horária solicitada: <span id="cargaHorariaSolicitada" class="font-medium">-</span>h</p>
+                            </div>
+                            <input 
+                                type="number" 
+                                id="cargaHorariaAtribuida" 
+                                min="1" 
+                                class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                                placeholder="Digite a carga horária a ser atribuída..."
+                                required
+                            />
+                            <p class="text-xs text-gray-500 mt-1">A carga horária deve ser entre 1 e a carga horária solicitada</p>
+                        </div>
+                    </div>
+
                     <!-- Campo de observações - visível apenas para certificados pendentes -->
                     <div id="campoObservacoes" class="mb-6" style="display: none;">
                         <h4 class="font-semibold text-gray-700 mb-3">Observações</h4>
@@ -230,67 +249,86 @@
             carregarCertificadosProcessados();
         });
 
-        // Carregar certificados pendentes
+        // Carregar certificados pendentes (atividades enviadas pelos alunos)
         async function carregarCertificadosPendentes() {
-            console.log('=== DEBUG: Iniciando carregamento de certificados pendentes ===');
+            console.log('=== DEBUG: Iniciando carregamento de atividades enviadas pelos alunos ===');
             try {
-                console.log('Fazendo requisição para: ../../backend/api/routes/avaliar_atividade.php?acao=certificados_pendentes');
-                const response = await AuthClient.fetch('../../backend/api/routes/avaliar_atividade.php?acao=certificados_pendentes');
+                console.log('Fazendo requisição para: ../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas');
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas');
                 console.log('Resposta completa da API:', response);
                 
                 const data = response.data;
                 console.log('Dados extraídos da resposta:', data);
                 
                 if (data.success) {
-                    const certificados = data.data || [];
-                    console.log('Certificados encontrados:', certificados);
-                    console.log('Total de certificados:', certificados.length);
+                    const atividades = data.data.atividades || [];
+                    console.log('Atividades encontradas:', atividades);
+                    console.log('Total de atividades:', atividades.length);
                     
-                    if (certificados.length === 0) {
-                        console.log('Nenhum certificado pendente encontrado - exibindo mensagem');
+                    if (atividades.length === 0) {
+                        console.log('Nenhuma atividade pendente encontrada - exibindo mensagem');
                         document.getElementById('tabelaCertificadosPendentes').innerHTML = `
                             <tr>
                                 <td colspan="8" class="text-center text-gray-500 py-8">
-                                    Nenhum certificado pendente
+                                    Nenhuma solicitação de atividade pendente
                                 </td>
                             </tr>
                         `;
                         return;
                     }
                     
-                    console.log('Processando certificados para exibição...');
-                    document.getElementById('tabelaCertificadosPendentes').innerHTML = certificados.map((cert, index) => {
-                        console.log(`Processando certificado ${index + 1}:`, cert);
-                        const titulo = cert.titulo || 'N/A';
-                        const atividade = cert.atividade_nome || 'N/A';
-                        const categoria = cert.categoria_nome || 'N/A';
-                        const certificadoPath = `../../backend/${cert.certificado_caminho}`;
+                    console.log('Processando atividades para exibição...');
+                    document.getElementById('tabelaCertificadosPendentes').innerHTML = atividades.map((atividade, index) => {
+                        console.log(`Processando atividade ${index + 1}:`, atividade);
+                        const titulo = atividade.titulo || 'N/A';
+                        const atividadeNome = atividade.atividade_titulo || 'N/A';
+                        const categoriaNome = atividade.categoria_nome || 'N/A';
+                        const status = atividade.status || 'Pendente';
+                        
+                        // Formatação da data - se data_submissao for um timestamp ou string de data
+                        let dataFormatada = 'N/A';
+                        if (atividade.data_submissao) {
+                            // Se for um timestamp (número), converter para data
+                            if (typeof atividade.data_submissao === 'number') {
+                                // Assumindo que é um timestamp em segundos, converter para milissegundos
+                                const data = new Date(atividade.data_submissao * 1000);
+                                if (!isNaN(data.getTime())) {
+                                    dataFormatada = data.toLocaleDateString('pt-BR');
+                                }
+                            } else {
+                                // Se for uma string de data
+                                const data = new Date(atividade.data_submissao);
+                                if (!isNaN(data.getTime())) {
+                                    dataFormatada = data.toLocaleDateString('pt-BR');
+                                }
+                            }
+                        }
                         
                         return `
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                ${cert.aluno_nome || 'N/A'}
+                                ${atividade.aluno_nome || 'N/A'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.curso_nome || 'N/A'}
+                                ${atividade.curso_nome || 'N/A'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 ${titulo}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${atividade}
+                                ${atividadeNome}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${categoria}
+                                ${categoriaNome}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.horas_aprovadas || cert.carga_horaria_aprovada || 0}h
+                                ${atividade.ch_solicitada || 0}h
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.data_envio ? new Date(cert.data_envio).toLocaleDateString('pt-BR') : 'N/A'}
+                                ${dataFormatada}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button onclick="verDetalhesCertificado(${JSON.stringify(cert).replace(/"/g, '&quot;')})" 
+                                <button onclick="verDetalhesCertificado(${JSON.stringify(atividade).replace(/"/g, '&quot;')})" 
                                         class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition duration-200">
                                     Ver Detalhes
                                 </button>
@@ -298,20 +336,20 @@
                         </tr>
                         `;
                     }).join('');
-                    console.log('Certificados exibidos com sucesso na tabela');
+                    console.log('Atividades exibidas com sucesso na tabela');
                 } else {
                     console.error('API retornou erro:', data.error);
                     console.error('Dados completos da resposta:', data);
                     document.getElementById('tabelaCertificadosPendentes').innerHTML = `
                         <tr>
                             <td colspan="8" class="text-center text-red-500 py-8">
-                                Erro ao carregar certificados pendentes: ${data.error || 'Erro desconhecido'}
+                                Erro ao carregar atividades pendentes: ${data.error || 'Erro desconhecido'}
                             </td>
                         </tr>
                     `;
                 }
             } catch (error) {
-                console.error('Erro na requisição de certificados pendentes:', error);
+                console.error('Erro na requisição de atividades pendentes:', error);
                 console.error('Stack trace:', error.stack);
                 document.getElementById('tabelaCertificadosPendentes').innerHTML = `
                     <tr>
@@ -325,19 +363,18 @@
 
         // Carregar certificados processados
         async function carregarCertificadosProcessados() {
-            console.log('=== DEBUG: Iniciando carregamento de certificados processados ===');
             try {
-                console.log('Fazendo requisição para: /Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?acao=certificados_processados');
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?acao=certificados_processados');
-                console.log('Resposta completa da API (processados):', response);
+                const response = await fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?acao=certificados_processados', {
+                    method: 'GET',
+                    headers: {
+                        'X-API-Key': 'f3f5e327433117921ffa9b5067661d00884781cd5c772bc727a1012a1ab22471'
+                    }
+                });
                 
-                const data = response.data;
-                console.log('Dados extraídos da resposta (processados):', data);
+                const data = await response.json();
                 
-                if (data.success) {
-                    const certificados = data.data || [];
-                    console.log('Certificados processados encontrados:', certificados);
-                    console.log('Total de certificados processados:', certificados.length);
+                if (data.sucesso) {
+                    const certificados = data.dados || [];
                     
                     if (certificados.length === 0) {
                         console.log('Nenhum certificado processado encontrado - exibindo mensagem');
@@ -353,9 +390,9 @@
                     
                     document.getElementById('tabelaCertificadosProcessados').innerHTML = certificados.map(cert => {
                         const titulo = cert.titulo || 'N/A';
-                        const atividade = cert.atividade_nome || cert.titulo || 'N/A';
-                        const certificadoPath = `../../backend/${cert.certificado_processado || cert.certificado_caminho}`;
-                        const statusFormatted = cert.status === 'Aprovado' ? 'Aprovado' : cert.status === 'Rejeitado' ? 'Rejeitado' : cert.status;
+                        const atividade = cert.atividade_titulo || cert.titulo || 'N/A';
+                        const certificadoPath = `../../backend/${cert.caminho_declaracao || cert.certificado_caminho}`;
+                        const statusFormatted = cert.status === 'aprovado' ? 'Aprovado' : cert.status === 'rejeitado' ? 'Rejeitado' : cert.status;
                         
                         return `
                         <tr>
@@ -372,7 +409,7 @@
                                 ${atividade}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.horas_contabilizadas || cert.horas_aprovadas || 0}h
+                                ${cert.ch_atribuida || cert.ch_solicitada || 0}h
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusFormatted === 'Aprovado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
@@ -380,7 +417,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${cert.data_aprovacao ? new Date(cert.data_aprovacao).toLocaleDateString('pt-BR') : 'N/A'}
+                                ${cert.data_avaliacao ? new Date(cert.data_avaliacao).toLocaleDateString('pt-BR') : 'N/A'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <button onclick="verDetalhesProcessado(${JSON.stringify(cert).replace(/"/g, '&quot;')})" 
@@ -396,7 +433,7 @@
                     document.getElementById('tabelaCertificadosProcessados').innerHTML = `
                         <tr>
                             <td colspan="8" class="text-center text-red-500 py-8">
-                                Erro ao carregar certificados processados
+                                Erro ao carregar certificados processados: ${data.error || 'Erro desconhecido'}
                             </td>
                         </tr>
                     `;
@@ -414,31 +451,31 @@
         }
 
         // Função para ver detalhes do certificado PENDENTE (com observações)
-        function verDetalhesCertificado(certificado) {
+        function verDetalhesCertificado(atividade) {
             console.log('=== DEBUG: Abrindo detalhes do certificado pendente ===');
-            console.log('Certificado completo:', certificado);
-            console.log('ID do certificado:', certificado.id);
-            console.log('Tipo do certificado:', certificado.tipo);
-            console.log('Título:', certificado.titulo);
-            console.log('Status:', certificado.status);
+            console.log('Atividade completa:', atividade);
+            console.log('ID da atividade:', atividade.id);
+            console.log('Tipo da atividade:', atividade.tipo);
+            console.log('Título:', atividade.titulo);
+            console.log('Status:', atividade.status);
             
-            certificadoAtual = certificado;
+            certificadoAtual = atividade;
             
             // Preencher informações do aluno
-            document.getElementById('detalheAlunoNome').textContent = certificado.aluno_nome || 'N/A';
-            document.getElementById('detalheAlunoMatricula').textContent = certificado.aluno_matricula || 'N/A';
-            document.getElementById('detalheAlunoCurso').textContent = certificado.curso_nome || 'N/A';
+            document.getElementById('detalheAlunoNome').textContent = atividade.aluno_nome || 'N/A';
+            document.getElementById('detalheAlunoMatricula').textContent = atividade.aluno_matricula || 'N/A';
+            document.getElementById('detalheAlunoCurso').textContent = atividade.curso_nome || 'N/A';
             
-            // Preencher informações da atividade
-            const tituloAtividade = certificado.atividade_nome || certificado.categoria_nome || certificado.titulo || 'N/A';
+            // Preencher informações da atividade com a nova estrutura
+            const tituloAtividade = atividade.titulo || atividade.categoria_nome || 'N/A';
             document.getElementById('detalheAtividadeTitulo').textContent = tituloAtividade;
-            document.getElementById('detalheAtividadeHoras').textContent = (certificado.horas_aprovadas || certificado.carga_horaria_aprovada || 0) + 'h';
-            document.getElementById('detalheDataEnvio').textContent = certificado.data_envio ? 
-                new Date(certificado.data_envio).toLocaleDateString('pt-BR') : 'N/A';
+            document.getElementById('detalheAtividadeHoras').textContent = (atividade.ch_solicitada || 0) + 'h';
+            document.getElementById('detalheDataEnvio').textContent = atividade.data_submissao ? 
+                new Date(atividade.data_submissao).toLocaleDateString('pt-BR') : 'N/A';
             
             // Configurar botão de visualizar certificado
             const btnVisualizarCertificado = document.getElementById('btnVisualizarCertificado');
-            const caminhoCertificado = certificado.certificado_processado || certificado.certificado_caminho;
+            const caminhoCertificado = atividade.caminho_declaracao || atividade.certificado_caminho;
             if (caminhoCertificado) {
                 btnVisualizarCertificado.onclick = () => {
                     const certificadoPath = `/Gerenciamento-ACC/backend/${caminhoCertificado}`;
@@ -446,6 +483,13 @@
                 };
             }
             
+            // MOSTRAR campo de carga horária atribuída para certificados pendentes
+            document.getElementById('campoCargaHoraria').style.display = 'block';
+            document.getElementById('cargaHorariaSolicitada').textContent = atividade.ch_solicitada || 0;
+            const inputCargaHoraria = document.getElementById('cargaHorariaAtribuida');
+            inputCargaHoraria.value = atividade.ch_solicitada || 0; // Valor padrão igual ao solicitado
+            inputCargaHoraria.max = atividade.ch_solicitada || 0;
+
             // MOSTRAR campo de observações para certificados pendentes
             document.getElementById('campoObservacoes').style.display = 'block';
             document.getElementById('observacoesCertificado').value = '';
@@ -495,16 +539,29 @@
             console.log('Tipo:', certificadoAtual.tipo);
 
             const observacoes = document.getElementById('observacoesCertificado').value || '';
+            const cargaHorariaAtribuida = document.getElementById('cargaHorariaAtribuida').value;
             
-            if (!confirm('Tem certeza que deseja aprovar este certificado?')) {
+            // Validar carga horária atribuída
+            if (!cargaHorariaAtribuida || cargaHorariaAtribuida <= 0) {
+                alert('Por favor, informe uma carga horária válida (maior que 0)');
+                return;
+            }
+            
+            const cargaHorariaSolicitada = certificadoAtual.ch_solicitada || 0;
+            if (parseInt(cargaHorariaAtribuida) > cargaHorariaSolicitada) {
+                alert(`A carga horária atribuída não pode ser maior que a solicitada (${cargaHorariaSolicitada}h)`);
+                return;
+            }
+            
+            if (!confirm(`Tem certeza que deseja aprovar este certificado com ${cargaHorariaAtribuida}h?`)) {
                 return;
             }
 
             try {
                 console.log('Enviando aprovação para certificado ID:', certificadoAtual.id);
                 
-                // Incluir o tipo da atividade nos dados enviados
-                const formData = `acao=aprovar_certificado&atividade_id=${certificadoAtual.id}&tipo=${certificadoAtual.tipo || ''}${observacoes ? '&observacoes=' + encodeURIComponent(observacoes) : ''}`;
+                // Incluir o tipo da atividade e carga horária atribuída nos dados enviados
+                const formData = `acao=aprovar_certificado&atividade_id=${certificadoAtual.id}&tipo=${certificadoAtual.tipo || ''}&ch_atribuida=${cargaHorariaAtribuida}${observacoes ? '&observacoes=' + encodeURIComponent(observacoes) : ''}`;
                 
                 console.log('Dados a serem enviados:', formData);
 
@@ -522,13 +579,13 @@
                 const result = await response.json();
                 console.log('Response data:', result);
 
-                if (result.success) {
+                if (result.success || result.sucesso) {
                     alert('✅ Certificado aprovado com sucesso!');
                     fecharModalDetalhes();
                     carregarCertificadosPendentes();
                     carregarCertificadosProcessados();
                 } else {
-                    alert('❌ Erro ao aprovar certificado: ' + (result.error || 'Erro desconhecido'));
+                    alert('❌ Erro ao aprovar certificado: ' + (result.error || result.mensagem || 'Erro desconhecido'));
                 }
             } catch (error) {
                 console.error('Erro completo:', error);
@@ -592,13 +649,13 @@
                 const result = await response.json();
                 console.log('Response data:', result);
 
-                if (result.success) {
+                if (result.success || result.sucesso) {
                     alert('✅ Certificado rejeitado com sucesso!');
                     fecharModalDetalhes();
                     carregarCertificadosPendentes();
                     carregarCertificadosProcessados();
                 } else {
-                    alert('❌ Erro ao rejeitar certificado: ' + (result.error || 'Erro desconhecido'));
+                    alert('❌ Erro ao rejeitar certificado: ' + (result.error || result.mensagem || 'Erro desconhecido'));
                 }
             } catch (error) {
                 console.error('Erro completo:', error);
@@ -619,24 +676,24 @@
         }
 
         // Função para ver detalhes de certificado PROCESSADO (sem observações)
-        function verDetalhesProcessado(certificado) {
-            console.log('Abrindo detalhes do certificado processado:', certificado);
+        function verDetalhesProcessado(atividade) {
+            console.log('Abrindo detalhes da atividade processada:', atividade);
             
-            // Preencher informações do aluno
-            document.getElementById('detalheAlunoNome').textContent = certificado.aluno_nome || 'N/A';
-            document.getElementById('detalheAlunoMatricula').textContent = certificado.aluno_matricula || 'N/A';
-            document.getElementById('detalheAlunoCurso').textContent = certificado.curso_nome || 'N/A';
+            // Preencher informações do aluno (dados não disponíveis na nova API, usar valores padrão)
+            document.getElementById('detalheAlunoNome').textContent = 'N/A';
+            document.getElementById('detalheAlunoMatricula').textContent = 'N/A';
+            document.getElementById('detalheAlunoCurso').textContent = 'N/A';
             
-            // Preencher informações da atividade
-            const tituloAtividade = certificado.atividade_nome || certificado.titulo || 'N/A';
+            // Preencher informações da atividade com a nova estrutura
+            const tituloAtividade = atividade.titulo || atividade.categoria_nome || 'N/A';
             document.getElementById('detalheAtividadeTitulo').textContent = tituloAtividade;
-            document.getElementById('detalheAtividadeHoras').textContent = (certificado.horas_contabilizadas || certificado.horas_aprovadas || 0) + 'h';
-            document.getElementById('detalheDataEnvio').textContent = certificado.data_aprovacao ? 
-                new Date(certificado.data_aprovacao).toLocaleDateString('pt-BR') : 'N/A';
+            document.getElementById('detalheAtividadeHoras').textContent = (atividade.ch_atribuida || atividade.ch_solicitada || 0) + 'h';
+            document.getElementById('detalheDataEnvio').textContent = atividade.data_avaliacao ? 
+                new Date(atividade.data_avaliacao).toLocaleDateString('pt-BR') : 'N/A';
             
             // Configurar botão de visualizar certificado
             const btnVisualizarCertificado = document.getElementById('btnVisualizarCertificado');
-            const caminhoCertificado = certificado.certificado_processado || certificado.certificado_caminho;
+            const caminhoCertificado = atividade.caminho_declaracao || atividade.certificado_caminho;
             if (caminhoCertificado) {
                 btnVisualizarCertificado.onclick = () => {
                     const certificadoPath = `/Gerenciamento-ACC/backend/${caminhoCertificado}`;

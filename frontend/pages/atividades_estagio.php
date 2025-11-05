@@ -134,22 +134,6 @@
                                placeholder="Área de atuação do estágio">
                     </div>
 
-                    <div>
-                        <label for="dataInicio" class="block text-sm font-medium text-gray-700 mb-1">
-                            Data de Início *
-                        </label>
-                        <input type="date" id="dataInicio" name="dataInicio" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    </div>
-
-                    <div>
-                        <label for="dataFim" class="block text-sm font-medium text-gray-700 mb-1">
-                            Data de Fim *
-                        </label>
-                        <input type="date" id="dataFim" name="dataFim" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    </div>
-
                     <div class="md:col-span-2">
                         <label for="horas" class="block text-sm font-medium text-gray-700 mb-1">
                             Horas *
@@ -210,28 +194,70 @@
 
         // Carregar atividades de estágio via JWT
         let todasAtividades = [];
+        let paginaAtual = 1;
+        let totalPaginas = 1;
+        let termoBusca = '';
 
-        async function carregarAtividades() {
+        async function carregarAtividades(pagina = 1, busca = '') {
             try {
+                // Mostrar loading
+                document.getElementById('atividadesContainer').innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto"></div>
+                        <p class="text-gray-500 mt-4">Carregando atividades...</p>
+                    </div>
+                `;
+
                 // Usar AuthClient.fetch para incluir automaticamente o JWT token
-                const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades.php', {
+                const params = new URLSearchParams({
+                    type: 'estagio',
+                    pagina: pagina,
+                    limite: 20,
+                    ordenacao: 'nome',
+                    direcao: 'ASC'
+                });
+
+                if (busca.trim()) {
+                    params.append('busca', busca.trim());
+                }
+
+                const response = await AuthClient.fetch(`/Gerenciamento-ACC/backend/api/routes/listar_atividades_disponiveis.php?${params}`, {
                     method: 'GET'
                 });
+                
                 const data = await response.json();
-                if (data.success) {
-                    // Filtrar apenas atividades de estágio
-                    todasAtividades = (data.data || []).filter(atividade => 
-                        atividade.categoria && atividade.categoria.toLowerCase().includes('estágio')
-                    );
+                console.log('Resposta da API:', data);
+                
+                if (data.success || data.sucesso) {
+                    todasAtividades = data.data?.atividades || [];
+                    paginaAtual = data.data?.paginacao?.pagina_atual || 1;
+                    totalPaginas = data.data?.paginacao?.total_paginas || 1;
+                    termoBusca = busca;
+                    
                     renderizarAtividades();
+                    renderizarPaginacao();
                     document.getElementById('alertaAtividades').classList.add('hidden');
                 } else {
                     console.error('Erro na resposta da API:', data);
                     document.getElementById('alertaAtividades').classList.remove('hidden');
+                    document.getElementById('atividadesContainer').innerHTML = `
+                        <div class="text-center py-12">
+                            <div class="text-6xl mb-4">⚠️</div>
+                            <p class="text-gray-500 text-lg mb-2">Erro ao carregar atividades</p>
+                            <p class="text-gray-400 text-sm">${data.error || 'Erro desconhecido'}</p>
+                        </div>
+                    `;
                 }
             } catch (e) {
                 console.error('Erro ao carregar atividades:', e);
                 document.getElementById('alertaAtividades').classList.remove('hidden');
+                document.getElementById('atividadesContainer').innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">❌</div>
+                        <p class="text-gray-500 text-lg mb-2">Erro de conexão</p>
+                        <p class="text-gray-400 text-sm">Verifique sua conexão e tente novamente</p>
+                    </div>
+                `;
             }
         }
 
@@ -246,8 +272,30 @@
                 return;
             }
             
-            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${todasAtividades.map(atividade => `
+            container.innerHTML = `
+                <!-- Barra de busca -->
+                <div class="mb-6">
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <input type="text" id="campoBusca" placeholder="Buscar atividades..." 
+                                   value="${termoBusca}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        </div>
+                        <button onclick="buscarAtividades()" 
+                                class="px-6 py-2 text-white rounded-lg hover:opacity-90 transition duration-200" 
+                                style="background-color: #F59E0B">
+                            Buscar
+                        </button>
+                        <button onclick="limparBusca()" 
+                                class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-200">
+                            Limpar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Grid de atividades -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${todasAtividades.map(atividade => `
                     <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
                         <div class="p-4" style="background-color: #F59E0B">
                             <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
@@ -282,8 +330,84 @@
                         </div>
                     </div>
                 `).join('')}
-            </div>`;
+                </div>
+            `;
         }
+
+        // Função para renderizar paginação
+        function renderizarPaginacao() {
+            if (totalPaginas <= 1) return;
+
+            const container = document.getElementById('atividadesContainer');
+            const paginacaoHtml = `
+                <div class="flex justify-center items-center mt-8 space-x-2">
+                    <button onclick="irParaPagina(${paginaAtual - 1})" 
+                            ${paginaAtual <= 1 ? 'disabled' : ''}
+                            class="px-3 py-2 text-sm border rounded-lg ${paginaAtual <= 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}">
+                        Anterior
+                    </button>
+                    
+                    ${Array.from({length: Math.min(5, totalPaginas)}, (_, i) => {
+                        let pagina = i + 1;
+                        if (totalPaginas > 5) {
+                            if (paginaAtual <= 3) {
+                                pagina = i + 1;
+                            } else if (paginaAtual >= totalPaginas - 2) {
+                                pagina = totalPaginas - 4 + i;
+                            } else {
+                                pagina = paginaAtual - 2 + i;
+                            }
+                        }
+                        
+                        return `
+                            <button onclick="irParaPagina(${pagina})" 
+                                    class="px-3 py-2 text-sm border rounded-lg ${pagina === paginaAtual ? 'bg-yellow-500 text-white border-yellow-500' : 'text-gray-700 hover:bg-gray-50'}">
+                                ${pagina}
+                            </button>
+                        `;
+                    }).join('')}
+                    
+                    <button onclick="irParaPagina(${paginaAtual + 1})" 
+                            ${paginaAtual >= totalPaginas ? 'disabled' : ''}
+                            class="px-3 py-2 text-sm border rounded-lg ${paginaAtual >= totalPaginas ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}">
+                        Próxima
+                    </button>
+                </div>
+                
+                <div class="text-center mt-4 text-sm text-gray-500">
+                    Página ${paginaAtual} de ${totalPaginas}
+                </div>
+            `;
+            
+            container.innerHTML += paginacaoHtml;
+        }
+
+        // Funções de navegação e busca
+        function irParaPagina(pagina) {
+            if (pagina >= 1 && pagina <= totalPaginas && pagina !== paginaAtual) {
+                carregarAtividades(pagina, termoBusca);
+            }
+        }
+
+        function buscarAtividades() {
+            const busca = document.getElementById('campoBusca').value.trim();
+            carregarAtividades(1, busca);
+        }
+
+        function limparBusca() {
+            document.getElementById('campoBusca').value = '';
+            carregarAtividades(1, '');
+        }
+
+        // Adicionar evento de Enter no campo de busca
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('keydown', function(e) {
+                const campoBusca = document.getElementById('campoBusca');
+                if (campoBusca && e.target === campoBusca && e.key === 'Enter') {
+                    buscarAtividades();
+                }
+            });
+        });
 
         function verDetalhes(id) {
             const atividade = todasAtividades.find(a => a.id === id);
@@ -364,19 +488,11 @@
             // Validar se todos os campos obrigatórios estão preenchidos
             const empresa = document.getElementById('empresa').value.trim();
             const area = document.getElementById('area').value.trim();
-            const dataInicio = document.getElementById('dataInicio').value;
-            const dataFim = document.getElementById('dataFim').value;
             const horas = document.getElementById('horas').value;
             const declaracao = document.getElementById('declaracao').files[0];
             
-            if (!empresa || !area || !dataInicio || !dataFim || !horas || !declaracao) {
+            if (!empresa || !area || !horas || !declaracao) {
                 alert('Por favor, preencha todos os campos obrigatórios.');
-                return;
-            }
-            
-            // Validar se data fim não é anterior à data início
-            if (new Date(dataFim) < new Date(dataInicio)) {
-                alert('A data de fim não pode ser anterior à data de início.');
                 return;
             }
             
@@ -387,12 +503,10 @@
             }
             
             const formData = new FormData();
-            formData.append('atividade_disponivel_id', document.getElementById('atividadeId').value);
-            formData.append('empresa', empresa);
-            formData.append('area', area);
-            formData.append('data_inicio', dataInicio);
-            formData.append('data_fim', dataFim);
-            formData.append('horas', parseInt(horas));
+            formData.append('atividades_por_resolucao_id', document.getElementById('atividadeId').value);
+            formData.append('titulo', empresa); // Mapear empresa para título
+            formData.append('descricao', area); // Mapear área para descrição
+            formData.append('ch_solicitada', parseInt(horas));
             formData.append('declaracao', declaracao);
             
             // Desabilitar botão de submit para evitar duplo envio
@@ -403,7 +517,7 @@
             
             try {
                 // Enviar via AuthClient para garantir cabeçalhos corretos
-                const resp = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/atividades_estagio.php', {
+                const resp = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/cadastrar_atividades.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -417,7 +531,7 @@
                     
                     fecharModalSelecao();
                 } else {
-                    alert('Erro ao cadastrar atividade: ' + (result.message || 'Erro desconhecido'));
+                    alert('Erro ao cadastrar atividade: ' + (result.message || result.error || 'Erro desconhecido'));
                 }
             } catch (error) {
                 console.error('Erro:', error);

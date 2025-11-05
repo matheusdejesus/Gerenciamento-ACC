@@ -13,6 +13,8 @@
             background-color: #0D1117;
         }
     </style>
+    <!-- Carregar AuthClient -->
+    <script src="../assets/js/auth.js"></script>
 </head>
 <body class="bg-pattern font-montserrat min-h-screen flex flex-col">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
@@ -195,118 +197,44 @@
 
         let minhasAtividades = [];
 
-        // Função para carregar atividades de todas as categorias
+        // Função para carregar atividades enviadas pelo aluno
         async function carregarMinhasAtividades() {
             try {
-                console.log('Iniciando carregamento de atividades...');
-                
-                // Obter ID do usuário logado
-                const usuario = AuthClient.getUser();
-                const alunoId = usuario ? usuario.id : null;
-                
-                if (!alunoId) {
-                    console.error('Usuário não logado ou ID não encontrado');
-                    exibirMensagemErro('Erro de autenticação');
+                const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas&limite=100');
+                const resultado = await response.json();
+
+                if (!resultado.success) {
+                    exibirMensagemErro(resultado.message || resultado.error || 'Erro ao carregar atividades');
                     return;
                 }
 
-                // Fazer requisições paralelas para todas as categorias
-                const promises = [
-                    // Atividades ACC (extracurriculares) - CORRIGIDO: usar caminho relativo
-                    AuthClient.fetch(`../../backend/api/routes/atividade_complementar_acc.php?aluno_id=${alunoId}`)
-                        .then(response => response.json())
-                        .catch(error => {
-                            console.warn('Erro ao carregar atividades ACC:', error);
-                            return { success: false, data: [] };
-                        }),
-                    
-                    // Atividades de Ensino
-                    AuthClient.fetch(`../../backend/api/routes/atividade_complementar_ensino.php?aluno_id=${alunoId}`)
-                        .then(response => response.json())
-                        .catch(error => {
-                            console.warn('Erro ao carregar atividades de Ensino:', error);
-                            return { success: false, data: [] };
-                        }),
-                    
-                    // Atividades de Estágio
-                    AuthClient.fetch(`../../backend/api/routes/atividades_estagio.php?aluno_id=${alunoId}`)
-                        .then(response => response.json())
-                        .catch(error => {
-                            console.warn('Erro ao carregar atividades de Estágio:', error);
-                            return { success: false, data: [] };
-                        }),
-                    
-                    // Atividades de Pesquisa
-                    AuthClient.fetch(`../../backend/api/routes/atividade_complementar_pesquisa.php?aluno_id=${alunoId}`)
-                        .then(response => response.json())
-                        .catch(error => {
-                            console.warn('Erro ao carregar atividades de Pesquisa:', error);
-                            return { success: false, data: [] };
-                        })
-                ];
+                // Extrair atividades da resposta
+                const atividades = resultado.data?.atividades || [];
 
-                const resultados = await Promise.all(promises);
-                console.log('Resultados das requisições:', resultados);
+                // Normalizar dados para compatibilidade com a interface existente
+                const atividadesNormalizadas = atividades.map(atividade => {
+                    return {
+                        ...atividade,
+                        // Mapeamento para compatibilidade com código existente
+                        carga_horaria_solicitada: atividade.ch_solicitada,
+                        carga_horaria_aprovada: atividade.ch_atribuida,
+                        categoria_origem: atividade.tipo_atividade || 'outros',
+                        // Garantir que campos essenciais existam
+                        titulo: atividade.titulo || 'Sem título',
+                        categoria_nome: atividade.categoria_nome || 'Sem categoria',
+                        atividade_titulo: atividade.atividade_titulo || atividade.titulo || 'Sem título',
+                        status: atividade.status || 'Pendente',
+                        data_submissao: atividade.data_submissao || new Date().toISOString().split('T')[0]
+                    };
+                });
 
-                // Consolidar todas as atividades
-                let todasAtividades = [];
+                minhasAtividades = atividadesNormalizadas;
                 
-                resultados.forEach((resultado, index) => {
-                    if (resultado.success && resultado.data) {
-                        const categoria = ['ACC', 'Ensino', 'Estágio', 'Pesquisa'][index];
-                        console.log(`Atividades de ${categoria}:`, resultado.data);
-                        
-                        // Normalizar dados para cada categoria
-                        const atividadesNormalizadas = resultado.data.map(atividade => {
-                            let titulo, cargaHoraria;
-                            
-                            // Mapear campos específicos por categoria
-                            if (categoria === 'ACC') {
-                                titulo = atividade.curso_evento_nome || 'Sem título';
-                                cargaHoraria = atividade.horas_realizadas || 0;
-                            } else if (categoria === 'Pesquisa') {
-                                // Para pesquisa, usar o título específico da atividade (nome do evento, projeto ou artigo)
-                                titulo = atividade.titulo_atividade || atividade.nome_evento || atividade.nome_projeto || atividade.nome_artigo || 'Sem título';
-                                cargaHoraria = atividade.horas_realizadas || 0;
-                            } else {
-                                titulo = atividade.titulo || atividade.nome_disciplina || atividade.empresa || atividade.tema || 'Sem título';
-                                cargaHoraria = atividade.carga_horaria_solicitada || atividade.carga_horaria || atividade.horas || atividade.horas_realizadas || 0;
-                            }
-                            
-                            return {
-                                ...atividade,
-                                categoria_origem: categoria,
-                                // Garantir campos obrigatórios
-                                titulo: titulo,
-                                categoria_nome: atividade.categoria_nome || categoria,
-                                atividade_titulo: atividade.atividade_titulo || titulo, // Usar o título da atividade disponível
-                                carga_horaria_solicitada: cargaHoraria,
-                                carga_horaria_aprovada: atividade.carga_horaria_aprovada || atividade.horas_aprovadas || null,
-                                status: atividade.status || 'Pendente',
-                                data_submissao: atividade.data_submissao || atividade.data_inicio || new Date().toISOString().split('T')[0]
-                            };
-                        });
-                        
-                        todasAtividades = todasAtividades.concat(atividadesNormalizadas);
-                    }
-                });
-
-                // Ordenar por data de submissão (mais recente primeiro)
-                todasAtividades.sort((a, b) => {
-                    const dataA = new Date(a.data_submissao);
-                    const dataB = new Date(b.data_submissao);
-                    return dataB - dataA;
-                });
-
-                console.log('Total de atividades carregadas:', todasAtividades.length);
-                console.log('Atividades consolidadas:', todasAtividades);
-
-                minhasAtividades = todasAtividades;
-                atualizarTabelaAtividades();
+                await atualizarTabelaAtividades();
                 atualizarEstatisticas();
 
             } catch (error) {
-                console.error('Erro geral no carregamento:', error);
+                console.error('Erro ao carregar atividades:', error);
                 exibirMensagemErro('Erro de conexão ao carregar atividades');
             }
         }
@@ -342,65 +270,104 @@
             return { class: 'bg-gray-100 text-gray-800', text: atividade.status || 'Aguardando Avaliação' };
         }
 
-        // Função para exibir as atividades na tabela
-        function atualizarTabelaAtividades() {
-            const tbody = document.getElementById('tabelaAtividades');
-            const mensagemVazia = document.getElementById('mensagemVazia');
-
-            if (minhasAtividades.length === 0) {
-                tbody.innerHTML = '';
-                mensagemVazia.classList.remove('hidden');
-                return;
-            }
-
-            mensagemVazia.classList.add('hidden');
-            
-            tbody.innerHTML = minhasAtividades.map(atividade => {
-                const statusDetalhado = getStatusDetalhado(atividade);
-
-                // Formatação das horas
-                let horasDisplay = `${atividade.carga_horaria_solicitada}h`;
-                if (atividade.carga_horaria_aprovada !== null && atividade.carga_horaria_aprovada !== undefined) {
-                    if (atividade.status === 'Aprovada') {
-                        horasDisplay = `${atividade.carga_horaria_aprovada}h`;
-                        if (atividade.carga_horaria_aprovada != atividade.carga_horaria_solicitada) {
-                            horasDisplay += ` (de ${atividade.carga_horaria_solicitada}h)`;
-                        }
-                    } else if (atividade.status === 'Rejeitada') {
-                        horasDisplay = `0h (de ${atividade.carga_horaria_solicitada}h)`;
+        // Função para aguardar elemento estar disponível
+        function aguardarElemento(id, timeout = 5000) {
+            return new Promise((resolve, reject) => {
+                const startTime = Date.now();
+                
+                function verificar() {
+                    const elemento = document.getElementById(id);
+                    if (elemento) {
+                        resolve(elemento);
+                    } else if (Date.now() - startTime > timeout) {
+                        reject(new Error(`Elemento ${id} não encontrado`));
+                    } else {
+                        setTimeout(verificar, 100);
                     }
                 }
+                
+                verificar();
+            });
+        }
 
+        // Função para exibir as atividades na tabela
+        async function atualizarTabelaAtividades() {
+            try {
+                // Aguardar os elementos estarem disponíveis
+                const tbody = await aguardarElemento('tabelaAtividades');
+                const mensagemVazia = await aguardarElemento('mensagemVazia');
 
+                if (minhasAtividades.length === 0) {
+                    tbody.innerHTML = '';
+                    mensagemVazia.classList.remove('hidden');
+                    return;
+                }
 
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div class="font-medium">${atividade.titulo}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div class="font-medium">${atividade.atividade_titulo || 'N/A'}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${atividade.categoria_nome || 'N/A'}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${horasDisplay}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusDetalhado.class}">
-                                ${statusDetalhado.text}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button onclick="verDetalhesAtividade(${atividade.id})" 
-                                    class="text-[#0969DA] hover:text-[#061B53]">
-                                Ver Detalhes
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                mensagemVazia.classList.add('hidden');
+
+                tbody.innerHTML = minhasAtividades.map(atividade => {
+                    const statusDetalhado = getStatusDetalhado(atividade);
+
+                    // Formatação das horas
+                    let horasDisplay = `${atividade.carga_horaria_solicitada}h`;
+                    if (atividade.carga_horaria_aprovada !== null && atividade.carga_horaria_aprovada !== undefined) {
+                        if (atividade.status === 'Aprovada') {
+                            horasDisplay = `${atividade.carga_horaria_aprovada}h`;
+                            if (atividade.carga_horaria_aprovada != atividade.carga_horaria_solicitada) {
+                                horasDisplay += ` (de ${atividade.carga_horaria_solicitada}h)`;
+                            }
+                        } else if (atividade.status === 'Rejeitada') {
+                            horasDisplay = `0h (de ${atividade.carga_horaria_solicitada}h)`;
+                        }
+                    }
+
+                    return `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div class="font-medium">${atividade.titulo}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div class="font-medium">${atividade.atividade_titulo || 'N/A'}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${atividade.categoria_nome || 'N/A'}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${horasDisplay}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusDetalhado.class}">
+                                    ${statusDetalhado.text}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="verDetalhesAtividade(${atividade.id})" 
+                                        class="text-[#0969DA] hover:text-[#061B53]">
+                                    Ver Detalhes
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Erro ao atualizar tabela:', error);
+                // Fallback: tentar encontrar elementos sem aguardar
+                const tbody = document.getElementById('tabelaAtividades');
+                const mensagemVazia = document.getElementById('mensagemVazia');
+                
+                if (tbody && mensagemVazia) {
+                    if (minhasAtividades.length === 0) {
+                        tbody.innerHTML = '';
+                        mensagemVazia.classList.remove('hidden');
+                    } else {
+                        mensagemVazia.classList.add('hidden');
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Erro ao carregar atividades. Recarregue a página.</td></tr>';
+                    }
+                } else {
+                    console.error('Elementos não encontrados nem no fallback!');
+                }
+            }
         }
 
         // Função para ver o certificado

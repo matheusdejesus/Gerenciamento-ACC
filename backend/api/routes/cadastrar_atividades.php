@@ -8,7 +8,7 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-W
 header('Access-Control-Allow-Credentials: true');
 
 // Log de debug - início do script
-error_log("[DEBUG] listar_categorias.php - Início do script. Método: " . $_SERVER['REQUEST_METHOD']);
+error_log("[DEBUG] cadastrar_atividades.php - Início do script. Método: " . $_SERVER['REQUEST_METHOD']);
 
 // Limpar qualquer output anterior
 ob_clean();
@@ -26,22 +26,23 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
 require_once __DIR__ . '/../services/JWTService.php';
-require_once __DIR__ . '/../controllers/CategoriaController.php';
+require_once __DIR__ . '/../controllers/CadastrarAtividadesController.php';
 
 use backend\api\config\Database;
 use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
 use backend\api\services\JWTService;
+use backend\api\controllers\CadastrarAtividadesController;
 
-function enviarErro($mensagem, $codigo = 400) {
-    error_log("[DEBUG] enviarErro chamada - Código: $codigo, Mensagem: $mensagem");
+function enviarErro($mensagem, $codigo = 500) {
+    error_log("[ERROR] " . $mensagem);
     ob_clean();
     http_response_code($codigo);
-    $response = [
+    echo json_encode([
         'success' => false,
-        'error' => $mensagem
-    ];
-    echo json_encode($response);
+        'error' => $mensagem,
+        'message' => $mensagem
+    ]);
     exit;
 }
 
@@ -74,30 +75,27 @@ try {
     
     error_log("[DEBUG] Usuário autenticado: " . json_encode($usuarioLogado));
 
-    // Instanciar o controller
-    $categoriaController = new CategoriaController();
-    
-    // Obter dados da requisição
-    $input = json_decode(file_get_contents('php://input'), true);
-    if (!$input) {
-        $input = $_POST;
-    }
-    
-    // Verificar se é uma requisição para buscar categoria específica
-    if (isset($input['id']) && is_numeric($input['id'])) {
-        // Buscar categoria por ID
-        $categoriaController->buscarPorId($input['id']);
-    } else {
-        // Listar todas as categorias
-        $categoriaController->listarTodas();
+    // Verificar se é aluno (apenas alunos podem cadastrar atividades)
+    if ($usuarioLogado['tipo'] !== 'aluno') {
+        error_log("Tipo de usuário inválido: " . $usuarioLogado['tipo']);
+        enviarErro('Acesso negado. Apenas alunos podem cadastrar atividades.', 403);
     }
 
+    // Instanciar o controller
+    $controller = new CadastrarAtividadesController();
+    
+    // Passar dados do usuário autenticado para o controller
+    $_POST['usuario_logado'] = $usuarioLogado;
+    $_REQUEST['usuario_logado'] = $usuarioLogado;
+    
+    // Chamar o método do controller
+    $controller->cadastrarAtividade();
+
 } catch (Exception $e) {
-    error_log("[ERROR] Erro em listar_categorias.php: " . $e->getMessage());
+    error_log("[ERROR] Erro em cadastrar_atividades.php: " . $e->getMessage());
     error_log("[ERROR] Stack trace: " . $e->getTraceAsString());
-    enviarErro('Erro interno do servidor', 500);
+    enviarErro('Erro interno do servidor: ' . $e->getMessage(), 500);
 }
 
 // Finalizar output buffering
 ob_end_flush();
-?>

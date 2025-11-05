@@ -7,7 +7,7 @@ class Usuario {
     public static function findByEmail($email) {
         try {
             $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT * FROM Usuario WHERE email = ?");
+            $stmt = $db->prepare("SELECT * FROM usuario WHERE email = ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -25,7 +25,7 @@ class Usuario {
     public static function findById($id) {
         try {
             $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT * FROM Usuario WHERE id = ?");
+            $stmt = $db->prepare("SELECT * FROM usuario WHERE id = ?");
             $stmt->bind_param("i", $id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -41,7 +41,7 @@ class Usuario {
             $db = Database::getInstance()->getConnection();
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
             
-            $stmt = $db->prepare("INSERT INTO TentativasLogin (email, ip_address, sucesso) VALUES (?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO tentativaslogin (email, ip_address, sucesso) VALUES (?, ?, ?)");
             $stmt->bind_param("ssi", $email, $ip_address, $sucesso);
             $stmt->execute();
         } catch (Exception $e) {
@@ -57,10 +57,10 @@ class Usuario {
             // Verificar tentativas dos últimos 5 minutos
             $stmt = $db->prepare("
                 SELECT COUNT(*) as tentativas 
-                FROM TentativasLogin 
+                FROM tentativaslogin 
                 WHERE email = ? 
                 AND sucesso = 0 
-                AND data_hora > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                AND data_tentativa > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
             ");
             $stmt->bind_param("s", $email);
             $stmt->execute();
@@ -80,11 +80,11 @@ class Usuario {
             $db = Database::getInstance()->getConnection();
             
             $stmt = $db->prepare("
-                SELECT TIMESTAMPDIFF(SECOND, MAX(data_hora), DATE_ADD(MAX(data_hora), INTERVAL 5 MINUTE)) as tempo_restante
-                FROM TentativasLogin 
+                SELECT TIMESTAMPDIFF(SECOND, MAX(data_tentativa), DATE_ADD(MAX(data_tentativa), INTERVAL 5 MINUTE)) as tempo_restante
+                FROM tentativaslogin 
                 WHERE email = ? 
                 AND sucesso = 0 
-                AND data_hora > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                AND data_tentativa > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
             ");
             $stmt->bind_param("s", $email);
             $stmt->execute();
@@ -106,9 +106,9 @@ class Usuario {
             
             // Limpar tentativas antigas (mais de 5 minutos)
             $stmt = $db->prepare("
-                DELETE FROM TentativasLogin 
+                DELETE FROM tentativaslogin 
                 WHERE email = ? 
-                AND data_hora < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                AND data_tentativa < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
             ");
             $stmt->bind_param("s", $email);
             $stmt->execute();
@@ -125,7 +125,7 @@ class Usuario {
             $db = Database::getInstance()->getConnection();
             
             // Primeiro buscar dados básicos do usuário
-            $stmt = $db->prepare("SELECT id, nome, email, senha, tipo FROM Usuario WHERE email = ?");
+            $stmt = $db->prepare("SELECT id, nome, email, senha, tipo FROM usuario WHERE email = ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -135,7 +135,7 @@ class Usuario {
                 
                 // Se for aluno, buscar também a matrícula
                 if ($usuario['tipo'] === 'aluno') {
-                    $stmtAluno = $db->prepare("SELECT matricula, curso_id FROM Aluno WHERE usuario_id = ?");
+                    $stmtAluno = $db->prepare("SELECT matricula, curso_id FROM aluno WHERE usuario_id = ?");
                     $stmtAluno->bind_param("i", $usuario['id']);
                     $stmtAluno->execute();
                     $resultAluno = $stmtAluno->get_result();
@@ -205,7 +205,7 @@ class Usuario {
                     break;
                     
                 default:
-                    $sql = "SELECT nome, email FROM Usuario WHERE id = ?";
+                    $sql = "SELECT nome, email FROM usuario WHERE id = ?";
                     break;
             }
             
@@ -282,7 +282,7 @@ class Usuario {
             $db = Database::getInstance()->getConnection();
             
             // Verificar senha atual
-            $stmt = $db->prepare("SELECT senha FROM Usuario WHERE id = ?");
+            $stmt = $db->prepare("SELECT senha FROM usuario WHERE id = ?");
             $stmt->bind_param("i", $id);
             $stmt->execute();
             $result = $stmt->get_result();

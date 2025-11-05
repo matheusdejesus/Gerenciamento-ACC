@@ -69,6 +69,26 @@ class AuthMiddleware {
                 }
                 
                 error_log("Token validado com sucesso: " . json_encode($payload));
+                
+                // Se for aluno, buscar matrícula do banco se não estiver no token
+                if (isset($payload['tipo']) && $payload['tipo'] === 'aluno' && !isset($payload['matricula'])) {
+                    try {
+                        $db = Database::getInstance()->getConnection();
+                        $stmt = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+                        $stmt->bind_param("i", $payload['id']);
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        
+                        if ($result->num_rows > 0) {
+                            $aluno = $result->fetch_assoc();
+                            $payload['matricula'] = $aluno['matricula'];
+                            error_log("Matrícula adicionada ao payload: " . $aluno['matricula']);
+                        }
+                    } catch (Exception $e) {
+                        error_log("Erro ao buscar matrícula: " . $e->getMessage());
+                    }
+                }
+                
                 return $payload;
             }
             

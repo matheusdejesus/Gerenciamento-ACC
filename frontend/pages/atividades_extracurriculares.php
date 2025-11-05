@@ -114,15 +114,68 @@
                     </div>
                 </div>
                 
-                <!-- Alerta de erro para categorias -->
-                <div id="alertaCategorias" class="hidden mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p class="text-yellow-800">⚠️ Não foi possível carregar as categorias. Verifique a conexão com o banco de dados.</p>
-                </div>
+
                 
                 <!-- Alerta de erro para atividades -->
                 <div id="alertaAtividades" class="hidden mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p class="text-yellow-800">⚠️ Não foi possível carregar as atividades. Verifique a conexão com o banco de dados.</p>
                 </div>
+            </div>
+
+            <!-- Seção de Busca e Filtros -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <!-- Campo de Busca -->
+                    <div class="flex-1">
+                        <label for="campoBusca" class="block text-sm font-medium text-gray-700 mb-2">
+                            Buscar Atividades
+                        </label>
+                        <input type="text" id="campoBusca" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="Digite o nome da atividade, categoria ou descrição...">
+                    </div>
+                    
+                    <!-- Ordenação -->
+                    <div class="w-full md:w-48">
+                        <label for="ordenacao" class="block text-sm font-medium text-gray-700 mb-2">
+                            Ordenar por
+                        </label>
+                        <select id="ordenacao" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="nome">Nome</option>
+                            <option value="categoria">Categoria</option>
+                            <option value="carga_horaria_maxima">Horas Máximas</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Direção da Ordenação -->
+                    <div class="w-full md:w-32">
+                        <label for="direcao" class="block text-sm font-medium text-gray-700 mb-2">
+                            Direção
+                        </label>
+                        <select id="direcao" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="ASC">A-Z</option>
+                            <option value="DESC">Z-A</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Botões -->
+                    <div class="flex gap-2">
+                        <button id="btnBuscar" 
+                                class="px-6 py-2 text-white rounded-lg hover:opacity-90 transition duration-200"
+                                style="background-color: #8B5CF6">
+                            Buscar
+                        </button>
+                        <button id="btnLimpar" 
+                                class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                            Limpar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informações de Resultados -->
+            <div id="infoResultados" class="mb-4 text-sm text-gray-600 hidden">
+                <!-- Será preenchido dinamicamente -->
             </div>
 
             <!-- Container das atividades -->
@@ -131,6 +184,11 @@
                     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
                     <p class="text-gray-500 mt-4">Carregando atividades...</p>
                 </div>
+            </div>
+
+            <!-- Paginação -->
+            <div id="paginacao" class="flex justify-center items-center space-x-2 mt-6 hidden">
+                <!-- Será preenchido dinamicamente -->
             </div>
         </div>
     </div>
@@ -235,54 +293,6 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                    placeholder="Ex: 10" min="1" max="" required>
                             <p class="text-xs text-gray-500 mt-1">Máximo: <span id="maxHoras">--</span> horas</p>
-                            
-                            <!-- Contador de horas para Curso de extensão em áreas afins -->
-                            <div id="contadorHorasCursoExtensao" class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
-                                <div class="text-sm text-blue-800">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="font-medium">Horas já cadastradas:</span>
-                                        <span id="horasJaCadastradas" class="font-semibold">0h</span>
-                                    </div>
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="font-medium">Horas disponíveis:</span>
-                                        <span id="horasDisponiveis" class="font-semibold text-green-600">0h</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-medium">Limite máximo:</span>
-                                        <span id="limiteMaximo" class="font-semibold">0h</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Data de Início -->
-                        <div>
-                            <label for="dataInicio" class="block text-sm font-medium text-gray-700 mb-2">
-                                Data de Início *
-                            </label>
-                            <input type="date" id="dataInicio" name="dataInicio" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                   required>
-                        </div>
-
-                        <!-- Data de Fim -->
-                        <div>
-                            <label for="dataFim" class="block text-sm font-medium text-gray-700 mb-2">
-                                Data de Fim *
-                            </label>
-                            <input type="date" id="dataFim" name="dataFim" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                   required>
-                        </div>
-
-                        <!-- Local/Instituição -->
-                        <div>
-                            <label for="local" class="block text-sm font-medium text-gray-700 mb-2">
-                                Local/Instituição *
-                            </label>
-                            <input type="text" id="local" name="local" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                   placeholder="Ex: Universidade Federal, ONG Esperança" required>
                         </div>
                     </div>
 
@@ -423,123 +433,47 @@
         
         verificarAutenticacao();
 
-        // Variáveis globais
-        let todasCategorias = [];
         let todasAtividades = [];
-        let categoriaAtual = null;
+        let dadosPaginacao = {};
+        let filtrosAtuais = {
+            busca: '',
+            ordenacao: 'nome',
+            direcao: 'ASC',
+            pagina: 1,
+            limite: 20
+        };
 
-        // Carregar categorias via JWT
-        async function carregarCategorias() {
-            try {
-                const response = await AuthClient.fetch('../../backend/api/routes/listar_categorias.php', {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                if (data.success) {
-                    todasCategorias = data.data || [];
-                    renderizarCategorias();
-                    document.getElementById('alertaCategorias').classList.add('hidden');
-                } else {
-                    document.getElementById('alertaCategorias').classList.remove('hidden');
-                }
-            } catch (e) {
-                document.getElementById('alertaCategorias').classList.remove('hidden');
-            }
-        }
+        // Carregar atividades quando a página carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarAtividades();
+            
+            // Event listeners para filtros
+            document.getElementById('btnBuscar').addEventListener('click', aplicarFiltros);
+            document.getElementById('btnLimpar').addEventListener('click', limparFiltros);
+            
+            // Event listeners para mudança de ordenação
+            document.getElementById('ordenacao').addEventListener('change', aplicarFiltros);
+            document.getElementById('direcao').addEventListener('change', aplicarFiltros);
+            
+            // Adicionar event listeners para busca em tempo real
+            const campoBusca = document.getElementById('campoBusca');
+            let timeoutBusca;
+            
+            campoBusca.addEventListener('input', function() {
+                clearTimeout(timeoutBusca);
+                timeoutBusca = setTimeout(() => {
+                    filtrosAtuais.busca = this.value.trim();
+                    filtrosAtuais.pagina = 1; // Reset para primeira página
+                    carregarAtividades();
+                }, 500); // Aguarda 500ms após parar de digitar
+            });
+        });
 
-        function renderizarCategorias() {
-            const container = document.getElementById('categoriasContainer');
-            if (!todasCategorias.length) {
-                container.innerHTML = `<div class="text-center py-12">
-                    <p class="text-gray-500 text-lg">Nenhuma categoria encontrada.</p>
-                </div>`;
-                return;
-            }
-
-            // Definir cores e ícones para cada categoria
-            const categoriaConfig = {
-                'Ensino': { cor: '#1A7F37', icone: '📚' },
-                'Pesquisa': { cor: '#0969DA', icone: '🔬' },
-                'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
-                'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
-                'Estágio': { cor: '#F59E0B', icone: '💼' }
-            };
-
-            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                ${todasCategorias.map(categoria => {
-                    const config = categoriaConfig[categoria.nome] || { cor: '#6B7280', icone: '📋' };
-                    return `
-                        <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
-                             onclick="selecionarCategoria('${categoria.nome}')">
-                            <div class="p-6 text-center" style="background: linear-gradient(135deg, ${config.cor}, ${config.cor}dd)">
-                                <div class="text-4xl mb-3">${config.icone}</div>
-                                <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
-                            </div>
-                            <div class="p-4 text-center">
-                                <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
-                                <div class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition duration-200"
-                                     style="background-color: ${config.cor}20; color: ${config.cor}">
-                                    Ver Atividades
-                                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>`;
-        }
-
-        function selecionarCategoria(nomeCategoria) {
-            categoriaAtual = nomeCategoria;
-            
-            // Ocultar categorias e mostrar atividades
-            document.getElementById('categoriasContainer').classList.add('hidden');
-            document.getElementById('atividadesContainer').classList.remove('hidden');
-            
-            // Atualizar título
-            const titulo = document.querySelector('h2');
-            titulo.textContent = `Atividades - ${nomeCategoria}`;
-            
-            // Adicionar botão voltar
-            const cabecalho = document.querySelector('.flex.items-center.mb-4');
-            if (!document.getElementById('btnVoltar')) {
-                const btnVoltar = document.createElement('button');
-                btnVoltar.id = 'btnVoltar';
-                btnVoltar.className = 'ml-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200';
-                btnVoltar.textContent = '← Voltar às Categorias';
-                btnVoltar.onclick = voltarCategorias;
-                cabecalho.appendChild(btnVoltar);
-            }
-            
-            // Carregar atividades da categoria
-            carregarAtividades(nomeCategoria);
-        }
-
-        function voltarCategorias() {
-            // Mostrar categorias e ocultar atividades
-            document.getElementById('categoriasContainer').classList.remove('hidden');
-            document.getElementById('atividadesContainer').classList.add('hidden');
-            
-            // Restaurar título
-            const titulo = document.querySelector('h2');
-            titulo.textContent = 'Escolher Categoria de Atividade';
-            
-            // Remover botão voltar
-            const btnVoltar = document.getElementById('btnVoltar');
-            if (btnVoltar) {
-                btnVoltar.remove();
-            }
-            
-            categoriaAtual = null;
-        }
-
-        // Carregar atividades de uma categoria específica via JWT
-        async function carregarAtividades(categoria) {
+        // Carregar atividades com filtros e paginação
+        async function carregarAtividades(tipo = 'extracurriculares') {
             try {
                 console.log('🔍 === CARREGANDO ATIVIDADES ===');
-                console.log('📂 Categoria solicitada:', categoria);
+                console.log('📊 Filtros atuais:', filtrosAtuais);
                 
                 // Verificar se AuthClient está disponível
                 if (typeof AuthClient === 'undefined') {
@@ -563,9 +497,20 @@
                     throw new Error('API Key não encontrada');
                 }
                 
-                console.log('🌐 Fazendo requisição para: ../../backend/api/routes/listar_atividades.php');
+                // Construir URL com parâmetros de query
+                const params = new URLSearchParams();
+                if (filtrosAtuais.busca) params.append('busca', filtrosAtuais.busca);
+                params.append('pagina', filtrosAtuais.pagina);
+                params.append('limite', filtrosAtuais.limite);
+                params.append('ordenacao', filtrosAtuais.ordenacao);
+                params.append('direcao', filtrosAtuais.direcao);
                 
-                const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades.php', {
+                // Construir URL com parâmetros de query - usando a nova rota consolidada
+                params.append('type', tipo); // Especificar tipo de atividade
+                const url = `../../backend/api/routes/listar_atividades_disponiveis.php?${params.toString()}`;
+                console.log('🌐 Fazendo requisição para:', url);
+                
+                const response = await AuthClient.fetch(url, {
                     method: 'GET'
                 });
                 
@@ -581,39 +526,27 @@
                 console.log('📊 Resposta da API:', data);
                 
                 if (data.success) {
-                    console.log('✅ Total de atividades recebidas:', data.data?.length || 0);
+                    console.log('✅ Total de atividades recebidas:', data.data?.atividades?.length || 0);
+                    console.log('📊 Dados de paginação:', data.data?.paginacao);
                     
-                    // Log de todas as categorias disponíveis
-                    const categoriasDisponiveis = [...new Set((data.data || []).map(a => a.categoria))];
-                    console.log('📋 Categorias disponíveis no banco:', categoriasDisponiveis);
+                    // Armazenar dados
+                    todasAtividades = data.data?.atividades || [];
+                    dadosPaginacao = data.data?.paginacao || {};
                     
-                    // Filtrar atividades da categoria selecionada - melhorar o filtro
-                    todasAtividades = (data.data || []).filter(atividade => {
-                        if (!atividade.categoria) return false;
-                        
-                        const categoriaAtividade = atividade.categoria.toLowerCase().trim();
-                        const categoriaBusca = categoria.toLowerCase().trim();
-                        
-                        // Verificar correspondência exata ou parcial
-                        const match = categoriaAtividade === categoriaBusca || 
-                                     categoriaAtividade.includes(categoriaBusca) ||
-                                     categoriaBusca.includes(categoriaAtividade);
-                        
-                        if (match) {
-                            console.log(`✅ Atividade encontrada: "${atividade.nome}" - Categoria: "${atividade.categoria}"`);
-                        }
-                        
-                        return match;
-                    });
-                    
-                    console.log('🎯 Atividades filtradas para categoria "' + categoria + '":', todasAtividades.length);
-                    console.log('📝 Atividades encontradas:', todasAtividades.map(a => a.nome));
-                    
+                    // Renderizar atividades e controles
                     renderizarAtividades();
+                    renderizarInfoResultados();
+                    renderizarPaginacao();
+                    
                     document.getElementById('alertaAtividades').classList.add('hidden');
                 } else {
-                    console.error('❌ Erro na resposta da API:', data.error || 'Erro desconhecido');
+                    console.error('❌ Erro na resposta da API:', data.message || 'Erro desconhecido');
                     document.getElementById('alertaAtividades').classList.remove('hidden');
+                    
+                    // Limpar dados em caso de erro
+                    todasAtividades = [];
+                    dadosPaginacao = {};
+                    renderizarAtividades();
                 }
             } catch (e) {
                 console.error('💥 Erro ao carregar atividades:', e);
@@ -621,13 +554,127 @@
             }
         }
 
+        // Funções para aplicar e limpar filtros
+        function aplicarFiltros() {
+            filtrosAtuais.ordenacao = document.getElementById('ordenacao').value;
+            filtrosAtuais.direcao = document.getElementById('direcao').value;
+            filtrosAtuais.busca = document.getElementById('campoBusca').value.trim();
+            filtrosAtuais.pagina = 1; // Reset para primeira página
+            
+            carregarAtividades();
+        }
+
+        function limparFiltros() {
+            document.getElementById('campoBusca').value = '';
+            document.getElementById('ordenacao').value = 'nome';
+            document.getElementById('direcao').value = 'ASC';
+            
+            filtrosAtuais = {
+                busca: '',
+                ordenacao: 'nome',
+                direcao: 'ASC',
+                pagina: 1,
+                limite: 20
+            };
+            
+            carregarAtividades();
+        }
+
+        // Função para mudar página
+        function mudarPagina(novaPagina) {
+            if (novaPagina >= 1 && novaPagina <= dadosPaginacao.total_paginas) {
+                filtrosAtuais.pagina = novaPagina;
+                carregarAtividades();
+            }
+        }
+
+        // Renderizar informações dos resultados
+        function renderizarInfoResultados() {
+            const infoDiv = document.getElementById('infoResultados');
+            
+            if (dadosPaginacao.total_registros > 0) {
+                const inicio = ((dadosPaginacao.pagina_atual - 1) * dadosPaginacao.limite) + 1;
+                const fim = Math.min(dadosPaginacao.pagina_atual * dadosPaginacao.limite, dadosPaginacao.total_registros);
+                
+                infoDiv.innerHTML = `
+                    Mostrando ${inicio}-${fim} de ${dadosPaginacao.total_registros} atividades
+                    ${filtrosAtuais.busca ? `(filtrado por: "${filtrosAtuais.busca}")` : ''}
+                `;
+                infoDiv.classList.remove('hidden');
+            } else {
+                infoDiv.classList.add('hidden');
+            }
+        }
+
+        // Renderizar controles de paginação
+        function renderizarPaginacao() {
+            const paginacaoDiv = document.getElementById('paginacao');
+            
+            if (!dadosPaginacao.total_paginas || dadosPaginacao.total_paginas <= 1) {
+                paginacaoDiv.classList.add('hidden');
+                return;
+            }
+            
+            let html = '';
+            
+            // Botão anterior
+            if (dadosPaginacao.tem_anterior) {
+                html += `<button onclick="mudarPagina(${dadosPaginacao.pagina_atual - 1})" 
+                                class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Anterior
+                         </button>`;
+            }
+            
+            // Números das páginas
+            const paginaAtual = dadosPaginacao.pagina_atual;
+            const totalPaginas = dadosPaginacao.total_paginas;
+            
+            let inicioRange = Math.max(1, paginaAtual - 2);
+            let fimRange = Math.min(totalPaginas, paginaAtual + 2);
+            
+            if (inicioRange > 1) {
+                html += `<button onclick="mudarPagina(1)" class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">1</button>`;
+                if (inicioRange > 2) {
+                    html += `<span class="px-2 text-gray-500">...</span>`;
+                }
+            }
+            
+            for (let i = inicioRange; i <= fimRange; i++) {
+                const isAtual = i === paginaAtual;
+                html += `<button onclick="mudarPagina(${i})" 
+                                class="px-3 py-2 text-sm border rounded-lg ${isAtual ? 'bg-purple-600 text-white border-purple-600' : 'border-gray-300 hover:bg-gray-50'}">
+                            ${i}
+                         </button>`;
+            }
+            
+            if (fimRange < totalPaginas) {
+                if (fimRange < totalPaginas - 1) {
+                    html += `<span class="px-2 text-gray-500">...</span>`;
+                }
+                html += `<button onclick="mudarPagina(${totalPaginas})" class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">${totalPaginas}</button>`;
+            }
+            
+            // Botão próximo
+            if (dadosPaginacao.tem_proxima) {
+                html += `<button onclick="mudarPagina(${dadosPaginacao.pagina_atual + 1})" 
+                                class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Próximo
+                         </button>`;
+            }
+            
+            paginacaoDiv.innerHTML = html;
+            paginacaoDiv.classList.remove('hidden');
+        }
+
         function renderizarAtividades() {
             const container = document.getElementById('atividadesContainer');
             if (!todasAtividades.length) {
                 container.innerHTML = `<div class="text-center py-12">
-                    <div class="text-6xl mb-4">🤝</div>
-                    <p class="text-gray-500 text-lg mb-2">Nenhuma atividade de extensão encontrada.</p>
-                    <p class="text-gray-400 text-sm">Entre em contato com a coordenação para mais informações.</p>
+                    <div class="text-6xl mb-4">🎓</div>
+                    <p class="text-gray-500 text-lg mb-2">Nenhuma atividade extracurricular encontrada.</p>
+                    <p class="text-gray-400 text-sm">
+                        ${filtrosAtuais.busca ? 'Tente ajustar os filtros de busca.' : 'Entre em contato com a coordenação para mais informações.'}
+                    </p>
                 </div>`;
                 return;
             }
@@ -646,11 +693,11 @@
                             <div class="space-y-2 mb-4">
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #8B5CF6">Tipo:</span>
-                                    <span class="text-gray-600">${atividade.tipo}</span>
+                                    <span class="text-gray-600">${atividade.categoria || atividade.tipo}</span>
                                 </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #8B5CF6">Horas Máximas:</span>
-                                    <span class="text-gray-600">${atividade.horas_max}h</span>
+                                    <span class="text-gray-600">${atividade.carga_horaria_maxima || atividade.horas_max}h</span>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -684,11 +731,11 @@
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Tipo:</span>
-                        <span class="ml-2">${atividade.tipo}</span>
+                        <span class="ml-2">${atividade.categoria || atividade.tipo}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Horas Máximas:</span>
-                        <span class="ml-2">${atividade.horas_max} horas</span>
+                        <span class="ml-2">${atividade.carga_horaria_maxima || atividade.horas_max} horas</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Descrição:</span>
@@ -720,8 +767,8 @@
                 <div class="space-y-1">
                     <p><strong>Nome:</strong> ${atividadeSelecionada.nome}</p>
                     <p><strong>Categoria:</strong> ${atividadeSelecionada.categoria}</p>
-                    <p><strong>Tipo:</strong> ${atividadeSelecionada.tipo}</p>
-                    <p><strong>Horas Máximas:</strong> ${atividadeSelecionada.horas_max}h</p>
+                    <p><strong>Tipo:</strong> ${atividadeSelecionada.categoria || atividadeSelecionada.tipo}</p>
+                    <p><strong>Horas Máximas:</strong> ${atividadeSelecionada.carga_horaria_maxima || atividadeSelecionada.horas_max}h</p>
                 </div>
             `;
             
@@ -729,21 +776,8 @@
             const inputHoras = document.getElementById('horasRealizadas');
             const spanMaxHoras = document.getElementById('maxHoras');
             
-            // Verificar se é "Curso de extensão em áreas afins" para aplicar validação específica
-            const isCursoExtensaoAreasAfins = atividadeSelecionada.nome.toLowerCase().includes('curso de extensão em áreas afins');
-            
-            if (isCursoExtensaoAreasAfins) {
-                // Para "Curso de extensão em áreas afins", verificar limite baseado no ano da matrícula
-                verificarLimiteCursoExtensaoAreasAfins(atividadeSelecionada, inputHoras, spanMaxHoras);
-            } else {
-                // Para outras atividades, usar o limite padrão
-                inputHoras.max = atividadeSelecionada.horas_max;
-                spanMaxHoras.textContent = atividadeSelecionada.horas_max;
-                
-                // Esconder contador de horas para outras atividades
-                const contadorDiv = document.getElementById('contadorHorasCursoExtensao');
-                contadorDiv.classList.add('hidden');
-            }
+            // Usar limite padrão para todas as atividades
+            verificarLimiteHoras(atividadeSelecionada, inputHoras, spanMaxHoras);
             
             // Detectar atividades específicas
             const isPET = atividadeSelecionada.nome.toLowerCase().includes('pet – programa de educação tutorial');
@@ -881,9 +915,6 @@
             
             // Validar campos obrigatórios
             const horasRealizadas = document.getElementById('horasRealizadas').value;
-            const dataInicio = document.getElementById('dataInicio').value;
-            const dataFim = document.getElementById('dataFim').value;
-            const local = document.getElementById('local').value;
             const declaracao = document.getElementById('declaracao').files[0];
             const cursoNome = document.getElementById('cursoNome').value.trim();
             const projetoNome = document.getElementById('projetoNome').value.trim();
@@ -908,7 +939,7 @@
             let campoObrigatorioFaltando = false;
             let mensagemErro = 'Por favor, preencha todos os campos obrigatórios.';
             
-            if (!horasRealizadas || !dataInicio || !dataFim || !local || !declaracao) {
+            if (!horasRealizadas || !declaracao) {
                 campoObrigatorioFaltando = true;
             } else if (precisaProjeto && !projetoNome) {
                 campoObrigatorioFaltando = true;
@@ -930,13 +961,7 @@
                 return;
             }
             
-            // Validar datas
-            const inicio = new Date(dataInicio);
-            const fim = new Date(dataFim);
-            
-            // Removida validação que impedia data início posterior à data fim
-            
-            // Removida validação que impedia datas futuras para dataFim
+            // Validação de datas removida pois os campos foram removidos do formulário
             
             // Validar horas
             if (parseInt(horasRealizadas) > parseInt(atividadeSelecionada.horas_max)) {
@@ -944,27 +969,44 @@
                 return;
             }
             
-            // Preparar dados para envio
-            const formData = new FormData();
-            formData.append('atividade_disponivel_id', atividadeSelecionada.id);
-            formData.append('horas_realizadas', horasRealizadas);
-            formData.append('data_inicio', dataInicio);
-            formData.append('data_fim', dataFim);
-            formData.append('local_instituicao', local);
-            formData.append('observacoes', document.getElementById('observacoes').value);
-            
-            // Enviar o campo apropriado baseado no tipo de atividade
-            if (precisaProjeto) {
-                formData.append('projeto_nome', projetoNome);
-            } else if (precisaCursoEspecifico) {
-                formData.append('curso_nome', cursoEspecificoNome);
-            } else if (precisaEvento) {
-                formData.append('evento_nome', eventoNome);
-            } else if (precisaCurso) {
-                formData.append('curso_nome', cursoNome);
+            // Obter dados do usuário logado
+            const usuario = AuthClient.getUser();
+            if (!usuario || !usuario.id) {
+                alert('Erro: Dados do usuário não encontrados.');
+                return;
             }
-            // Para Missões, não enviamos campo adicional
             
+            // Criar título baseado no tipo de atividade e campo específico
+            let titulo = '';
+            if (precisaProjeto && projetoNome) {
+                titulo = `${atividadeSelecionada.nome} - Projeto: ${projetoNome}`;
+            } else if (precisaCursoEspecifico && cursoEspecificoNome) {
+                titulo = `${atividadeSelecionada.nome} - Curso: ${cursoEspecificoNome}`;
+            } else if (precisaEvento && eventoNome) {
+                titulo = `${atividadeSelecionada.nome} - Evento: ${eventoNome}`;
+            } else if (precisaCurso && cursoNome) {
+                titulo = `${atividadeSelecionada.nome} - ${cursoNome}`;
+            } else {
+                titulo = atividadeSelecionada.nome;
+            }
+            
+            // Preparar dados para envio - usando estrutura JSON para a nova API
+            const dadosAtividade = {
+                aluno_id: usuario.id,
+                // Usar o identificador correto da atividade (id retornado pela API)
+                atividades_por_resolucao_id: atividadeSelecionada.id,
+                titulo: titulo,
+                descricao: document.getElementById('observacoes').value || null,
+                ch_solicitada: parseInt(horasRealizadas)
+            };
+            
+            // Preparar FormData para incluir o arquivo
+            const formData = new FormData();
+            
+            // Adicionar dados JSON como string
+            formData.append('data', JSON.stringify(dadosAtividade));
+            
+            // Adicionar arquivo de declaração
             formData.append('declaracao', declaracao);
             
             // Desabilitar botão de envio
@@ -975,8 +1017,8 @@
             
             try {
                 console.log('=== DEBUG REQUISIÇÃO ===');
-                console.log('Enviando dados:', formData);
-                console.log('URL:', '../../backend/api/routes/atividade_complementar_acc.php');
+                console.log('Enviando dados:', dadosAtividade);
+                console.log('URL:', '../../backend/api/routes/cadastrar_atividades.php');
                 console.log('Token disponível:', AuthClient.getToken());
                 console.log('Usuário logado:', AuthClient.getUser());
                 
@@ -1003,7 +1045,7 @@
                 console.log('Headers:', headers);
                 
                 console.log('=== INICIANDO REQUISIÇÃO ===');
-                const response = await AuthClient.fetch('../../backend/api/routes/atividade_complementar_acc.php', {
+                const response = await AuthClient.fetch('../../backend/api/routes/cadastrar_atividades.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1019,31 +1061,17 @@
                 if (result && result.success) {
                     alert('Atividade cadastrada com sucesso!');
                     
-                    // Atualizar automaticamente a seção "Minhas Atividades"
-                    await atualizarMinhasAtividades();
-                    
                     fecharModalSelecao();
                     // Redirecionar para página de atividades do aluno
                     window.location.href = 'home_aluno.php';
                 } else {
-                    console.error('Erro na resposta:', result);
-                    alert('Erro ao cadastrar atividade: ' + (result?.message || result?.error || 'Erro desconhecido'));
+                    alert('Erro ao enviar dados: ' + (result?.error || result?.message || 'Erro desconhecido'));
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = textoOriginal;
                 }
             } catch (error) {
-                console.error('=== ERRO CAPTURADO ===');
-                console.error('Tipo do erro:', error.constructor.name);
-                console.error('Mensagem do erro:', error.message);
-                console.error('Stack trace:', error.stack);
-                console.error('Erro completo:', error);
-                
-                // Tentar extrair mais informações do erro
-                if (error.response) {
-                    console.error('Response do erro:', error.response);
-                }
-                
-                alert('Erro ao enviar dados: ' + error.message + '\nVerifique o console para mais detalhes.');
-            } finally {
-                // Reabilitar botão
+                console.error('Erro completo ao enviar atividade:', error);
+                alert('Erro ao enviar dados: ' + (error.message || 'Erro desconhecido'));
                 btnSubmit.disabled = false;
                 btnSubmit.textContent = textoOriginal;
             }
@@ -1053,179 +1081,59 @@
         
         // Removida validação que impedia data fim anterior à data início no evento change
 
-        // Função para atualizar a seção "Minhas Atividades"
-        async function atualizarMinhasAtividades() {
-            try {
-                const response = await AuthClient.request('../../backend/api/routes/listar_atividades_aluno.php', {
-                    method: 'GET'
-                });
-                
-                if (response.success && response.data) {
-                    // Aqui você pode atualizar a seção "Minhas Atividades" se ela existir na página
-                    console.log('Atividades atualizadas:', response.data);
-                    // Se houver uma função específica para atualizar a seção, chame-a aqui
-                    // Por exemplo: atualizarSecaoMinhasAtividades(response.data);
-                }
-            } catch (error) {
-                console.error('Erro ao atualizar Minhas Atividades:', error);
-            }
+
+
+        // Função simplificada para verificar limite de horas
+        function verificarLimiteHoras(atividade, inputHoras, spanMaxHoras) {
+            // Usar limite padrão da atividade
+            inputHoras.max = atividade.horas_max;
+            spanMaxHoras.textContent = atividade.horas_max;
+            
+            // Atualizar informações da atividade selecionada
+            const infoDiv = document.getElementById('infoAtividadeSelecionada');
+            infoDiv.innerHTML = `
+                <div class="space-y-1">
+                    <p><strong>Nome:</strong> ${atividade.nome}</p>
+                    <p><strong>Categoria:</strong> ${atividade.categoria}</p>
+                    <p><strong>Tipo:</strong> ${atividade.tipo}</p>
+                    <p><strong>Horas Máximas:</strong> ${atividade.horas_max}h</p>
+                </div>
+            `;
         }
 
-        // Função para verificar limite específico para "Curso de extensão em áreas afins"
-        async function verificarLimiteCursoExtensaoAreasAfins(atividade, inputHoras, spanMaxHoras) {
-            try {
-                console.log('🔍 Verificando limite para Curso de extensão em áreas afins');
-                
-                // Buscar dados do usuário para determinar o limite baseado no ano da matrícula
-                const user = AuthClient.getUser();
-                if (!user || !user.matricula) {
-                    console.error('Dados do usuário não encontrados');
-                    // Usar limite padrão se não conseguir determinar
-                    inputHoras.max = atividade.horas_max;
-                    spanMaxHoras.textContent = atividade.horas_max;
-                    return;
-                }
-                
-                const matricula = user.matricula;
-                const anoMatricula = parseInt(matricula.substring(0, 4));
-                
-                // Definir limite baseado no ano da matrícula
-                const limiteHoras = (anoMatricula >= 2023) ? 10 : 20;
-                
-                console.log(`📅 Matrícula: ${matricula}, Ano: ${anoMatricula}, Limite: ${limiteHoras}h`);
-                
-                // Buscar horas já cadastradas desta atividade específica
-                const response = await AuthClient.request('../../backend/api/routes/verificar_horas_curso_extensao.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        atividade_disponivel_id: atividade.id
-                    })
-                });
-                
-                let horasJaCadastradas = 0;
-                if (response.success && response.data) {
-                    horasJaCadastradas = response.data.horas_ja_cadastradas || 0;
-                }
-                
-                console.log(`⏰ Horas já cadastradas: ${horasJaCadastradas}h de ${limiteHoras}h`);
-                
-                // Calcular horas restantes
-                const horasRestantes = Math.max(0, limiteHoras - horasJaCadastradas);
-                
-                // Atualizar interface
-                inputHoras.max = horasRestantes;
-                spanMaxHoras.textContent = horasRestantes;
-                
-                // Mostrar contador de horas para Curso de extensão em áreas afins
-                const contadorDiv = document.getElementById('contadorHorasCursoExtensao');
-                contadorDiv.classList.remove('hidden');
-                
-                // Atualizar valores do contador
-                document.getElementById('horasJaCadastradas').textContent = `${horasJaCadastradas}h`;
-                document.getElementById('horasDisponiveis').textContent = `${horasRestantes}h`;
-                document.getElementById('limiteMaximo').textContent = `${limiteHoras}h`;
-                
-                // Atualizar cor das horas disponíveis
-                const horasDisponiveisSpan = document.getElementById('horasDisponiveis');
-                horasDisponiveisSpan.className = horasRestantes > 0 ? 'font-semibold text-green-600' : 'font-semibold text-red-600';
-                
-                // Atualizar informações da atividade selecionada
-                const infoDiv = document.getElementById('infoAtividadeSelecionada');
-                infoDiv.innerHTML = `
-                    <div class="space-y-1">
-                        <p><strong>Nome:</strong> ${atividade.nome}</p>
-                        <p><strong>Categoria:</strong> ${atividade.categoria}</p>
-                        <p><strong>Tipo:</strong> ${atividade.tipo}</p>
-                        <p><strong>Limite Total:</strong> ${limiteHoras}h</p>
-                        <p><strong>Horas Já Cadastradas:</strong> ${horasJaCadastradas}h</p>
-                        <p><strong>Horas Disponíveis:</strong> <span class="font-semibold ${horasRestantes > 0 ? 'text-green-600' : 'text-red-600'}">${horasRestantes}h</span></p>
-                    </div>
-                `;
-                
-                // Se não há horas restantes, mostrar aviso
-                if (horasRestantes === 0) {
-                    alert(`Limite máximo de ${limiteHoras}h atingido para esta atividade. Você não pode cadastrar mais horas.`);
-                    fecharModalSelecao();
-                    return;
-                }
-                
-                // Se há poucas horas restantes, mostrar aviso
-                if (horasRestantes < limiteHoras) {
-                    const mensagem = `Atenção: Você já possui ${horasJaCadastradas}h cadastradas desta atividade. ` +
-                                   `Você pode cadastrar no máximo ${horasRestantes}h adicionais (limite total: ${limiteHoras}h).`;
-                    
-                    // Mostrar aviso visual na interface
-                    const avisoDiv = document.createElement('div');
-                    avisoDiv.className = 'mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg';
-                    avisoDiv.innerHTML = `
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-yellow-700">${mensagem}</p>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // Inserir aviso após as informações da atividade
-                    infoDiv.parentNode.insertBefore(avisoDiv, infoDiv.nextSibling);
-                }
-                
-            } catch (error) {
-                console.error('Erro ao verificar limite:', error);
-                // Em caso de erro, usar limite padrão
-                inputHoras.max = atividade.horas_max;
-                spanMaxHoras.textContent = atividade.horas_max;
-            }
-        }
-
-        // Adicionar validação em tempo real no campo de horas
+        // Validação simples no campo de horas
         document.addEventListener('DOMContentLoaded', function() {
             const inputHoras = document.getElementById('horasRealizadas');
             
             inputHoras.addEventListener('input', function() {
-                // Verificar se é "Curso de extensão em áreas afins"
-                if (atividadeSelecionada && atividadeSelecionada.nome.toLowerCase().includes('curso de extensão em áreas afins')) {
-                    const valorDigitado = parseInt(this.value) || 0;
-                    const maxPermitido = parseInt(this.max) || 0;
+                const valorDigitado = parseInt(this.value) || 0;
+                const maxPermitido = parseInt(this.max) || 0;
+                
+                // Limitar o valor ao máximo permitido
+                if (valorDigitado > maxPermitido) {
+                    this.value = maxPermitido;
                     
-                    // Atualizar contador em tempo real
-                    const horasJaCadastradas = parseInt(document.getElementById('horasJaCadastradas').textContent) || 0;
-                    const limiteMaximo = parseInt(document.getElementById('limiteMaximo').textContent) || 0;
-                    const horasDisponiveis = Math.max(0, limiteMaximo - horasJaCadastradas);
+                    // Mostrar mensagem de erro
+                    const mensagemErro = document.getElementById('mensagemErroHoras') || document.createElement('div');
+                    mensagemErro.id = 'mensagemErroHoras';
+                    mensagemErro.className = 'mt-1 text-sm text-red-600';
+                    mensagemErro.textContent = `Máximo permitido: ${maxPermitido}h`;
                     
-                    // Limitar o valor ao máximo permitido
-                    if (valorDigitado > maxPermitido) {
-                        this.value = maxPermitido;
-                        
-                        // Mostrar mensagem de erro
-                        const mensagemErro = document.getElementById('mensagemErroHoras') || document.createElement('div');
-                        mensagemErro.id = 'mensagemErroHoras';
-                        mensagemErro.className = 'mt-1 text-sm text-red-600';
-                        mensagemErro.textContent = `Máximo permitido: ${maxPermitido}h (você já possui ${horasJaCadastradas}h cadastradas)`;
-                        
-                        if (!document.getElementById('mensagemErroHoras')) {
-                            this.parentNode.appendChild(mensagemErro);
-                        }
-                        
-                        // Remover mensagem após 3 segundos
-                        setTimeout(() => {
-                            if (mensagemErro.parentNode) {
-                                mensagemErro.parentNode.removeChild(mensagemErro);
-                            }
-                        }, 3000);
-                    } else {
-                        // Remover mensagem de erro se existir
-                        const mensagemErro = document.getElementById('mensagemErroHoras');
-                        if (mensagemErro) {
+                    if (!document.getElementById('mensagemErroHoras')) {
+                        this.parentNode.appendChild(mensagemErro);
+                    }
+                    
+                    // Remover mensagem após 3 segundos
+                    setTimeout(() => {
+                        if (mensagemErro.parentNode) {
                             mensagemErro.parentNode.removeChild(mensagemErro);
                         }
+                    }, 3000);
+                } else {
+                    // Remover mensagem de erro se existir
+                    const mensagemErro = document.getElementById('mensagemErroHoras');
+                    if (mensagemErro) {
+                        mensagemErro.parentNode.removeChild(mensagemErro);
                     }
                 }
             });

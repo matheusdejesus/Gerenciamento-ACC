@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <script src="../assets/js/auth.js"></script>
     <link rel="stylesheet" href="../css/style.css">
 </head>
+
 <body class="bg-gray-50">
     <!-- Navegação -->
     <nav class="bg-white shadow-sm border-b">
@@ -57,12 +59,53 @@
                 </div>
             </div>
 
-            <!-- Container das atividades -->
-            <div id="atividadesContainer" class="mb-8">
-                <div class="text-center py-12">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p class="text-gray-500 mt-4">Carregando atividades...</p>
+            <!-- Barra de busca e filtros -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="flex-1">
+                        <div class="relative">
+                            <input type="text" id="campoBusca" placeholder="Buscar atividades de ensino..."
+                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                onkeypress="if(event.key==='Enter') buscarAtividades()">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="buscarAtividades()"
+                            class="px-4 py-2 text-white rounded-lg hover:opacity-90 transition duration-200"
+                            style="background-color: #1A7F37">
+                            Buscar
+                        </button>
+                        <button onclick="ordenarAtividades('nome')"
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                            Ordenar A-Z
+                        </button>
+                        <button onclick="ordenarAtividades('carga_horaria_maxima')"
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                            Por Horas
+                        </button>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="text-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                <p class="text-gray-500 mt-4">Carregando atividades...</p>
+            </div>
+
+            <!-- Container das atividades -->
+            <div id="atividadesContainer" class="mb-8 hidden">
+                <!-- Atividades serão carregadas aqui -->
+            </div>
+
+            <!-- Container de paginação -->
+            <div id="paginacaoContainer" class="mb-8">
+                <!-- Paginação será renderizada aqui -->
             </div>
         </div>
     </div>
@@ -98,114 +141,93 @@
                     <input type="hidden" id="atividadeId" name="atividade_id">
                     <input type="hidden" id="categoriaId" name="categoria_id">
                     <input type="hidden" id="tipoAtividade" value="">
-                    
+
                     <!-- Campos específicos para Monitoria -->
                     <div id="campoMonitoriaDisciplina" class="hidden">
                         <label for="nomeDisciplinaLab" class="block text-sm font-medium text-gray-700 mb-2">Nome da Disciplina/Laboratório *</label>
                         <input type="text" id="nomeDisciplinaLab" name="nome_disciplina_laboratorio"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite o nome da disciplina ou laboratório">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Digite o nome da disciplina ou laboratório">
                     </div>
-                    
-                    <div id="campoMonitoriaMonitor" class="hidden">
-                        <label for="nomeMonitor" class="block text-sm font-medium text-gray-700 mb-2">Monitor *</label>
-                        <input type="text" id="nomeMonitor" name="monitor"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite o nome do monitor">
-                    </div>
-                    
+
+
+
                     <div id="campoHorasMonitoria" class="hidden">
                         <label for="horasMonitoria" class="block text-sm font-medium text-gray-700 mb-2">Carga Horária *</label>
                         <input type="number" id="horasMonitoria" name="horas_monitoria" min="1" max="500"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite a quantidade de horas">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Digite a quantidade de horas">
                     </div>
-                    
 
-                    
-                    <div id="campoMonitoriaDatas" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
-                        <div>
-                            <label for="dataInicio" class="block text-sm font-medium text-gray-700 mb-2">Data de Início *</label>
-                            <input type="date" id="dataInicio" name="data_inicio"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                        </div>
-                        <div>
-                            <label for="dataFim" class="block text-sm font-medium text-gray-700 mb-2">Data de Fim *</label>
-                            <input type="date" id="dataFim" name="data_fim"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                        </div>
-                    </div>
-                    
+
+
+
+
                     <!-- Campos específicos para Disciplinas em outras IES -->
                     <div id="campoDisciplinaOutrasIES" class="hidden">
                         <label for="nomeDisciplinaIES" class="block text-sm font-medium text-gray-700 mb-2">Nome da Disciplina *</label>
                         <input type="text" id="nomeDisciplinaIES" name="nome_disciplina"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite o nome da disciplina">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Digite o nome da disciplina">
                     </div>
-                    
-                    <div id="campoInstituicao" class="hidden">
-                        <label for="nomeInstituicao" class="block text-sm font-medium text-gray-700 mb-2">Nome da Instituição *</label>
-                        <input type="text" id="nomeInstituicao" name="nome_instituicao"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite o nome da instituição">
-                    </div>
+
+
 
                     <div id="campoHorasOutrasIES" class="hidden">
                         <label for="horasOutrasIES" class="block text-sm font-medium text-gray-700 mb-2">Carga Horária *</label>
                         <input type="number" id="horasOutrasIES" name="carga_horaria" min="1" max="500"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite a quantidade de horas">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Digite a quantidade de horas">
                     </div>
-                    
 
-                    
+
+
                     <!-- Campos específicos para Disciplinas na UFOPA -->
                     <div id="campoDisciplinaUFOPA" class="hidden">
                         <label for="nomeDisciplinaUFOPA" class="block text-sm font-medium text-gray-700 mb-2">Nome da Disciplina *</label>
                         <input type="text" id="nomeDisciplinaUFOPA" name="nome_disciplina"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite o nome da disciplina">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Digite o nome da disciplina">
                     </div>
-                    
+
                     <div id="campoHorasUFOPA" class="hidden">
                         <label for="horasUFOPA" class="block text-sm font-medium text-gray-700 mb-2">Carga Horária *</label>
                         <input type="number" id="horasUFOPA" name="carga_horaria" min="1" max="500"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="Digite a quantidade de horas">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Digite a quantidade de horas">
                     </div>
-                    
 
-                    
+
+
                     <div id="campoComprovanteUFOPA" class="hidden">
                         <label for="comprovanteUFOPA" class="block text-sm font-medium text-gray-700 mb-2">Comprovante de Declaração da Disciplina *</label>
                         <input type="file" id="comprovanteUFOPA" name="comprovante_ufopa" accept=".pdf,.jpg,.jpeg,.png"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         <p class="text-xs text-gray-500 mt-1">Formatos aceitos: PDF, JPG, JPEG, PNG (máx. 5MB)</p>
                     </div>
-                    
+
                     <div id="campoDeclaracaoIES" class="hidden">
                         <label for="declaracaoIES" class="block text-sm font-medium text-gray-700 mb-2">Declaração Comprovando a Disciplina *</label>
                         <input type="file" id="declaracaoIES" name="declaracao_ies" accept=".pdf,.jpg,.jpeg,.png"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         <p class="text-xs text-gray-500 mt-1">Formatos aceitos: PDF, JPG, JPEG, PNG (máx. 5MB)</p>
                     </div>
-                    
+
                     <div id="campoComprovanteMonitoria" class="hidden">
                         <label for="comprovante" class="block text-sm font-medium text-gray-700 mb-2">Comprovante *</label>
                         <input type="file" id="comprovante" name="comprovante" accept=".pdf,.jpg,.jpeg,.png"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         <p class="text-xs text-gray-500 mt-1">Formatos aceitos: PDF, JPG, JPEG, PNG (máx. 5MB)</p>
                     </div>
-                    
+
                     <div class="flex gap-3 pt-4">
                         <button type="button" onclick="fecharModalSelecao()"
-                                class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                            class="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                             Cancelar
                         </button>
                         <button type="submit"
-                                class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200"
-                                style="background-color: #1A7F37">
+                            class="flex-1 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition duration-200"
+                            style="background-color: #1A7F37">
                             Enviar Solicitação
                         </button>
                     </div>
@@ -235,30 +257,69 @@
             }
             return true;
         }
-        
+
         verificarAutenticacao();
 
         // Carregar atividades de ensino via JWT
         let todasAtividades = [];
+        let paginaAtual = 1;
+        let totalPaginas = 1;
+        let buscaAtual = '';
+        let ordenacaoAtual = 'nome';
+        let direcaoAtual = 'ASC';
 
-        async function carregarAtividades() {
+        async function carregarAtividades(pagina = 1, busca = '', ordenacao = 'nome', direcao = 'ASC') {
             try {
-                const response = await AuthClient.fetch('../../backend/api/routes/listar_atividades.php', {
+                // Mostrar loading
+                document.getElementById('loadingSpinner').classList.remove('hidden');
+                document.getElementById('atividadesContainer').classList.add('hidden');
+
+                const params = new URLSearchParams({
+                    type: 'ensino',
+                    pagina: pagina,
+                    limite: 20,
+                    busca: busca,
+                    ordenacao: ordenacao,
+                    direcao: direcao
+                });
+
+                const response = await AuthClient.fetch(`../../backend/api/routes/listar_atividades_disponiveis.php?${params}`, {
                     method: 'GET'
                 });
+
                 const data = await response.json();
-                if (data.success) {
-                    // Filtrar apenas atividades de ensino
-                    todasAtividades = (data.data || []).filter(atividade => 
-                        atividade.categoria && atividade.categoria.toLowerCase() === 'ensino'
-                    );
+                console.log('Resposta da API:', data);
+
+                if (data.success || data.sucesso) {
+                    todasAtividades = data.data.atividades || [];
+
+                    // Atualizar informações de paginação
+                    if (data.data.paginacao) {
+                        paginaAtual = data.data.paginacao.pagina_atual;
+                        totalPaginas = data.data.paginacao.total_paginas;
+                        buscaAtual = busca;
+                        ordenacaoAtual = ordenacao;
+                        direcaoAtual = direcao;
+                    }
+
                     renderizarAtividades();
+                    renderizarPaginacao();
                     document.getElementById('alertaAtividades').classList.add('hidden');
                 } else {
+                    console.error('Erro na API:', data.error || data.erro);
                     document.getElementById('alertaAtividades').classList.remove('hidden');
+                    todasAtividades = [];
+                    renderizarAtividades();
                 }
             } catch (e) {
+                console.error('Erro ao carregar atividades:', e);
                 document.getElementById('alertaAtividades').classList.remove('hidden');
+                todasAtividades = [];
+                renderizarAtividades();
+            } finally {
+                // Esconder loading
+                document.getElementById('loadingSpinner').classList.add('hidden');
+                document.getElementById('atividadesContainer').classList.remove('hidden');
             }
         }
 
@@ -272,26 +333,26 @@
                 </div>`;
                 return;
             }
-            
+
             container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 ${todasAtividades.map(atividade => `
                     <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
                         <div class="p-4" style="background-color: #1A7F37">
-                            <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
+                            <h3 class="text-lg font-bold text-white">${atividade.nome || 'Nome não disponível'}</h3>
                             <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 mt-2">
-                                ${atividade.categoria}
+                                Ensino
                             </span>
                         </div>
                         <div class="p-4">
-                            <p class="text-gray-600 text-sm mb-4">${atividade.descricao}</p>
+                            <p class="text-gray-600 text-sm mb-4">${atividade.descricao || 'Descrição não disponível'}</p>
                             <div class="space-y-2 mb-4">
                                 <div class="flex justify-between text-sm">
-                                    <span class="font-medium" style="color: #1A7F37">Tipo:</span>
-                                    <span class="text-gray-600">${atividade.tipo}</span>
+                                    <span class="font-medium" style="color: #1A7F37">Categoria:</span>
+                                    <span class="text-gray-600">${atividade.categoria || 'Ensino'}</span>
                                 </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #1A7F37">Horas Máximas:</span>
-                                    <span class="text-gray-600">${atividade.horas_max}h</span>
+                                    <span class="text-gray-600">${atividade.carga_horaria_maxima || atividade.horas_max || 0}h</span>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -312,10 +373,57 @@
             </div>`;
         }
 
+        function renderizarPaginacao() {
+            const container = document.getElementById('paginacaoContainer');
+            if (!container) return;
+
+            if (totalPaginas <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let paginacao = '<div class="flex justify-center items-center space-x-2 mt-6">';
+
+            // Botão anterior
+            if (paginaAtual > 1) {
+                paginacao += `<button onclick="carregarAtividades(${paginaAtual - 1}, '${buscaAtual}', '${ordenacaoAtual}', '${direcaoAtual}')" 
+                             class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Anterior</button>`;
+            }
+
+            // Números das páginas
+            for (let i = Math.max(1, paginaAtual - 2); i <= Math.min(totalPaginas, paginaAtual + 2); i++) {
+                if (i === paginaAtual) {
+                    paginacao += `<button class="px-3 py-2 text-sm text-white rounded-lg" style="background-color: #1A7F37">${i}</button>`;
+                } else {
+                    paginacao += `<button onclick="carregarAtividades(${i}, '${buscaAtual}', '${ordenacaoAtual}', '${direcaoAtual}')" 
+                                 class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">${i}</button>`;
+                }
+            }
+
+            // Botão próximo
+            if (paginaAtual < totalPaginas) {
+                paginacao += `<button onclick="carregarAtividades(${paginaAtual + 1}, '${buscaAtual}', '${ordenacaoAtual}', '${direcaoAtual}')" 
+                             class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Próximo</button>`;
+            }
+
+            paginacao += '</div>';
+            container.innerHTML = paginacao;
+        }
+
+        function buscarAtividades() {
+            const termoBusca = document.getElementById('campoBusca')?.value || '';
+            carregarAtividades(1, termoBusca, ordenacaoAtual, direcaoAtual);
+        }
+
+        function ordenarAtividades(campo) {
+            const novaDirecao = (ordenacaoAtual === campo && direcaoAtual === 'ASC') ? 'DESC' : 'ASC';
+            carregarAtividades(paginaAtual, buscaAtual, campo, novaDirecao);
+        }
+
         function verDetalhes(id) {
             const atividade = todasAtividades.find(a => a.id === id);
             if (!atividade) return;
-            
+
             const detalhes = `
                 <h4 class="text-xl font-bold mb-4" style="color: #1A7F37">${atividade.nome}</h4>
                 <div class="space-y-3">
@@ -337,10 +445,10 @@
                     </div>
                 </div>
             `;
-            
+
             document.getElementById('conteudoDetalhes').innerHTML = detalhes;
             document.getElementById('modalDetalhes').classList.remove('hidden');
-            
+
             // Fechar modal ao clicar fora dele
             document.getElementById('modalDetalhes').onclick = (e) => {
                 if (e.target.id === 'modalDetalhes') {
@@ -360,9 +468,9 @@
         function abrirModalSelecao(id) {
             // Resetar atributos required em todos os campos condicionais
             const camposCondicionais = [
-                'nomeDisciplinaLab', 'nomeMonitor', 'horasMonitoria', 'coordenadorIdMonitoria',
-                'dataInicio', 'dataFim', 'comprovante',
-                'nomeDisciplinaIES', 'horasOutrasIES', 'coordenadorIdOutrasIES', 'nomeInstituicao',
+                'nomeDisciplinaLab', 'horasMonitoria', 'coordenadorIdMonitoria',
+                'comprovante',
+                'nomeDisciplinaIES', 'horasOutrasIES', 'coordenadorIdOutrasIES',
                 'nomeDisciplinaUFOPA', 'horasUFOPA', 'coordenadorIdUFOPA'
             ];
             camposCondicionais.forEach(id => {
@@ -372,183 +480,148 @@
 
             const atividade = todasAtividades.find(a => a.id === id);
             document.getElementById('atividadeId').value = id;
-            
+
             // Definir categoria_id como 1 para todas atividades de ensino
             let categoriaId = 1;
             document.getElementById('categoriaId').value = categoriaId;
-            
+
             // Elementos dos campos específicos para monitoria
-             const campoMonitoriaDisciplina = document.getElementById('campoMonitoriaDisciplina');
-             const campoMonitoriaMonitor = document.getElementById('campoMonitoriaMonitor');
-             const campoHorasMonitoria = document.getElementById('campoHorasMonitoria');
-             const campoMonitoriaDatas = document.getElementById('campoMonitoriaDatas');
-             const campoComprovanteMonitoria = document.getElementById('campoComprovanteMonitoria');
-            
+            const campoMonitoriaDisciplina = document.getElementById('campoMonitoriaDisciplina');
+            const campoHorasMonitoria = document.getElementById('campoHorasMonitoria');
+            const campoComprovanteMonitoria = document.getElementById('campoComprovanteMonitoria');
+
             // Elementos dos campos específicos para disciplinas em outras IES
-             const campoDisciplinaOutrasIES = document.getElementById('campoDisciplinaOutrasIES');
-             const campoHorasOutrasIES = document.getElementById('campoHorasOutrasIES');
-             const campoInstituicao = document.getElementById('campoInstituicao');
-             const campoDeclaracaoIES = document.getElementById('campoDeclaracaoIES');
-             
-             // Elementos dos campos específicos para disciplinas na UFOPA
-             const campoDisciplinaUFOPA = document.getElementById('campoDisciplinaUFOPA');
-             const campoHorasUFOPA = document.getElementById('campoHorasUFOPA');
-             const campoComprovanteUFOPA = document.getElementById('campoComprovanteUFOPA');
-             
-             // Verificar se é atividade de monitoria
-             const isMonitoria = atividade && atividade.nome.toLowerCase().includes('monitoria');
-             
-             // Verificar se é disciplina em outras IES
-             const isOutrasIES = atividade && atividade.nome.toLowerCase().includes('outras ies');
-             
-             // Verificar se é disciplina na UFOPA
-             const isUFOPA = atividade && atividade.nome.toLowerCase().includes('ufopa');
-            
+            const campoDisciplinaOutrasIES = document.getElementById('campoDisciplinaOutrasIES');
+            const campoHorasOutrasIES = document.getElementById('campoHorasOutrasIES');
+            const campoDeclaracaoIES = document.getElementById('campoDeclaracaoIES');
+
+            // Elementos dos campos específicos para disciplinas na UFOPA
+            const campoDisciplinaUFOPA = document.getElementById('campoDisciplinaUFOPA');
+            const campoHorasUFOPA = document.getElementById('campoHorasUFOPA');
+            const campoComprovanteUFOPA = document.getElementById('campoComprovanteUFOPA');
+
+            // Verificar se é atividade de monitoria
+            const isMonitoria = atividade && atividade.nome.toLowerCase().includes('monitoria');
+
+            // Verificar se é disciplina em outras IES
+            const isOutrasIES = atividade && atividade.nome.toLowerCase().includes('outras ies');
+
+            // Verificar se é disciplina na UFOPA
+            const isUFOPA = atividade && atividade.nome.toLowerCase().includes('ufopa');
+
             if (isMonitoria) {
-                 // Definir tipo de atividade
-                 document.getElementById('tipoAtividade').value = 'Monitoria';
-                 
-                 // Mostrar campos específicos para monitoria
-                 campoMonitoriaDisciplina.classList.remove('hidden');
-                 campoMonitoriaMonitor.classList.remove('hidden');
-                 campoHorasMonitoria.classList.remove('hidden');
-                 campoMonitoriaDatas.classList.remove('hidden');
-                 campoComprovanteMonitoria.classList.remove('hidden');
-                
+                // Definir tipo de atividade
+                document.getElementById('tipoAtividade').value = 'Monitoria';
+
+                // Mostrar campos específicos para monitoria
+                campoMonitoriaDisciplina.classList.remove('hidden');
+                campoHorasMonitoria.classList.remove('hidden');
+                campoComprovanteMonitoria.classList.remove('hidden');
+
                 // Ocultar campos de outras IES e UFOPA
-                  campoDisciplinaOutrasIES.classList.add('hidden');
-                  campoHorasOutrasIES.classList.add('hidden');
-                  campoInstituicao.classList.add('hidden');
-                  campoDeclaracaoIES.classList.add('hidden');
-                  campoDisciplinaUFOPA.classList.add('hidden');
-                  campoHorasUFOPA.classList.add('hidden');
-                  campoComprovanteUFOPA.classList.add('hidden');
-                 
-                 // Tornar campos de monitoria obrigatórios
-                 document.getElementById('nomeDisciplinaLab').setAttribute('required', 'required');
-                 document.getElementById('nomeMonitor').setAttribute('required', 'required');
-                 document.getElementById('horasMonitoria').setAttribute('required', 'required');
-                 document.getElementById('dataInicio').setAttribute('required', 'required');
-                 document.getElementById('dataFim').setAttribute('required', 'required');
-                 document.getElementById('comprovante').setAttribute('required', 'required');
-                
+                campoDisciplinaOutrasIES.classList.add('hidden');
+                campoHorasOutrasIES.classList.add('hidden');
+                campoDeclaracaoIES.classList.add('hidden');
+                campoDisciplinaUFOPA.classList.add('hidden');
+                campoHorasUFOPA.classList.add('hidden');
+                campoComprovanteUFOPA.classList.add('hidden');
+
+                // Tornar campos de monitoria obrigatórios
+                document.getElementById('nomeDisciplinaLab').setAttribute('required', 'required');
+                document.getElementById('horasMonitoria').setAttribute('required', 'required');
+                document.getElementById('comprovante').setAttribute('required', 'required');
+
                 // Remover obrigatoriedade dos campos de outras IES e UFOPA
-                 document.getElementById('nomeDisciplinaIES').removeAttribute('required');
-                 document.getElementById('horasOutrasIES').removeAttribute('required');
-                 document.getElementById('nomeInstituicao').removeAttribute('required');
-                 document.getElementById('nomeDisciplinaUFOPA').removeAttribute('required');
-                 document.getElementById('horasUFOPA').removeAttribute('required');
-                
+                document.getElementById('nomeDisciplinaIES').removeAttribute('required');
+                document.getElementById('horasOutrasIES').removeAttribute('required');
+                document.getElementById('nomeDisciplinaUFOPA').removeAttribute('required');
+                document.getElementById('horasUFOPA').removeAttribute('required');
+
             } else if (isOutrasIES) {
                 // Definir tipo de atividade
                 document.getElementById('tipoAtividade').value = 'Outras IES';
-                
+
                 // Mostrar campos específicos para disciplinas em outras IES
                 campoDisciplinaOutrasIES.classList.remove('hidden');
                 campoHorasOutrasIES.classList.remove('hidden');
-                campoInstituicao.classList.remove('hidden');
                 campoDeclaracaoIES.classList.remove('hidden');
-                
+
                 // Ocultar campos de monitoria e UFOPA
-                  campoMonitoriaDisciplina.classList.add('hidden');
-                  campoMonitoriaMonitor.classList.add('hidden');
-                  campoHorasMonitoria.classList.add('hidden');
-                  campoMonitoriaDatas.classList.add('hidden');
-                  campoComprovanteMonitoria.classList.add('hidden');
-                  campoDisciplinaUFOPA.classList.add('hidden');
-                  campoHorasUFOPA.classList.add('hidden');
-                  campoComprovanteUFOPA.classList.add('hidden');
-                
+                campoMonitoriaDisciplina.classList.add('hidden');
+                campoHorasMonitoria.classList.add('hidden');
+                campoComprovanteMonitoria.classList.add('hidden');
+                campoDisciplinaUFOPA.classList.add('hidden');
+                campoHorasUFOPA.classList.add('hidden');
+                campoComprovanteUFOPA.classList.add('hidden');
+
                 // Tornar campos de outras IES obrigatórios
                 document.getElementById('nomeDisciplinaIES').setAttribute('required', 'required');
                 document.getElementById('horasOutrasIES').setAttribute('required', 'required');
-                document.getElementById('nomeInstituicao').setAttribute('required', 'required');
-                
+
                 // Remover obrigatoriedade dos campos de monitoria e UFOPA
-                  document.getElementById('nomeDisciplinaLab').removeAttribute('required');
-                  document.getElementById('nomeMonitor').removeAttribute('required');
-                  document.getElementById('horasMonitoria').removeAttribute('required');
-                  document.getElementById('dataInicio').removeAttribute('required');
-                  document.getElementById('dataFim').removeAttribute('required');
-                  document.getElementById('nomeDisciplinaUFOPA').removeAttribute('required');
-                  document.getElementById('horasUFOPA').removeAttribute('required');
-                 
-             } else if (isUFOPA) {
-                 // Definir tipo de atividade
-                 document.getElementById('tipoAtividade').value = 'UFOPA';
-                 
-                 // Mostrar campos específicos para disciplinas na UFOPA
-                 campoDisciplinaUFOPA.classList.remove('hidden');
-                 campoHorasUFOPA.classList.remove('hidden');
-                 campoComprovanteUFOPA.classList.remove('hidden');
-                 
-                 // Ocultar campos de monitoria e outras IES
-                  campoMonitoriaDisciplina.classList.add('hidden');
-                  campoMonitoriaMonitor.classList.add('hidden');
-                  campoHorasMonitoria.classList.add('hidden');
-                  campoMonitoriaDatas.classList.add('hidden');
-                  campoComprovanteMonitoria.classList.add('hidden');
-                  campoDisciplinaOutrasIES.classList.add('hidden');
-                  campoHorasOutrasIES.classList.add('hidden');
-                  campoInstituicao.classList.add('hidden');
-                  campoDeclaracaoIES.classList.add('hidden');
-                 
-                 // Tornar campos da UFOPA obrigatórios
-                 document.getElementById('nomeDisciplinaUFOPA').setAttribute('required', 'required');
-                 document.getElementById('horasUFOPA').setAttribute('required', 'required');
-                 
-                 // Remover obrigatoriedade dos outros campos
-                  document.getElementById('nomeDisciplinaLab').removeAttribute('required');
-                  document.getElementById('nomeMonitor').removeAttribute('required');
-                  document.getElementById('horasMonitoria').removeAttribute('required');
-                  document.getElementById('dataInicio').removeAttribute('required');
-                  document.getElementById('dataFim').removeAttribute('required');
-                  document.getElementById('nomeDisciplinaIES').removeAttribute('required');
-                  document.getElementById('horasOutrasIES').removeAttribute('required');
-                  document.getElementById('nomeInstituicao').removeAttribute('required');
-                 
-             } else {
-                 // Ocultar todos os campos específicos
-                  campoMonitoriaDisciplina.classList.add('hidden');
-                  campoMonitoriaMonitor.classList.add('hidden');
-                  campoHorasMonitoria.classList.add('hidden');
-                  campoMonitoriaDatas.classList.add('hidden');
-                  campoComprovanteMonitoria.classList.add('hidden');
-                  campoDisciplinaOutrasIES.classList.add('hidden');
-                  campoHorasOutrasIES.classList.add('hidden');
-                  campoInstituicao.classList.add('hidden');
-                  campoDeclaracaoIES.classList.add('hidden');
-                  campoDisciplinaUFOPA.classList.add('hidden');
-                  campoHorasUFOPA.classList.add('hidden');
-                  campoComprovanteUFOPA.classList.add('hidden');
-                
+                document.getElementById('nomeDisciplinaLab').removeAttribute('required');
+                document.getElementById('horasMonitoria').removeAttribute('required');
+                document.getElementById('nomeDisciplinaUFOPA').removeAttribute('required');
+                document.getElementById('horasUFOPA').removeAttribute('required');
+
+            } else if (isUFOPA) {
+                // Definir tipo de atividade
+                document.getElementById('tipoAtividade').value = 'UFOPA';
+
+                // Mostrar campos específicos para disciplinas na UFOPA
+                campoDisciplinaUFOPA.classList.remove('hidden');
+                campoHorasUFOPA.classList.remove('hidden');
+                campoComprovanteUFOPA.classList.remove('hidden');
+
+                // Ocultar campos de monitoria e outras IES
+                campoMonitoriaDisciplina.classList.add('hidden');
+                campoHorasMonitoria.classList.add('hidden');
+                campoComprovanteMonitoria.classList.add('hidden');
+                campoDisciplinaOutrasIES.classList.add('hidden');
+                campoHorasOutrasIES.classList.add('hidden');
+                campoDeclaracaoIES.classList.add('hidden');
+
+                // Tornar campos da UFOPA obrigatórios
+                document.getElementById('nomeDisciplinaUFOPA').setAttribute('required', 'required');
+                document.getElementById('horasUFOPA').setAttribute('required', 'required');
+
+                // Remover obrigatoriedade dos outros campos
+                document.getElementById('nomeDisciplinaLab').removeAttribute('required');
+                document.getElementById('horasMonitoria').removeAttribute('required');
+                document.getElementById('nomeDisciplinaIES').removeAttribute('required');
+                document.getElementById('horasOutrasIES').removeAttribute('required');
+
+            } else {
+                // Ocultar todos os campos específicos
+                campoMonitoriaDisciplina.classList.add('hidden');
+                campoHorasMonitoria.classList.add('hidden');
+                campoComprovanteMonitoria.classList.add('hidden');
+                campoDisciplinaOutrasIES.classList.add('hidden');
+                campoHorasOutrasIES.classList.add('hidden');
+                campoDeclaracaoIES.classList.add('hidden');
+                campoDisciplinaUFOPA.classList.add('hidden');
+                campoHorasUFOPA.classList.add('hidden');
+                campoComprovanteUFOPA.classList.add('hidden');
+
                 // Remover obrigatoriedade de todos os campos
-                  document.getElementById('nomeDisciplinaLab').removeAttribute('required');
-                  document.getElementById('nomeMonitor').removeAttribute('required');
-                  document.getElementById('horasMonitoria').removeAttribute('required');
-                  document.getElementById('dataInicio').removeAttribute('required');
-                  document.getElementById('dataFim').removeAttribute('required');
-                  document.getElementById('nomeDisciplinaIES').removeAttribute('required');
-                  document.getElementById('horasOutrasIES').removeAttribute('required');
-                  document.getElementById('nomeInstituicao').removeAttribute('required');
-                  document.getElementById('nomeDisciplinaUFOPA').removeAttribute('required');
-                  document.getElementById('horasUFOPA').removeAttribute('required');
-                
+                document.getElementById('nomeDisciplinaLab').removeAttribute('required');
+                document.getElementById('horasMonitoria').removeAttribute('required');
+                document.getElementById('nomeDisciplinaIES').removeAttribute('required');
+                document.getElementById('horasOutrasIES').removeAttribute('required');
+                document.getElementById('nomeDisciplinaUFOPA').removeAttribute('required');
+                document.getElementById('horasUFOPA').removeAttribute('required');
+
                 // Limpar valores dos campos
-                  document.getElementById('nomeDisciplinaLab').value = '';
-                  document.getElementById('nomeMonitor').value = '';
-                  document.getElementById('horasMonitoria').value = '';
-                  document.getElementById('dataInicio').value = '';
-                  document.getElementById('dataFim').value = '';
-                  document.getElementById('nomeDisciplinaIES').value = '';
-                  document.getElementById('horasOutrasIES').value = '';
-                  document.getElementById('nomeInstituicao').value = '';
-                  document.getElementById('nomeDisciplinaUFOPA').value = '';
-                  document.getElementById('horasUFOPA').value = '';
+                document.getElementById('nomeDisciplinaLab').value = '';
+                document.getElementById('horasMonitoria').value = '';
+                document.getElementById('nomeDisciplinaIES').value = '';
+                document.getElementById('horasOutrasIES').value = '';
+                document.getElementById('nomeDisciplinaUFOPA').value = '';
+                document.getElementById('horasUFOPA').value = '';
             }
-            
+
             document.getElementById('modalSelecao').classList.remove('hidden');
-            
+
             // Fechar modal ao clicar fora dele
             document.getElementById('modalSelecao').onclick = (e) => {
                 if (e.target.id === 'modalSelecao') {
@@ -566,94 +639,181 @@
         // Processar envio do formulário
         document.getElementById('formSelecao').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData();
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalText = submitBtn.textContent;
             const tipoAtividade = document.getElementById('tipoAtividade').value;
-            
+
             try {
+                const tipoAtividade = document.getElementById('tipoAtividade').value;
+
+                if (!tipoAtividade) {
+                    alert('Por favor, selecione um tipo de atividade.');
+                    return;
+                }
+
+                // Validação específica por tipo de atividade
+                if (tipoAtividade === 'Outras IES') {
+                    const nomeDisciplina = document.getElementById('nomeDisciplinaIES').value.trim();
+                    const horas = document.getElementById('horasOutrasIES').value;
+                    const arquivo = document.getElementById('declaracaoIES').files[0];
+                    
+                    if (!nomeDisciplina) {
+                        alert('Por favor, informe o nome da disciplina.');
+                        return;
+                    }
+                    if (!horas || horas <= 0) {
+                        alert('Por favor, informe uma carga horária válida.');
+                        return;
+                    }
+                    if (!arquivo) {
+                        alert('Por favor, anexe a declaração da IES.');
+                        return;
+                    }
+                } else if (tipoAtividade === 'UFOPA') {
+                    const nomeDisciplina = document.getElementById('nomeDisciplinaUFOPA').value.trim();
+                    const horas = document.getElementById('horasUFOPA').value;
+                    const arquivo = document.getElementById('comprovanteUFOPA').files[0];
+                    
+                    if (!nomeDisciplina) {
+                        alert('Por favor, informe o nome da disciplina.');
+                        return;
+                    }
+                    if (!horas || horas <= 0) {
+                        alert('Por favor, informe uma carga horária válida.');
+                        return;
+                    }
+                    if (!arquivo) {
+                        alert('Por favor, anexe o comprovante.');
+                        return;
+                    }
+                } else if (tipoAtividade === 'Monitoria') {
+                    const nomeDisciplina = document.getElementById('nomeDisciplinaLab').value.trim();
+                    const horas = document.getElementById('horasMonitoria').value;
+                    const arquivo = document.getElementById('comprovante').files[0];
+                    
+                    if (!nomeDisciplina) {
+                        alert('Por favor, informe o nome da disciplina/laboratório.');
+                        return;
+                    }
+                    if (!horas || horas <= 0) {
+                        alert('Por favor, informe uma carga horária válida.');
+                        return;
+                    }
+                    if (!arquivo) {
+                        alert('Por favor, anexe o comprovante de monitoria.');
+                        return;
+                    }
+                }
+
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Enviando...';
-                
-                // Categoria será sempre 1 (Ensino) - definida no backend
-                
-                if (tipoAtividade === 'Outras IES') { // Outras IES
-                    formData.append('nome_disciplina', document.getElementById('nomeDisciplinaIES').value);
-                    formData.append('nome_instituicao', document.getElementById('nomeInstituicao').value);
-                    formData.append('carga_horaria', document.getElementById('horasOutrasIES').value);
-                    const fileIES = document.getElementById('declaracaoIES').files[0];
-                    if (fileIES) formData.append('declaracao_ies', fileIES);
-                } else if (tipoAtividade === 'UFOPA') { // UFOPA
-                    formData.append('nome_disciplina', document.getElementById('nomeDisciplinaUFOPA').value);
-                    formData.append('carga_horaria', document.getElementById('horasUFOPA').value);
-                    const fileUFOPA = document.getElementById('comprovanteUFOPA').files[0];
-                    if (fileUFOPA) formData.append('comprovante_ufopa', fileUFOPA);
-                } else if (tipoAtividade === 'Monitoria') { // Monitoria
-                    formData.append('nome_disciplina_laboratorio', document.getElementById('nomeDisciplinaLab').value);
-                    formData.append('monitor', document.getElementById('nomeMonitor').value);
-                    formData.append('carga_horaria', document.getElementById('horasMonitoria').value);
-                    formData.append('data_inicio', document.getElementById('dataInicio').value);
-                    formData.append('data_fim', document.getElementById('dataFim').value);
-                    const fileMonitoria = document.getElementById('comprovante').files[0];
-                    if (fileMonitoria) formData.append('comprovante', fileMonitoria);
-                }
-                
-                // Adicionar tipo de atividade para validação no backend
-                formData.append('tipo_atividade', tipoAtividade);
-                
-                // Adicionar atividade_disponivel_id correto baseado no tipo
-                let atividadeDisponivelId;
+
+                // Mapear dados para a estrutura esperada pela API
+                let titulo, descricao, chSolicitada, arquivo;
+                let atividadesPorResolucaoId;
+
                 if (tipoAtividade === 'Outras IES') {
-                    atividadeDisponivelId = 1; // ID 1: Disciplinas em áreas correlatas cursadas em outras IES
+                    const nomeDisciplina = document.getElementById('nomeDisciplinaIES').value;
+                    const horas = document.getElementById('horasOutrasIES').value;
+                    titulo = `Disciplina em outras IES: ${nomeDisciplina}`;
+                    descricao = `Disciplina cursada em outras instituições de ensino superior: ${nomeDisciplina} - ${horas}h`;
+                    chSolicitada = parseInt(horas);
+                    arquivo = document.getElementById('declaracaoIES').files[0];
+                    atividadesPorResolucaoId = 1; // ID para "Disciplinas em áreas correlatas cursadas em outras IES"
                 } else if (tipoAtividade === 'UFOPA') {
-                    atividadeDisponivelId = 2; // ID 2: Disciplinas em áreas correlatas cursadas na UFOPA
+                    const nomeDisciplina = document.getElementById('nomeDisciplinaUFOPA').value;
+                    const horas = document.getElementById('horasUFOPA').value;
+                    titulo = `Disciplina na UFOPA: ${nomeDisciplina}`;
+                    descricao = `Disciplina cursada na própria UFOPA: ${nomeDisciplina} - ${horas}h`;
+                    chSolicitada = parseInt(horas);
+                    arquivo = document.getElementById('comprovanteUFOPA').files[0];
+                    atividadesPorResolucaoId = 2; // ID para "Disciplinas em áreas correlatas cursadas na UFOPA"
                 } else if (tipoAtividade === 'Monitoria') {
-                    atividadeDisponivelId = 3; // ID 3: Monitoria em disciplina de graduação ou laboratório
+                    const nomeDisciplina = document.getElementById('nomeDisciplinaLab').value;
+                    const horas = document.getElementById('horasMonitoria').value;
+                    titulo = `Monitoria: ${nomeDisciplina}`;
+                    descricao = `Atividade de monitoria em disciplina de graduação ou laboratório: ${nomeDisciplina} - ${horas}h`;
+                    chSolicitada = parseInt(horas);
+                    arquivo = document.getElementById('comprovante').files[0];
+                    atividadesPorResolucaoId = 3; // ID para "Monitoria em disciplina de graduação ou laboratório"
                 }
-                formData.append('atividade_disponivel_id', atividadeDisponivelId);
+
+                // Verificar se o usuário está autenticado
+                const user = AuthClient.getUser();
+                if (!user || !user.id) {
+                    alert('Erro: Usuário não autenticado. Faça login novamente.');
+                    AuthClient.logout();
+                    return;
+                }
+
+                // Preparar dados para envio (aluno_id será obtido automaticamente do token JWT)
+                formData.append('atividades_por_resolucao_id', atividadesPorResolucaoId);
+                formData.append('titulo', titulo);
+                formData.append('descricao', descricao);
+                formData.append('ch_solicitada', chSolicitada);
                 
-                // Enviar FormData diretamente para suportar uploads
-                const response = await AuthClient.fetch('../../backend/api/routes/atividade_complementar_ensino.php', {
+                if (arquivo) {
+                    formData.append('declaracao', arquivo);
+                }
+
+                // Obter token JWT
+                const token = localStorage.getItem('acc_jwt_token');
+                if (!token) {
+                    alert('Erro: Token de autenticação não encontrado. Faça login novamente.');
+                    AuthClient.logout();
+                    return;
+                }
+
+                // Enviar para a rota correta
+                const response = await fetch('../../backend/api/routes/cadastrar_atividades.php', {
                     method: 'POST',
                     headers: {
-                        'Authorization': 'Bearer ' + localStorage.getItem('acc_jwt_token')
+                        'Authorization': 'Bearer ' + token
                     },
                     body: formData
                 });
-                
+
                 const resultado = await response.json();
-                
-                if (response.ok && resultado.sucesso) {
-                    alert('Atividade complementar cadastrada com sucesso!');
+
+                if (response.ok && (resultado.sucesso || resultado.success)) {
+                    alert('Atividade de ensino cadastrada com sucesso!');
                     fecharModalSelecao();
-                    
+
+                    // Limpar o formulário
+                    document.getElementById('formSelecao').reset();
+
                     // Atualizar automaticamente a seção "Minhas Atividades"
                     await atualizarMinhasAtividades();
-                    
+
                     // Recarregar a página para mostrar a nova atividade
                     window.location.reload();
                 } else {
-                    throw new Error(resultado.erro || 'Erro desconhecido');
+                    throw new Error(resultado.erro || resultado.error || 'Erro desconhecido');
                 }
-                
+
             } catch (error) {
-                console.error('Erro ao cadastrar atividade:', error);
-                
+                console.error('Erro ao cadastrar atividade de ensino:', error);
+
                 // Mostrar erro mais específico baseado no status da resposta
-                let mensagemErro = 'Erro ao cadastrar atividade: ';
+                let mensagemErro = 'Erro ao cadastrar atividade de ensino: ';
                 if (error.message.includes('400')) {
-                    mensagemErro += 'Dados inválidos ou incompletos. Verifique se todos os campos obrigatórios foram preenchidos.';
+                    mensagemErro += 'Dados inválidos ou incompletos. Verifique se todos os campos obrigatórios foram preenchidos corretamente.';
                 } else if (error.message.includes('401') || error.message.includes('403')) {
                     mensagemErro += 'Sessão expirada. Faça login novamente.';
                     AuthClient.logout();
                     return;
                 } else if (error.message.includes('500')) {
                     mensagemErro += 'Erro interno do servidor. Tente novamente em alguns minutos.';
+                } else if (error.message.includes('413')) {
+                    mensagemErro += 'Arquivo muito grande. Reduza o tamanho do arquivo e tente novamente.';
+                } else if (error.message.includes('415')) {
+                    mensagemErro += 'Tipo de arquivo não suportado. Use apenas PDF, DOC, DOCX ou imagens.';
                 } else {
                     mensagemErro += error.message;
                 }
-                
+
                 alert(mensagemErro);
             } finally {
                 submitBtn.disabled = false;
@@ -667,7 +827,7 @@
                 // Fazer requisição para buscar as atividades atualizadas do aluno
                 const response = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/minhas_atividades.php');
                 const data = await response.json();
-                
+
                 if (data.success) {
                     console.log('Atividades atualizadas automaticamente:', data.data);
                     // Aqui você pode adicionar lógica adicional se necessário
@@ -681,7 +841,10 @@
         }
 
         // Carregar atividades ao inicializar a página
-        carregarAtividades();
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarAtividades();
+        });
     </script>
 </body>
+
 </html>

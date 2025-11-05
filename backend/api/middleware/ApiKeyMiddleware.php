@@ -85,12 +85,32 @@ class ApiKeyMiddleware {
             error_log("Dados do usuário encontrados via API Key: " . print_r($userData, true));
             
             // Retornar dados do usuário no formato esperado
-            return [
+            $userPayload = [
                 'id' => $userData['usuario_id'],
                 'nome' => $userData['nome'],
                 'email' => $userData['email'],
                 'tipo' => $userData['tipo']
             ];
+            
+            // Se for aluno, buscar matrícula
+            if ($userData['tipo'] === 'aluno') {
+                try {
+                    $stmtAluno = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+                    $stmtAluno->bind_param("i", $userData['usuario_id']);
+                    $stmtAluno->execute();
+                    $resultAluno = $stmtAluno->get_result();
+                    
+                    if ($resultAluno->num_rows > 0) {
+                        $alunoData = $resultAluno->fetch_assoc();
+                        $userPayload['matricula'] = $alunoData['matricula'];
+                        error_log("Matrícula adicionada ao payload via API Key: " . $alunoData['matricula']);
+                    }
+                } catch (\Exception $e) {
+                    error_log("Erro ao buscar matrícula via API Key: " . $e->getMessage());
+                }
+            }
+            
+            return $userPayload;
             
         } catch (\Exception $e) {
             error_log("Erro ao verificar API Key: " . $e->getMessage());

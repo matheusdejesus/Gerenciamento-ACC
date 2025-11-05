@@ -73,7 +73,7 @@ class UsuarioController {
             $apiKey = null;
             try {
                 $db = \backend\api\config\Database::getInstance()->getConnection();
-                $stmt = $db->prepare("SELECT api_key FROM ApiKeys WHERE usuario_id = ? AND ativa = 1 LIMIT 1");
+                $stmt = $db->prepare("SELECT api_key FROM apikeys WHERE usuario_id = ? AND ativa = 1 LIMIT 1");
                 $stmt->bind_param("i", $resultado['usuario']['id']);
                 $stmt->execute();
                 $result = $stmt->get_result();
