@@ -3,8 +3,8 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost');
-header('Access-Control-Allow-Methods: GET');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 header('Access-Control-Allow-Credentials: true');
 
@@ -34,6 +34,12 @@ try {
     error_log("Method: " . $_SERVER['REQUEST_METHOD']);
     error_log("GET params: " . print_r($_GET, true));
     
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         enviarErro('Método não permitido', 405);
     }
@@ -116,7 +122,7 @@ try {
         // Comportamento padrão: listar atividades disponíveis
         
         // Validar tipo se especificado
-        if ($tipo && !in_array($tipo, ['ensino', 'estagio', 'extracurriculares', 'pesquisa', 'acao_social'])) {
+        if ($tipo && !in_array($tipo, ['ensino', 'estagio', 'extracurriculares', 'pesquisa', 'acao_social', 'pet'])) {
             error_log("Tipo de atividade inválido: $tipo");
             enviarErro("Tipo de atividade inválido: $tipo", 400);
         }

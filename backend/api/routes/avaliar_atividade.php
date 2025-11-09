@@ -17,10 +17,12 @@ ob_start();
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../middleware/ApiKeyMiddleware.php';
 require_once __DIR__ . '/../controllers/AvaliarAtividadeController.php';
+require_once __DIR__ . '/../models/AvaliarAtividadeModel.php';
 
 use backend\api\middleware\AuthMiddleware;
 use backend\api\middleware\ApiKeyMiddleware;
 use backend\api\controllers\AvaliarAtividadeController;
+use backend\api\models\AvaliarAtividadeModel;
 
 // Função para enviar resposta de erro
 function enviarErro($mensagem, $codigo = 400) {
@@ -64,10 +66,8 @@ try {
     error_log("[DEBUG] Usuário autenticado: " . json_encode($usuarioLogado));
 
     // Verificar se é coordenador
-    if ($usuarioLogado['tipo'] !== 'coordenador') {
-        error_log("Tipo de usuário inválido: " . $usuarioLogado['tipo']);
-        enviarErro('Acesso negado. Apenas coordenadores podem avaliar atividades.', 403);
-    }
+    // Coordenadores avaliam; alunos podem consultar seu próprio progresso
+    $isCoordenador = ($usuarioLogado['tipo'] === 'coordenador');
 
     // Instanciar o controller
     $controller = new AvaliarAtividadeController();
@@ -78,7 +78,19 @@ try {
         
         switch ($acao) {
             case 'certificados_processados':
+                if (!$isCoordenador) enviarErro('Apenas coordenadores podem acessar esta ação', 403);
                 $controller->listarCertificadosProcessados($usuarioLogado);
+                break;
+            case 'horas_aprovadas_aluno':
+                // Permitir que alunos ou coordenadores (consultando qualquer aluno) obtenham horas aprovadas
+                $alunoId = isset($_GET['aluno_id']) ? intval($_GET['aluno_id']) : ($usuarioLogado['tipo'] === 'aluno' ? intval($usuarioLogado['id']) : 0);
+                if (!$alunoId) enviarErro('ID do aluno é obrigatório', 400);
+                try {
+                    $dados = AvaliarAtividadeModel::obterHorasAprovadasAluno($alunoId);
+                    enviarSucesso($dados, 'Horas aprovadas recuperadas com sucesso');
+                } catch (Exception $e) {
+                    enviarErro('Erro ao obter horas aprovadas: ' . $e->getMessage(), 500);
+                }
                 break;
             default:
                 enviarErro('Ação não especificada ou inválida', 400);
@@ -88,6 +100,7 @@ try {
         
         switch ($acao) {
             case 'aprovar_certificado':
+                if (!$isCoordenador) enviarErro('Apenas coordenadores podem aprovar atividades', 403);
                 $atividadeId = $_POST['atividade_id'] ?? null;
                 $observacoes = $_POST['observacoes'] ?? '';
                 $chAtribuida = $_POST['ch_atribuida'] ?? null;
@@ -115,6 +128,7 @@ try {
                     enviarErro('Observações são obrigatórias para rejeição', 400);
                 }
                 
+                if (!$isCoordenador) enviarErro('Apenas coordenadores podem rejeitar atividades', 403);
                 $controller->rejeitarCertificado($atividadeId, $observacoes, $usuarioLogado);
                 break;
                 

@@ -48,8 +48,97 @@
                     <p class="text-gray-600">Aqui estão suas Atividades ACC.</p>
                 </div>
                 
-                <!-- Dashboard 80h Component -->
-                <?php include '../components/dashboard_240h.php'; ?>
+                <!-- Dashboard ACC -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <h3 class="text-2xl font-bold" style="color:#246BFD">Atividades Extracurriculares</h3>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500">Matrícula: <span id="dashboardMatricula">-</span></div>
+                            <div class="text-sm font-semibold text-gray-700"><span id="dashboardTotalLabel">0h / 240h</span></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">Progresso Total</p>
+                        <div class="w-full h-3 bg-gray-200 rounded-full">
+                            <div id="dashboardTotalProgress" class="h-3 rounded-full" style="background:#246BFD;width:0%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>0h</span>
+                            <span>120h</span>
+                            <span>240h</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <!-- ACC -->
+                        <div class="rounded-lg p-4" style="background:#EFF6FF">
+                            <div class="text-sm" style="color:#246BFD">Atividades Extracurriculares</div>
+                            <div id="accHorasDisplay" class="text-3xl font-bold" style="color:#246BFD">0h</div>
+                            <div class="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div id="accProgress" class="h-2 rounded-full" style="background:#246BFD;width:0%"></div>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs" style="color:#246BFD">
+                                <span id="accBottomLeft">0h / 80h</span>
+                                <span id="accPercent">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Ensino -->
+                        <div class="rounded-lg p-4" style="background:#ECFDF5">
+                            <div class="text-sm" style="color:#2ECC71">Ensino</div>
+                            <div id="ensinoHorasDisplay" class="text-3xl font-bold" style="color:#2ECC71">0h</div>
+                            <div class="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div id="ensinoProgress" class="h-2 rounded-full" style="background:#2ECC71;width:0%"></div>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs" style="color:#2ECC71">
+                                <span id="ensinoBottomLeft">0h / 80h</span>
+                                <span id="ensinoPercent">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Pesquisa -->
+                        <div class="rounded-lg p-4" style="background:#F5F3FF">
+                            <div class="text-sm" style="color:#7A6EF4">Pesquisa</div>
+                            <div id="pesquisaHorasDisplay" class="text-3xl font-bold" style="color:#7A6EF4">0h</div>
+                            <div class="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div id="pesquisaProgress" class="h-2 rounded-full" style="background:#8C7CF5;width:0%"></div>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs" style="color:#7A6EF4">
+                                <span id="pesquisaBottomLeft">0h / 80h</span>
+                                <span id="pesquisaPercent">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Estágio -->
+                        <div class="rounded-lg p-4" style="background:#FFF7ED">
+                            <div class="text-sm" style="color:#FF9800">Estágio</div>
+                            <div id="estagioHorasDisplay" class="text-3xl font-bold" style="color:#FF9800">0h</div>
+                            <div class="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div id="estagioProgress" class="h-2 rounded-full" style="background:#FFB74D;width:0%"></div>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs" style="color:#FF9800">
+                                <span id="estagioBottomLeft">0h / 100h</span>
+                                <span id="estagioPercent">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Ação Social -->
+                        <div class="rounded-lg p-4" style="background:#FDF2F8">
+                            <div class="text-sm" style="color:#E91E63">Ação Social</div>
+                            <div id="acaoHorasDisplay" class="text-3xl font-bold" style="color:#E91E63">0h</div>
+                            <div class="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div id="acaoProgress" class="h-2 rounded-full" style="background:#F48FB1;width:0%"></div>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs" style="color:#E91E63">
+                                <span id="acaoBottomLeft">0h / 30h</span>
+                                <span id="acaoPercent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
                     <div class="p-4" style="background-color: #151B23">
                         <h3 class="text-xl font-bold text-white">Minhas Atividades</h3>
@@ -176,8 +265,7 @@
             </div>
         </div>
     </footer>
-
-    <script src="../assets/js/auth.js"></script>
+    
     <script>
         // Verificar autenticação JWT
         if (!AuthClient.isLoggedIn()) {
@@ -194,6 +282,14 @@
             document.getElementById('nomeUsuario').textContent = user.nome;
             document.getElementById('nomeUsuarioMain').textContent = user.nome;
         }
+
+        // Atualizar matrícula no dashboard
+        (function atualizarMatriculaDashboard(){
+            const el = document.getElementById('dashboardMatricula');
+            if (el) {
+                el.textContent = (user && user.matricula) ? user.matricula : '-';
+            }
+        })();
 
         let minhasAtividades = [];
 
@@ -232,6 +328,9 @@
                 
                 await atualizarTabelaAtividades();
                 atualizarEstatisticas();
+
+                // Atualizar dashboard após carregar atividades
+                atualizarDashboard();
 
             } catch (error) {
                 console.error('Erro ao carregar atividades:', error);
@@ -380,6 +479,56 @@
             // Esta função foi mantida para compatibilidade, mas não atualiza mais os cards removidos
         }
 
+        // Atualizar Dashboard (horas por categoria e total)
+        async function atualizarDashboard() {
+            try {
+                const body = JSON.stringify({ aluno_id: user?.id });
+                const response = await AuthClient.fetch('../../backend/api/routes/calcular_horas_categorias.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    console.warn('Falha ao calcular horas:', result.error || result.message);
+                    return;
+                }
+                const data = result.data || {};
+                const limites = data.limites || { acc:80, ensino:80, pesquisa:80, estagio:100, acao_social:30 };
+                const categorias = data.categorias || { acc:0, ensino:0, pesquisa:0, estagio:0, acao_social:0 };
+                const limiteTotal = data.limite_total || 240;
+                const totalHoras = data.total_horas || 0;
+
+                // Total
+                const totalPercent = Math.min(100, (totalHoras / Math.max(1, limiteTotal)) * 100);
+                const totalBar = document.getElementById('dashboardTotalProgress');
+                const totalLabel = document.getElementById('dashboardTotalLabel');
+                if (totalBar) totalBar.style.width = totalPercent + '%';
+                if (totalLabel) totalLabel.textContent = `${totalHoras}h / ${limiteTotal}h`;
+
+                // Helper para atualizar cada card
+                const atualizarCard = (prefixo, horas, limite) => {
+                    const pct = Math.min(100, (horas / Math.max(1, limite)) * 100);
+                    const hDisp = document.getElementById(prefixo + 'HorasDisplay');
+                    const bar = document.getElementById(prefixo + 'Progress');
+                    const bottom = document.getElementById(prefixo + 'BottomLeft');
+                    const perc = document.getElementById(prefixo + 'Percent');
+                    if (hDisp) hDisp.textContent = `${horas}h`;
+                    if (bar) bar.style.width = pct + '%';
+                    if (bottom) bottom.textContent = `${horas}h / ${limite}h`;
+                    if (perc) perc.textContent = `${Math.round(pct)}%`;
+                };
+
+                atualizarCard('acc', categorias.acc || 0, limites.acc || 80);
+                atualizarCard('ensino', categorias.ensino || 0, limites.ensino || 80);
+                atualizarCard('pesquisa', categorias.pesquisa || 0, limites.pesquisa || 80);
+                atualizarCard('estagio', categorias.estagio || 0, limites.estagio || 100);
+                atualizarCard('acao', categorias.acao_social || 0, limites.acao_social || 30);
+            } catch (e) {
+                console.error('Erro ao atualizar dashboard:', e);
+            }
+        }
+
         // Função para exibir detalhes da atividade
         function verDetalhesAtividade(id) {
             const atividade = minhasAtividades.find(a => a.id === id);
@@ -490,18 +639,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 DOM carregado, iniciando funções...');
             carregarMinhasAtividades();
-            
-            // Aguardar um pouco para garantir que o AuthClient esteja pronto
-            setTimeout(() => {
-                console.log('⏰ Timeout executado, chamando carregarDashboard240h...');
-                console.log('🔍 Verificando se a função carregarDashboard240h existe:', typeof carregarDashboard240h);
-                if (typeof carregarDashboard240h === 'function') {
-                    console.log('✅ Função existe, executando...');
-                    carregarDashboard240h(); // Carregar dashboard 240h
-                } else {
-                    console.error('❌ Função carregarDashboard240h não encontrada!');
-                }
-            }, 1000);
+            atualizarDashboard();
         });
 
         function solicitarCertificado(atividadeId) {

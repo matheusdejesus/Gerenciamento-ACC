@@ -99,22 +99,22 @@ CREATE TABLE atividades_complementares (
 -- Tabela de junção entre resolução e tipo de atividade
 CREATE TABLE resolucao_tipo_atividade (
   id int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  res_id int(11) NOT NULL,
-  tipo_atv_id int(11) NOT NULL,
+  resolucao_id int(11) NOT NULL,
+  tipo_atividade_id int(11) NOT NULL,
   carga_horaria_maxima int(11) NOT NULL,
-  FOREIGN KEY (res_id) REFERENCES resolucao(id),
-  FOREIGN KEY (tipo_atv_id) REFERENCES tipo_atividade(id)
+  FOREIGN KEY (resolucao_id) REFERENCES resolucao(id),
+  FOREIGN KEY (tipo_atividade_id) REFERENCES tipo_atividade(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Tabela de atividades por resolução
 CREATE TABLE atividades_por_resolucao (
   id int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  resolucao_tipo_atividade_res_id int(11) NOT NULL,
-  resolucao_tipo_atividade_tipo_atv_id int(11) NOT NULL,
+  resolucao_id int(11) NOT NULL,
+  tipo_atividade_id int(11) NOT NULL,
   atividades_complementares_id int(11) NOT NULL,
   carga_horaria_maxima_por_atividade int(11) NOT NULL,
-  FOREIGN KEY (resolucao_tipo_atividade_res_id) REFERENCES resolucao_tipo_atividade(res_id),
-  FOREIGN KEY (resolucao_tipo_atividade_tipo_atv_id) REFERENCES resolucao_tipo_atividade(tipo_atv_id),
+  FOREIGN KEY (resolucao_id) REFERENCES resolucao_tipo_atividade(resolucao_id),
+  FOREIGN KEY (tipo_atividade_id) REFERENCES resolucao_tipo_atividade(tipo_atividade_id),
   FOREIGN KEY (atividades_complementares_id) REFERENCES atividades_complementares(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -122,21 +122,24 @@ CREATE TABLE atividades_por_resolucao (
 CREATE TABLE atividade_enviada (
   id int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   aluno_id int(11) NOT NULL,
-  atividades_por_resolucao_resolucao_tipo_atividade_res_id int(11) NOT NULL,
-  atividades_por_resolucao_resolucao_tipo_atividade_tipo_atv_id int(11) NOT NULL,
+  resolucao_id int(11) NOT NULL,
+  tipo_atividade_id int(11) NOT NULL,
+  atividades_complementares_id int(11) NOT NULL,
   titulo varchar(255) NOT NULL,
   descricao text,
   ch_solicitada int(11) NOT NULL,
   ch_atribuida int(11) NOT NULL DEFAULT 0,
   caminho_declaracao varchar(255),
+  data_submissao datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status enum('Aguardando avaliação','aprovado','rejeitado') NOT NULL DEFAULT 'Aguardando avaliação',
   observacoes_avaliador text,
   avaliado_por int(11) NULL,
   data_avaliacao datetime NULL,
   avaliado tinyint(1) NOT NULL DEFAULT 0,
   FOREIGN KEY (aluno_id) REFERENCES aluno(usuario_id) ON DELETE CASCADE,
-  FOREIGN KEY (atividades_por_resolucao_resolucao_tipo_atividade_res_id) REFERENCES atividades_por_resolucao(resolucao_tipo_atividade_res_id),
-  FOREIGN KEY (atividades_por_resolucao_resolucao_tipo_atividade_tipo_atv_id) REFERENCES atividades_por_resolucao(resolucao_tipo_atividade_tipo_atv_id),
+  FOREIGN KEY (resolucao_id) REFERENCES atividades_por_resolucao(resolucao_id),
+  FOREIGN KEY (tipo_atividade_id) REFERENCES atividades_por_resolucao(tipo_atividade_id),
+  FOREIGN KEY (atividades_complementares_id) REFERENCES atividades_por_resolucao(atividades_complementares_id),
   FOREIGN KEY (avaliado_por) REFERENCES usuario(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -201,7 +204,7 @@ INSERT INTO resolucao (id, nome, descricao, curso_id) VALUES
 INSERT INTO tipo_atividade (id, nome, descricao) VALUES
   (1, 'Ensino', 'Atividades relacionadas ao ensino'),
   (2, 'Pesquisa', 'Atividades de pesquisa científica'),
-  (3, 'Atividades extracurriculares', 'Atividades de extensão e extracurriculares'),
+  (3, 'Atividades extracurriculares', 'Atividades de extensão'),
   (4, 'Estágio', 'Estágios não obrigatórios'),
   (5, 'Atividades sociais e comunitárias', 'Ações sociais e comunitárias');
 
@@ -215,7 +218,7 @@ INSERT INTO tipo_atividade (id, nome, descricao) VALUES
   (6, 'PET', 'Participação em Programas de Educação Tutorial (PET) da UFOPA');
 
 -- Inserir relações entre resoluções e tipos de atividade para BCC17
-INSERT INTO resolucao_tipo_atividade (res_id, tipo_atv_id, carga_horaria_maxima) VALUES
+INSERT INTO resolucao_tipo_atividade (resolucao_id, tipo_atividade_id, carga_horaria_maxima) VALUES
   (1, 1, 80),  -- Ensino BCC17
   (1, 2, 80),  -- Pesquisa BCC17
   (1, 3, 80),  -- Atividades extracurriculares BCC17
@@ -223,14 +226,14 @@ INSERT INTO resolucao_tipo_atividade (res_id, tipo_atv_id, carga_horaria_maxima)
   (1, 5, 30);  -- Atividades sociais e comunitárias BCC17
 
 -- Inserir relações entre resoluções e tipos de atividade para BCC23
-INSERT INTO resolucao_tipo_atividade (res_id, tipo_atv_id, carga_horaria_maxima) VALUES
+INSERT INTO resolucao_tipo_atividade (resolucao_id, tipo_atividade_id, carga_horaria_maxima) VALUES
   (2, 1, 40),  -- Ensino BCC23
   (2, 2, 40),  -- Pesquisa BCC23
   (2, 3, 40),  -- Atividades extracurriculares BCC23
   (2, 4, 90);  -- Estágio BCC23
 
 -- Inserir relações entre resoluções e tipos de atividade para SI18
-INSERT INTO resolucao_tipo_atividade (res_id, tipo_atv_id, carga_horaria_maxima) VALUES
+INSERT INTO resolucao_tipo_atividade (resolucao_id, tipo_atividade_id, carga_horaria_maxima) VALUES
   (3, 1, 90),  -- Ensino SI18
   (3, 2, 90),  -- Pesquisa SI18
   (3, 3, 90),  -- Atividades extracurriculares SI18
@@ -251,7 +254,7 @@ INSERT INTO atividades_complementares (id, tipo_atividade_id, titulo, descricao,
 (6, 2, 'Membro efetivo em eventos científicos e profissionais', 'Participação como membro de eventos', 'Carga horária conforme o evento'),
 (7, 2, 'Participação em projeto de Iniciação Científica', 'Atividades de iniciação científica', ''),
 
--- Atividades Extracurriculares
+-- Atividades extracurriculares
 (8, 3, 'Curso de extensão em áreas afins', 'Cursos de extensão relacionados à área', ''),
 (9, 3, 'Curso de extensão na área específica', 'Cursos de extensão específicos da área', ''),
 (10, 3, 'Curso de língua estrangeira', 'Cursos de idiomas', 'Limitada a uma validação por idioma'),
@@ -281,7 +284,7 @@ INSERT INTO atividades_complementares (id, tipo_atividade_id, titulo, descricao,
 (23, 2, 'Apresentação em eventos científicos', 'Apresentação de trabalhos em eventos científicos', 'Cada apresentação equivale a horas conforme o evento'),
 (24, 2, 'Publicação de artigo em periódicos ou capítulo de livro', 'Publicação científica', 'Cada publicação equivale a horas conforme o ppc do discente'),
 
---Atividades Extracurriculares
+--Atividades extracurriculares
 (25, 3, 'Curso de extensão em áreas afins', 'Cursos de extensão relacionados à área', ''),
 (26, 3, 'Curso de extensão na área específica', 'Cursos de extensão específicos da área', ''),
 (27, 3, 'Curso de língua estrangeira', 'Cursos de idiomas', 'Limitada a uma validação por idioma'),
@@ -298,7 +301,7 @@ INSERT INTO atividades_complementares (id, tipo_atividade_id, titulo, descricao,
 (32, 6, 'PET – Programa de Educação Tutorial', 'Participação no programa PET', '')
 
 -- Configurações para BCC17
-INSERT INTO atividades_por_resolucao (resolucao_tipo_atividade_res_id, resolucao_tipo_atividade_tipo_atv_id, atividades_complementares_id, carga_horaria_maxima_por_atividade) VALUES
+INSERT INTO atividades_por_resolucao (resolucao_id, tipo_atividade_id, atividades_complementares_id, carga_horaria_maxima_por_atividade) VALUES
 -- Ensino BCC17 (resolucao_tipo_atividade_id = 1)
 (1, 1, 1, 30), -- Disciplinas outras IES
 (1, 1, 2, 60), -- Disciplinas UFOPA
@@ -323,7 +326,7 @@ INSERT INTO atividades_por_resolucao (resolucao_tipo_atividade_res_id, resolucao
 (1, 5, 17, 30); -- Ação social
 
 -- Configurações para BCC23
-INSERT INTO atividades_por_resolucao (resolucao_tipo_atividade_res_id, resolucao_tipo_atividade_tipo_atv_id, atividades_complementares_id, carga_horaria_maxima_por_atividade) VALUES
+INSERT INTO atividades_por_resolucao (resolucao_id, tipo_atividade_id, atividades_complementares_id, carga_horaria_maxima_por_atividade) VALUES
 -- Ensino BCC23 (resolucao_tipo_atividade_id = 6)
 (2, 1, 1, 15), -- Disciplinas outras IES
 (2, 1, 2, 30), -- Disciplinas UFOPA
@@ -349,7 +352,7 @@ INSERT INTO atividades_por_resolucao (resolucao_tipo_atividade_res_id, resolucao
 (2, 4, 16, 90); -- Estágio não obrigatório
 
 --Configurações para BSI18
-INSERT INTO atividades_por_resolucao (resolucao_tipo_atividade_res_id, resolucao_tipo_atividade_tipo_atv_id, atividades_complementares_id, carga_horaria_maxima_por_atividade) VALUES
+INSERT INTO atividades_por_resolucao (resolucao_id, tipo_atividade_id, atividades_complementares_id, carga_horaria_maxima_por_atividade) VALUES
 -- Ensino BSI18 (resolucao_tipo_atividade_id = 10)
 (3, 1, 18, 45), -- Disciplinas outras IES
 (3, 1, 19, 90), -- Disciplinas UFOPA

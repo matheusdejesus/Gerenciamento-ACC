@@ -364,14 +364,8 @@
         // Carregar certificados processados
         async function carregarCertificadosProcessados() {
             try {
-                const response = await fetch('/Gerenciamento-ACC/backend/api/routes/avaliar_atividade.php?acao=certificados_processados', {
-                    method: 'GET',
-                    headers: {
-                        'X-API-Key': 'f3f5e327433117921ffa9b5067661d00884781cd5c772bc727a1012a1ab22471'
-                    }
-                });
-                
-                const data = await response.json();
+                const response = await AuthClient.fetch('../../backend/api/routes/avaliar_atividade.php?acao=certificados_processados');
+                const data = response.data;
                 
                 if (data.sucesso) {
                     const certificados = data.dados || [];

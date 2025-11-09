@@ -13,22 +13,60 @@ class CadastrarAtividadesModel {
             $db = Database::getInstance()->getConnection();
             $db->autocommit(false);
             $db->begin_transaction();
+
+            // Garantir que a coluna data_submissao exista
+            try {
+                $checkCol = $db->query("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'atividade_enviada' AND COLUMN_NAME = 'data_submissao'");
+                if ($checkCol) {
+                    $rowCol = $checkCol->fetch_assoc();
+                    if ((int)$rowCol['cnt'] === 0) {
+                        $db->query("ALTER TABLE atividade_enviada ADD COLUMN data_submissao datetime NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                    }
+                }
+            } catch (Exception $e) {
+                // Não bloquear fluxo caso ocorra erro nesta verificação
+                error_log("[WARN] Falha ao garantir coluna data_submissao: " . $e->getMessage());
+            }
             
+            // Mapear o ID de atividades_por_resolucao (APR) para os campos reais da tabela atividade_enviada
+            if (!isset($dados['atividades_por_resolucao_id']) || empty($dados['atividades_por_resolucao_id'])) {
+                throw new Exception("ID de atividades_por_resolucao é obrigatório");
+            }
+
+            $sqlApr = "SELECT resolucao_id, tipo_atividade_id, atividades_complementares_id FROM atividades_por_resolucao WHERE id = ?";
+            $stmtApr = $db->prepare($sqlApr);
+            if (!$stmtApr) {
+                throw new Exception("Erro ao preparar consulta APR: " . $db->error);
+            }
+            $stmtApr->bind_param("i", $dados['atividades_por_resolucao_id']);
+            if (!$stmtApr->execute()) {
+                throw new Exception("Erro ao buscar APR: " . $stmtApr->error);
+            }
+            $resultApr = $stmtApr->get_result();
+            if ($resultApr->num_rows === 0) {
+                throw new Exception("Atividade por resolução não encontrada");
+            }
+            $apr = $resultApr->fetch_assoc();
+            $stmtApr->close();
+
             // Preparar query de inserção
             $sql = "INSERT INTO atividade_enviada (
-                        aluno_id, 
-                        atividades_por_resolucao_id, 
-                        titulo, 
-                        descricao, 
-                        ch_solicitada, 
-                        ch_atribuida, 
-                        caminho_declaracao, 
-                        status, 
-                        observacoes_avaliador, 
-                        avaliado_por, 
-                        data_avaliacao, 
+                        aluno_id,
+                        resolucao_id,
+                        tipo_atividade_id,
+                        atividades_complementares_id,
+                        titulo,
+                        descricao,
+                        ch_solicitada,
+                        ch_atribuida,
+                        caminho_declaracao,
+                        data_submissao,
+                        status,
+                        observacoes_avaliador,
+                        avaliado_por,
+                        data_avaliacao,
                         avaliado
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)";
             
             $stmt = $db->prepare($sql);
             
@@ -38,9 +76,11 @@ class CadastrarAtividadesModel {
             
             // Bind dos parâmetros
             $stmt->bind_param(
-                "iissiissssii",
+                "iiiissiisssssi",
                 $dados['aluno_id'],
-                $dados['atividades_por_resolucao_id'],
+                $apr['resolucao_id'],
+                $apr['tipo_atividade_id'],
+                $apr['atividades_complementares_id'],
                 $dados['titulo'],
                 $dados['descricao'],
                 $dados['ch_solicitada'],
@@ -80,13 +120,30 @@ class CadastrarAtividadesModel {
         try {
             $db = Database::getInstance()->getConnection();
             
+            // Obter mapeamento do APR para verificar duplicidade
+            $sqlApr = "SELECT resolucao_id, tipo_atividade_id, atividades_complementares_id FROM atividades_por_resolucao WHERE id = ?";
+            $stmtApr = $db->prepare($sqlApr);
+            if (!$stmtApr) {
+                throw new Exception("Erro ao preparar consulta APR: " . $db->error);
+            }
+            $stmtApr->bind_param("i", $atividades_por_resolucao_id);
+            $stmtApr->execute();
+            $resApr = $stmtApr->get_result();
+            if ($resApr->num_rows === 0) {
+                return false;
+            }
+            $apr = $resApr->fetch_assoc();
+            $stmtApr->close();
+
             $sql = "SELECT id FROM atividade_enviada 
                     WHERE aluno_id = ? 
-                    AND atividades_por_resolucao_id = ? 
+                    AND resolucao_id = ?
+                    AND tipo_atividade_id = ?
+                    AND atividades_complementares_id = ?
                     AND titulo = ?";
             
             $stmt = $db->prepare($sql);
-            $stmt->bind_param("iis", $aluno_id, $atividades_por_resolucao_id, $titulo);
+            $stmt->bind_param("iiiis", $aluno_id, $apr['resolucao_id'], $apr['tipo_atividade_id'], $apr['atividades_complementares_id'], $titulo);
             $stmt->execute();
             $result = $stmt->get_result();
             
@@ -104,9 +161,13 @@ class CadastrarAtividadesModel {
             
             $sql = "SELECT ae.*, 
                            ac.titulo as atividade_titulo,
-                           ac.descricao as atividade_descricao
+                           ac.descricao as atividade_descricao,
+                           apr.id as atividades_por_resolucao_id
                     FROM atividade_enviada ae
-                    INNER JOIN atividades_por_resolucao apr ON ae.atividades_por_resolucao_id = apr.id
+                    INNER JOIN atividades_por_resolucao apr 
+                        ON apr.resolucao_id = ae.resolucao_id
+                        AND apr.tipo_atividade_id = ae.tipo_atividade_id
+                        AND apr.atividades_complementares_id = ae.atividades_complementares_id
                     INNER JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
                     WHERE ae.aluno_id = ?
                     ORDER BY ae.id DESC";
@@ -136,9 +197,13 @@ class CadastrarAtividadesModel {
             $sql = "SELECT ae.*, 
                            ac.titulo as atividade_titulo,
                            ac.descricao as atividade_descricao,
-                           u.nome as avaliador_nome
+                           u.nome as avaliador_nome,
+                           apr.id as atividades_por_resolucao_id
                     FROM atividade_enviada ae
-                    INNER JOIN atividades_por_resolucao apr ON ae.atividades_por_resolucao_id = apr.id
+                    INNER JOIN atividades_por_resolucao apr 
+                        ON apr.resolucao_id = ae.resolucao_id
+                        AND apr.tipo_atividade_id = ae.tipo_atividade_id
+                        AND apr.atividades_complementares_id = ae.atividades_complementares_id
                     INNER JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
                     LEFT JOIN usuario u ON ae.avaliado_por = u.id
                     WHERE ae.id = ?";
@@ -163,20 +228,46 @@ class CadastrarAtividadesModel {
             $db->autocommit(false);
             $db->begin_transaction();
             
+            // Mapear APR id para os campos reais caso tenha sido alterado
+            $apr = null;
+            if (isset($dados['atividades_por_resolucao_id']) && !empty($dados['atividades_por_resolucao_id'])) {
+                $sqlApr = "SELECT resolucao_id, tipo_atividade_id, atividades_complementares_id FROM atividades_por_resolucao WHERE id = ?";
+                $stmtApr = $db->prepare($sqlApr);
+                if (!$stmtApr) {
+                    throw new Exception("Erro ao preparar consulta APR: " . $db->error);
+                }
+                $stmtApr->bind_param("i", $dados['atividades_por_resolucao_id']);
+                if (!$stmtApr->execute()) {
+                    throw new Exception("Erro ao buscar APR: " . $stmtApr->error);
+                }
+                $resApr = $stmtApr->get_result();
+                if ($resApr->num_rows > 0) {
+                    $apr = $resApr->fetch_assoc();
+                }
+                $stmtApr->close();
+            }
+
             // Preparar query de atualização
             $sql = "UPDATE atividade_enviada SET 
-                        atividades_por_resolucao_id = ?, 
                         titulo = ?, 
                         descricao = ?, 
                         ch_solicitada = ?";
             
             $params = [
-                $dados['atividades_por_resolucao_id'],
                 $dados['titulo'],
                 $dados['descricao'],
                 $dados['ch_solicitada']
             ];
-            $types = "issi";
+            $types = "ssi";
+
+            // Se APR foi fornecido, atualizar os campos correspondentes
+            if ($apr) {
+                $sql .= ", resolucao_id = ?, tipo_atividade_id = ?, atividades_complementares_id = ?";
+                $params[] = $apr['resolucao_id'];
+                $params[] = $apr['tipo_atividade_id'];
+                $params[] = $apr['atividades_complementares_id'];
+                $types .= "iii";
+            }
             
             // Adicionar caminho da declaração se fornecido
             if (isset($dados['caminho_declaracao']) && !empty($dados['caminho_declaracao'])) {

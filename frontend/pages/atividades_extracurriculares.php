@@ -122,55 +122,13 @@
                 </div>
             </div>
 
-            <!-- Seção de Busca e Filtros -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <div class="flex flex-col md:flex-row gap-4 items-end">
-                    <!-- Campo de Busca -->
-                    <div class="flex-1">
-                        <label for="campoBusca" class="block text-sm font-medium text-gray-700 mb-2">
-                            Buscar Atividades
-                        </label>
-                        <input type="text" id="campoBusca" 
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                               placeholder="Digite o nome da atividade, categoria ou descrição...">
-                    </div>
-                    
-                    <!-- Ordenação -->
-                    <div class="w-full md:w-48">
-                        <label for="ordenacao" class="block text-sm font-medium text-gray-700 mb-2">
-                            Ordenar por
-                        </label>
-                        <select id="ordenacao" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option value="nome">Nome</option>
-                            <option value="categoria">Categoria</option>
-                            <option value="carga_horaria_maxima">Horas Máximas</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Direção da Ordenação -->
-                    <div class="w-full md:w-32">
-                        <label for="direcao" class="block text-sm font-medium text-gray-700 mb-2">
-                            Direção
-                        </label>
-                        <select id="direcao" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option value="ASC">A-Z</option>
-                            <option value="DESC">Z-A</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Botões -->
-                    <div class="flex gap-2">
-                        <button id="btnBuscar" 
-                                class="px-6 py-2 text-white rounded-lg hover:opacity-90 transition duration-200"
-                                style="background-color: #8B5CF6">
-                            Buscar
-                        </button>
-                        <button id="btnLimpar" 
-                                class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
-                            Limpar
-                        </button>
-                    </div>
-                </div>
+            <!-- Seção de Busca removida -->
+            <div class="hidden">
+                <input id="campoBusca" />
+                <select id="ordenacao"></select>
+                <select id="direcao"></select>
+                <button id="btnBuscar"></button>
+                <button id="btnLimpar"></button>
             </div>
 
             <!-- Informações de Resultados -->
@@ -671,7 +629,7 @@
             if (!todasAtividades.length) {
                 container.innerHTML = `<div class="text-center py-12">
                     <div class="text-6xl mb-4">🎓</div>
-                    <p class="text-gray-500 text-lg mb-2">Nenhuma atividade extracurricular encontrada.</p>
+                    <p class="text-gray-500 text-lg mb-2">Nenhuma atividade de extensão encontrada.</p>
                     <p class="text-gray-400 text-sm">
                         ${filtrosAtuais.busca ? 'Tente ajustar os filtros de busca.' : 'Entre em contato com a coordenação para mais informações.'}
                     </p>
@@ -685,7 +643,7 @@
                         <div class="p-4" style="background-color: #8B5CF6">
                             <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
                             <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 mt-2">
-                                ${atividade.categoria}
+                                ${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || 'Atividades Extracurriculares')}
                             </span>
                         </div>
                         <div class="p-4">
@@ -693,7 +651,7 @@
                             <div class="space-y-2 mb-4">
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #8B5CF6">Tipo:</span>
-                                    <span class="text-gray-600">${atividade.categoria || atividade.tipo}</span>
+                                    <span class="text-gray-600">${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || atividade.tipo)}</span>
                                 </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #8B5CF6">Horas Máximas:</span>
@@ -727,11 +685,11 @@
                 <div class="space-y-3">
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Categoria:</span>
-                        <span class="ml-2">${atividade.categoria}</span>
+                        <span class="ml-2">${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || 'Atividades Extracurriculares')}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Tipo:</span>
-                        <span class="ml-2">${atividade.categoria || atividade.tipo}</span>
+                        <span class="ml-2">${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || atividade.tipo)}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Horas Máximas:</span>

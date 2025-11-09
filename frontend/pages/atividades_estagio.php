@@ -273,24 +273,11 @@
             }
             
             container.innerHTML = `
-                <!-- Barra de busca -->
-                <div class="mb-6">
-                    <div class="flex flex-col sm:flex-row gap-4">
-                        <div class="flex-1">
-                            <input type="text" id="campoBusca" placeholder="Buscar atividades..." 
-                                   value="${termoBusca}"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                        </div>
-                        <button onclick="buscarAtividades()" 
-                                class="px-6 py-2 text-white rounded-lg hover:opacity-90 transition duration-200" 
-                                style="background-color: #F59E0B">
-                            Buscar
-                        </button>
-                        <button onclick="limparBusca()" 
-                                class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-200">
-                            Limpar
-                        </button>
-                    </div>
+                <!-- Barra de busca removida -->
+                <div class="hidden">
+                    <input id="campoBusca" value="${termoBusca}" />
+                    <button onclick="buscarAtividades()" id="btnBuscar"></button>
+                    <button onclick="limparBusca()" id="btnLimpar"></button>
                 </div>
                 
                 <!-- Grid de atividades -->

@@ -332,23 +332,48 @@ class ListarAtividadesDisponiveisController {
             }
             
             error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - Usuário: " . json_encode($usuarioLogado));
-            error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - Tipo de usuário: " . $usuarioLogado['tipo']);
+            // Suporte a $usuarioLogado como array ou objeto para evitar erros de offset
+            $tipoUsuario = null;
+            if (is_array($usuarioLogado) && isset($usuarioLogado['tipo'])) {
+                $tipoUsuario = strtolower((string)$usuarioLogado['tipo']);
+            } elseif (is_object($usuarioLogado) && isset($usuarioLogado->tipo)) {
+                $tipoUsuario = strtolower((string)$usuarioLogado->tipo);
+            }
+            error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - Tipo de usuário: " . ($tipoUsuario ?? 'desconhecido'));
             error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - Parâmetros: página=$pagina, limite=$limite, ordenação=$ordenacao $direcao, busca='$busca'");
             
             // Verificar tipo de usuário e chamar função apropriada
-            if ($usuarioLogado['tipo'] === 'coordenador') {
-                // Coordenadores veem todas as atividades enviadas por todos os alunos
-                error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - Coordenador acessando: listando todas as atividades");
+            if ($tipoUsuario === 'coordenador') {
+                // Coordenadores veem apenas atividades de alunos do seu curso
+                error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - Coordenador acessando: listando atividades do seu curso");
+                // Obter ID com suporte a array/objeto
+                $coordenadorId = null;
+                if (is_array($usuarioLogado) && isset($usuarioLogado['id'])) {
+                    $coordenadorId = (int)$usuarioLogado['id'];
+                } elseif (is_object($usuarioLogado) && isset($usuarioLogado->id)) {
+                    $coordenadorId = (int)$usuarioLogado->id;
+                }
+                if (!$coordenadorId) {
+                    error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - ID do coordenador não encontrado no usuário logado");
+                    return self::error("ID do coordenador não encontrado", 400);
+                }
                 $resultado = ListarAtividadesDisponiveisModel::listarTodasAtividadesEnviadas(
                     $pagina, 
                     $limite, 
                     $ordenacao, 
                     $direcao, 
-                    $busca
+                    $busca,
+                    $coordenadorId
                 );
             } else {
                 // Alunos veem apenas suas próprias atividades
-                $aluno_id = isset($usuarioLogado['id']) ? $usuarioLogado['id'] : null;
+                // Obter ID com suporte a array/objeto
+                $aluno_id = null;
+                if (is_array($usuarioLogado) && isset($usuarioLogado['id'])) {
+                    $aluno_id = $usuarioLogado['id'];
+                } elseif (is_object($usuarioLogado) && isset($usuarioLogado->id)) {
+                    $aluno_id = $usuarioLogado->id;
+                }
                 if (!$aluno_id) {
                     error_log("ListarAtividadesDisponiveisController::listarAtividadesEnviadas - ID do aluno não encontrado no usuário logado");
                     return self::error("ID do aluno não encontrado", 400);

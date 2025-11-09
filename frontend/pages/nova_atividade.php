@@ -98,16 +98,33 @@
         // Carregar categorias via JWT
         let todasCategorias = [];
         let isAlunoAntigo = false;
+        let isBSI = false;
+        let deveMostrarPET = false;
         let tentativasCarregamento = 0;
         const MAX_TENTATIVAS = 3;
 
         // Verificar se o aluno tem matrícula entre 2017 e 2022
         function verificarAlunoAntigo() {
             const user = AuthClient.getUser();
-            if (user && user.matricula) {
-                const anoMatricula = parseInt(user.matricula.substring(0, 4));
-                isAlunoAntigo = anoMatricula >= 2017 && anoMatricula <= 2022;
-                console.log('🎓 Aluno antigo detectado:', isAlunoAntigo, 'Ano matrícula:', anoMatricula);
+            if (user) {
+                // Detectar ano de matrícula
+                let anoMatricula = null;
+                if (user.matricula && typeof user.matricula === 'string') {
+                    anoMatricula = parseInt(user.matricula.substring(0, 4));
+                }
+
+                // Detectar curso BSI: curso_id === 2 ou nome contém "Sistemas de Informação"
+                isBSI = (user.curso_id === 2) || (user.curso_nome && user.curso_nome.toLowerCase().includes('sistemas de informação'));
+
+                // Regra de aluno antigo já existente
+                if (anoMatricula) {
+                    isAlunoAntigo = anoMatricula >= 2017 && anoMatricula <= 2022;
+                }
+
+                // Regra PET: somente para BSI com matrícula a partir de 2018
+                deveMostrarPET = !!(isBSI && anoMatricula && anoMatricula >= 2018);
+
+                console.log('🎓 Aluno antigo:', isAlunoAntigo, '| Ano:', anoMatricula, '| isBSI:', isBSI, '| deveMostrarPET:', deveMostrarPET);
             }
         }
 
@@ -266,7 +283,8 @@
                 'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
                 'Estágio': { cor: '#F59E0B', icone: '💼' },
                 'Ação Social': { cor: '#DC2626', icone: '🤝' },
-                'Atividades sociais e comunitárias': { cor: '#DC2626', icone: '🤝' }
+                'Atividades sociais e comunitárias': { cor: '#DC2626', icone: '🤝' },
+                'PET': { cor: '#1E3A8A', icone: '📋' }
             };
 
             // Se for aluno antigo (2017-2022), mostrar interface especial
@@ -279,6 +297,11 @@
                     { nome: 'Atividades sociais e comunitárias', config: categoriaConfig['Atividades sociais e comunitárias'] }
                 ];
 
+                // Incluir PET somente quando permitido pela regra
+                if (deveMostrarPET) {
+                    categoriasEspeciais.push({ nome: 'PET', config: categoriaConfig['PET'] });
+                }
+
                 container.innerHTML = `
                     <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <h3 class="text-lg font-semibold text-blue-800 mb-2">Escolher Categoria de Atividade</h3>
@@ -288,7 +311,7 @@
                         ${categoriasEspeciais.map(item => `
                             <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
                                  onclick="selecionarCategoria('${item.nome}')">
-                                <div class="p-6 text-center" style="background: linear-gradient(135deg, ${item.config.cor}, ${item.config.cor}dd)">
+                                <div class="p-6 text-center" style="${item.nome === 'PET' ? 'background-color: ' + item.config.cor : 'background: linear-gradient(135deg, ' + item.config.cor + ', ' + item.config.cor + 'dd)'}">
                                     <div class="text-4xl mb-3">${item.config.icone}</div>
                                     <h3 class="text-xl font-bold text-white">${item.nome}</h3>
                                 </div>
@@ -307,12 +330,14 @@
                     </div>
                 `;
             } else {
-                // Interface normal para alunos de 2023 em diante - FILTRAR categorias sociais
+                // Interface normal para alunos de 2023 em diante - FILTRAR categorias sociais e PET conforme regra
                 const categoriasFiltradas = todasCategorias.filter(categoria => {
                     const nome = categoria.nome.toLowerCase();
-                    return !(nome.includes('ação social') || 
-                            nome.includes('social e comunitária') || 
-                            nome.includes('atividades sociais'));
+                    const ehSocial = (nome.includes('ação social') || nome.includes('social e comunitária') || nome.includes('atividades sociais'));
+                    const ehPET = nome === 'pet';
+                    if (ehSocial) return false;
+                    if (ehPET && !deveMostrarPET) return false;
+                    return true;
                 });
                 
                 container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -321,7 +346,7 @@
                         return `
                             <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
                                  onclick="selecionarCategoria('${categoria.nome}')">
-                                <div class="p-6 text-center" style="background: linear-gradient(135deg, ${config.cor}, ${config.cor}dd)">
+                                <div class="p-6 text-center" style="${categoria.nome === 'PET' ? 'background-color: ' + config.cor : 'background: linear-gradient(135deg, ' + config.cor + ', ' + config.cor + 'dd)'}">
                                     <div class="text-4xl mb-3">${config.icone}</div>
                                     <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
                                 </div>
@@ -350,7 +375,9 @@
                 'Atividades extracurriculares': 'atividades_extracurriculares.php',
                 'Estágio': 'atividades_estagio.php',
                 'Ação Social': 'atividades_acao_social.php',
-                'Atividades sociais e comunitárias': 'atividades_acao_social.php'
+                'Atividades sociais e comunitárias': 'atividades_acao_social.php',
+                // PET agora tem página própria específica
+                'PET': 'pet.php'
             };
             
             const pagina = paginasCategoria[nomeCategoria];

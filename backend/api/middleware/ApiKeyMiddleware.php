@@ -92,10 +92,10 @@ class ApiKeyMiddleware {
                 'tipo' => $userData['tipo']
             ];
             
-            // Se for aluno, buscar matrícula
+            // Se for aluno, buscar matrícula e curso
             if ($userData['tipo'] === 'aluno') {
                 try {
-                    $stmtAluno = $db->prepare("SELECT matricula FROM Aluno WHERE usuario_id = ?");
+                    $stmtAluno = $db->prepare("SELECT a.matricula, c.id as curso_id, c.nome as curso_nome FROM Aluno a LEFT JOIN Curso c ON a.curso_id = c.id WHERE a.usuario_id = ?");
                     $stmtAluno->bind_param("i", $userData['usuario_id']);
                     $stmtAluno->execute();
                     $resultAluno = $stmtAluno->get_result();
@@ -103,10 +103,16 @@ class ApiKeyMiddleware {
                     if ($resultAluno->num_rows > 0) {
                         $alunoData = $resultAluno->fetch_assoc();
                         $userPayload['matricula'] = $alunoData['matricula'];
-                        error_log("Matrícula adicionada ao payload via API Key: " . $alunoData['matricula']);
+                        if (isset($alunoData['curso_id'])) {
+                            $userPayload['curso_id'] = (int)$alunoData['curso_id'];
+                        }
+                        if (isset($alunoData['curso_nome'])) {
+                            $userPayload['curso_nome'] = $alunoData['curso_nome'];
+                        }
+                        error_log("Dados de aluno via API Key: matricula=" . $alunoData['matricula'] . ", curso_id=" . ($alunoData['curso_id'] ?? 'null') . ", curso_nome=" . ($alunoData['curso_nome'] ?? 'null'));
                     }
                 } catch (\Exception $e) {
-                    error_log("Erro ao buscar matrícula via API Key: " . $e->getMessage());
+                    error_log("Erro ao buscar dados do aluno via API Key: " . $e->getMessage());
                 }
             }
             
