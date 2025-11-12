@@ -77,10 +77,10 @@ class ListarAtividadesDisponiveisController {
                 return self::error("Tipo de atividade inválido: $tipo", 400);
             }
             
-            // Obter matrícula do usuário
+            // Obter matrícula do usuário (obrigatória apenas para alunos)
             $matricula = isset($usuarioLogado['matricula']) ? $usuarioLogado['matricula'] : null;
-            if (!$matricula) {
-                error_log("ListarAtividadesDisponiveisController::listarAtividades - Matrícula não encontrada no usuário logado");
+            if ($usuarioLogado['tipo'] === 'aluno' && !$matricula) {
+                error_log("ListarAtividadesDisponiveisController::listarAtividades - Matrícula não encontrada para aluno logado");
                 return self::error("Matrícula do usuário não encontrada", 400);
             }
             
@@ -91,54 +91,123 @@ class ListarAtividadesDisponiveisController {
             
             // Se tipo específico foi solicitado
             if ($tipo) {
-                // Determinar resolução para o tipo específico
-                $resolucaoId = ListarAtividadesDisponiveisModel::determinarResolucaoPorMatricula($matricula, $tipo);
-                
-                if (!$resolucaoId) {
-                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Não foi possível determinar resolução para matrícula $matricula e tipo $tipo");
-                    return self::error("Não foi possível determinar a resolução para esta matrícula", 400);
+                // Caso especial: aluno BCC (não SI) com matrícula entre 2017-2022 deve ver extracurriculares da resolução ID = 1
+                $isAluno = strtolower((string)$usuarioLogado['tipo']) === 'aluno';
+                $anoMatricula = null;
+                if ($isAluno && $matricula) {
+                    $anoMatricula = (int)substr((string)$matricula, 0, 4);
                 }
-                
-                error_log("ListarAtividadesDisponiveisController::listarAtividades - Resolução determinada para $tipo: $resolucaoId");
-                
-                // Listar atividades do tipo específico
-                $resultado = ListarAtividadesDisponiveisModel::listarPorTipoEResolucao(
-                    $tipo, 
-                    $resolucaoId, 
-                    $pagina, 
-                    $limite, 
-                    $ordenacao, 
-                    $direcao, 
+                $periodo2017a2022 = $anoMatricula && $anoMatricula >= 2017 && $anoMatricula <= 2022;
+                $periodo2023mais = $anoMatricula && $anoMatricula >= 2023;
+
+                if ($isAluno && $periodo2017a2022) {
+                    // Aplicar filtro pela resolução correta do período 2017-2022 conforme o tipo
+                    $map = ListarAtividadesDisponiveisModel::RESOLUCOES_POR_TIPO;
+                    $resolucaoId = isset($map[$tipo]['2017-2022']) ? $map[$tipo]['2017-2022'] : 1; // fallback seguro
+                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Aplicando filtro por resolucao_id={$resolucaoId} para aluno 2017-2022 no tipo: $tipo");
+                    $resultado = ListarAtividadesDisponiveisModel::listarPorTipoComResolucaoId(
+                        $tipo,
+                        $resolucaoId,
+                        $pagina,
+                        $limite,
+                        $ordenacao,
+                        $direcao,
+                        $busca
+                    );
+                    return self::success($resultado, "Atividades de $tipo listadas com sucesso (resolução {$resolucaoId})");
+                }
+
+                // Caso especial: aluno BCC com matrícula 2023+ deve ver extracurriculares da resolução_id = 2 (rta.id = 8)
+                if ($isAluno && $periodo2023mais && $tipo === 'extracurriculares') {
+                    $map = ListarAtividadesDisponiveisModel::RESOLUCOES_POR_TIPO;
+                    $resolucaoId = isset($map['extracurriculares']['2023+']) ? $map['extracurriculares']['2023+'] : 8; // rta.id para (resolução 2, tipo 3)
+                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Aplicando filtro por resolucao_id={$resolucaoId} para aluno 2023+ no tipo: $tipo");
+                    $resultado = ListarAtividadesDisponiveisModel::listarPorTipoComResolucaoId(
+                        $tipo,
+                        $resolucaoId,
+                        $pagina,
+                        $limite,
+                        $ordenacao,
+                        $direcao,
+                        $busca
+                    );
+                    return self::success($resultado, "Atividades de $tipo listadas com sucesso (resolução {$resolucaoId})");
+                }
+
+                // Caso especial: aluno BCC com matrícula 2023+ deve ver ensino da resolução_id = 2 (rta.id = 6)
+                if ($isAluno && $periodo2023mais && $tipo === 'ensino') {
+                    $map = ListarAtividadesDisponiveisModel::RESOLUCOES_POR_TIPO;
+                    $resolucaoId = isset($map['ensino']['2023+']) ? $map['ensino']['2023+'] : 6; // rta.id para (resolução 2, tipo 1)
+                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Aplicando filtro por resolucao_id={$resolucaoId} para aluno 2023+ no tipo: $tipo");
+                    $resultado = ListarAtividadesDisponiveisModel::listarPorTipoComResolucaoId(
+                        $tipo,
+                        $resolucaoId,
+                        $pagina,
+                        $limite,
+                        $ordenacao,
+                        $direcao,
+                        $busca
+                    );
+                    return self::success($resultado, "Atividades de $tipo listadas com sucesso (resolução {$resolucaoId})");
+                }
+
+                // Caso especial: aluno BCC com matrícula 2023+ deve ver estágio da resolução_id = 2 (rta.id = 9)
+                if ($isAluno && $periodo2023mais && $tipo === 'estagio') {
+                    $map = ListarAtividadesDisponiveisModel::RESOLUCOES_POR_TIPO;
+                    $resolucaoId = isset($map['estagio']['2023+']) ? $map['estagio']['2023+'] : 9; // rta.id para (resolução 2, tipo 4)
+                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Aplicando filtro por resolucao_id={$resolucaoId} para aluno 2023+ no tipo: $tipo");
+                    $resultado = ListarAtividadesDisponiveisModel::listarPorTipoComResolucaoId(
+                        $tipo,
+                        $resolucaoId,
+                        $pagina,
+                        $limite,
+                        $ordenacao,
+                        $direcao,
+                        $busca
+                    );
+                    return self::success($resultado, "Atividades de $tipo listadas com sucesso (resolução {$resolucaoId})");
+                }
+
+                // Caso especial: aluno BCC com matrícula 2023+ deve ver pesquisa da resolução_id = 2 (rta.id = 7)
+                if ($isAluno && $periodo2023mais && $tipo === 'pesquisa') {
+                    $map = ListarAtividadesDisponiveisModel::RESOLUCOES_POR_TIPO;
+                    $resolucaoId = isset($map['pesquisa']['2023+']) ? $map['pesquisa']['2023+'] : 7; // rta.id para (resolução 2, tipo 2)
+                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Aplicando filtro por resolucao_id={$resolucaoId} para aluno 2023+ no tipo: $tipo");
+                    $resultado = ListarAtividadesDisponiveisModel::listarPorTipoComResolucaoId(
+                        $tipo,
+                        $resolucaoId,
+                        $pagina,
+                        $limite,
+                        $ordenacao,
+                        $direcao,
+                        $busca
+                    );
+                    return self::success($resultado, "Atividades de $tipo listadas com sucesso (resolução {$resolucaoId})");
+                }
+
+                // Padrão: listar por tipo sem filtrar por curso/resolução
+                error_log("ListarAtividadesDisponiveisController::listarAtividades - Listando por tipo sem filtro: $tipo");
+                $resultado = ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro(
+                    $tipo,
+                    $pagina,
+                    $limite,
+                    $ordenacao,
+                    $direcao,
                     $busca
                 );
-                
-                return self::success($resultado, "Atividades de $tipo listadas com sucesso");
+                return self::success($resultado, "Atividades de $tipo listadas com sucesso (sem filtro)");
                 
             } else {
-                // Listar todas as atividades - precisa determinar resolução baseada na matrícula
-                $resolucoes = ListarAtividadesDisponiveisModel::determinarResolucaoPorMatricula($matricula);
-                
-                if (!$resolucoes || !is_array($resolucoes)) {
-                    error_log("ListarAtividadesDisponiveisController::listarAtividades - Não foi possível determinar resoluções para matrícula $matricula");
-                    return self::error("Não foi possível determinar as resoluções para esta matrícula", 400);
-                }
-                
-                error_log("ListarAtividadesDisponiveisController::listarAtividades - Resoluções determinadas: " . json_encode($resolucoes));
-                
-                // Para listar todas, vamos usar a primeira resolução encontrada como base
-                // (assumindo que todas as resoluções do mesmo período têm as mesmas atividades base)
-                $primeiraResolucao = reset($resolucoes);
-                
-                $resultado = ListarAtividadesDisponiveisModel::listarTodasPorResolucao(
-                    $primeiraResolucao, 
-                    $pagina, 
-                    $limite, 
-                    $ordenacao, 
-                    $direcao, 
+                // Listar todas as atividades sem filtrar por resolução/curso (BCC/BSI)
+                error_log("ListarAtividadesDisponiveisController::listarAtividades - Listando todas as atividades sem filtro de curso ou resolução");
+                $resultado = ListarAtividadesDisponiveisModel::listarTodasSemFiltro(
+                    $pagina,
+                    $limite,
+                    $ordenacao,
+                    $direcao,
                     $busca
                 );
-                
-                return self::success($resultado, "Todas as atividades disponíveis listadas com sucesso");
+                return self::success($resultado, "Todas as atividades disponíveis listadas com sucesso (sem filtro)");
             }
             
         } catch (Exception $e) {

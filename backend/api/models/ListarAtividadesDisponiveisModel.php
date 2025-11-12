@@ -20,6 +20,16 @@ class ListarAtividadesDisponiveisModel
         'pet' => 'PET'
     ];
 
+    // IDs estáveis de tipo_atividade na base (evita problemas de acentuação)
+    const TIPOS_ATIVIDADES_ID = [
+        'ensino' => 1,
+        'pesquisa' => 2,
+        'extracurriculares' => 3,
+        'estagio' => 4,
+        'acao_social' => 5,
+        'pet' => 6,
+    ];
+
     // Mapeamento das resoluções por tipo de atividade
     const RESOLUCOES_POR_TIPO = [
         'ensino' => [
@@ -231,6 +241,443 @@ class ListarAtividadesDisponiveisModel
     }
 
     /**
+     * Lista atividades por tipo sem filtrar por resolução/curso (BCC/BSI)
+     * @param string $tipo Tipo de atividade (ensino, estagio, extracurriculares, pesquisa, acao_social, pet)
+     * @param int $pagina Página atual (padrão: 1)
+     * @param int $limite Limite de registros por página (padrão: 20)
+     * @param string $ordenacao Campo para ordenação (padrão: 'nome')
+     * @param string $direcao Direção da ordenação ASC/DESC (padrão: 'ASC')
+     * @param string $busca Termo de busca (padrão: '')
+     * @return array Array com as atividades encontradas e metadados de paginação
+     */
+    public static function listarPorTipoSemFiltro($tipo, $pagina = 1, $limite = 20, $ordenacao = 'nome', $direcao = 'ASC', $busca = '')
+    {
+        try {
+            $db = Database::getInstance();
+            $conn = $db->getConnection();
+
+            if (!isset(self::TIPOS_ATIVIDADES[$tipo])) {
+                throw new Exception("Tipo de atividade inválido: $tipo");
+            }
+            $nomeAtividade = self::TIPOS_ATIVIDADES[$tipo];
+
+            $pagina = max(1, (int)$pagina);
+            $limite = max(1, min(100, (int)$limite));
+            $offset = ($pagina - 1) * $limite;
+
+            $camposOrdenacao = [
+                'nome' => 'ac.titulo',
+                'categoria' => 'ta.nome',
+                'carga_horaria_maxima' => 'carga_horaria_maxima'
+            ];
+            $campoOrdenacao = isset($camposOrdenacao[$ordenacao]) ? $camposOrdenacao[$ordenacao] : 'ac.titulo';
+            $direcao = strtoupper($direcao) === 'DESC' ? 'DESC' : 'ASC';
+
+            $condicaoBusca = '';
+            $parametros = [];
+            $tiposBind = '';
+
+            // Condição por ID estável do tipo_atividade para evitar problemas de acentuação
+            // Para 'extracurriculares', também aceitar variações por nome
+            $condicaoTipo = '';
+            $tipoId = self::TIPOS_ATIVIDADES_ID[$tipo] ?? null;
+            if ($tipo === 'extracurriculares') {
+                $condicaoTipo = "(ta.id = ? OR LOWER(ta.nome) = LOWER(?) OR LOWER(ta.nome) LIKE ? OR LOWER(ta.nome) LIKE ?)";
+                $parametros[] = $tipoId;                  // id 3
+                $parametros[] = $nomeAtividade;           // 'Atividades extracurriculares'
+                $parametros[] = '%extracurricular%';       // variações contendo 'extracurricular'
+                $parametros[] = '%extens%';               // variações contendo 'extens' (extensão/extensao)
+                $tiposBind .= 'isss';
+            } else {
+                $condicaoTipo = "ta.id = ?";
+                $parametros[] = $tipoId;
+                $tiposBind .= 'i';
+            }
+
+            // Logs de debug
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Tipo: $tipo | Nome mapeado: $nomeAtividade");
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Condição tipo: " . $condicaoTipo);
+
+            if (!empty($busca)) {
+                $condicaoBusca = " AND (ac.titulo LIKE ? OR ac.descricao LIKE ?)";
+                $termoBusca = '%' . $busca . '%';
+                $parametros[] = $termoBusca;
+                $parametros[] = $termoBusca;
+                $tiposBind .= 'ss';
+            }
+
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Condição busca: " . ($condicaoBusca ?: 'SEM BUSCA'));
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Parâmetros: " . json_encode($parametros));
+
+            // Count
+            // Para extracurriculares, deduplicar por título para evitar entradas duplicadas entre cursos
+            if ($tipo === 'extracurriculares') {
+                $sqlCount = "SELECT COUNT(*) AS total
+                             FROM (
+                                SELECT ac.titulo
+                                FROM atividades_complementares ac
+                                JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                                LEFT JOIN atividades_por_resolucao apr ON apr.atividades_complementares_id = ac.id
+                                WHERE $condicaoTipo $condicaoBusca
+                                GROUP BY ac.titulo
+                             ) t";
+            } else {
+                $sqlCount = "SELECT COUNT(*) AS total
+                             FROM (
+                                SELECT ac.id
+                                FROM atividades_complementares ac
+                                JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                                LEFT JOIN atividades_por_resolucao apr ON apr.atividades_complementares_id = ac.id
+                                WHERE $condicaoTipo $condicaoBusca
+                                GROUP BY ac.id
+                             ) t";
+            }
+
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - SQL COUNT: " . $sqlCount);
+
+            $stmtCount = $conn->prepare($sqlCount);
+            if (!$stmtCount) {
+                throw new Exception("Erro ao preparar consulta de contagem: " . $conn->error);
+            }
+            $stmtCount->bind_param($tiposBind, ...$parametros);
+            if (!$stmtCount->execute()) {
+                throw new Exception("Erro ao executar consulta de contagem: " . $stmtCount->error);
+            }
+            $resultCount = $stmtCount->get_result();
+            $rowCount = $resultCount->fetch_assoc();
+            $total = $rowCount && isset($rowCount['total']) ? (int)$rowCount['total'] : 0;
+            $stmtCount->close();
+
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Total encontrados: " . $total);
+
+            // Main
+            // Para extracurriculares, agrupar por título para remover duplicações entre cursos (ex.: BCC/BSI)
+            if ($tipo === 'extracurriculares') {
+                $sql = "SELECT 
+                            MAX(apr.id) AS atividades_por_resolucao_id,
+                            MIN(ac.id) AS atividade_complementar_id,
+                            ac.titulo AS nome,
+                            MAX(ac.descricao) AS descricao,
+                            MAX(ac.observacoes) AS observacoes,
+                            ta.nome AS categoria,
+                            COALESCE(MAX(apr.carga_horaria_maxima_por_atividade), 0) AS carga_horaria_maxima,
+                            ta.nome AS tipo,
+                            COALESCE(MAX(apr.carga_horaria_maxima_por_atividade), 0) AS horas_max
+                        FROM atividades_complementares ac
+                        JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                        LEFT JOIN atividades_por_resolucao apr ON apr.atividades_complementares_id = ac.id
+                        WHERE $condicaoTipo $condicaoBusca
+                        GROUP BY ac.titulo, ta.nome
+                        ORDER BY $campoOrdenacao $direcao
+                        LIMIT ? OFFSET ?";
+            } else {
+                $sql = "SELECT 
+                            MAX(apr.id) AS atividades_por_resolucao_id,
+                            ac.id AS atividade_complementar_id,
+                            ac.titulo AS nome,
+                            ac.descricao,
+                            ac.observacoes,
+                            ta.nome AS categoria,
+                            COALESCE(MAX(apr.carga_horaria_maxima_por_atividade), 0) AS carga_horaria_maxima,
+                            ta.nome AS tipo,
+                            COALESCE(MAX(apr.carga_horaria_maxima_por_atividade), 0) AS horas_max
+                        FROM atividades_complementares ac
+                        JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                        LEFT JOIN atividades_por_resolucao apr ON apr.atividades_complementares_id = ac.id
+                        WHERE $condicaoTipo $condicaoBusca
+                        GROUP BY ac.id, ac.titulo, ac.descricao, ac.observacoes, ta.nome
+                        ORDER BY $campoOrdenacao $direcao
+                        LIMIT ? OFFSET ?";
+            }
+
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - SQL MAIN: " . $sql);
+
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erro ao preparar consulta: " . $conn->error);
+            }
+
+            $paramExec = $parametros;
+            $tiposExec = $tiposBind;
+            $paramExec[] = $limite;
+            $paramExec[] = $offset;
+            $tiposExec .= 'ii';
+
+            $stmt->bind_param($tiposExec, ...$paramExec);
+            if (!$stmt->execute()) {
+                throw new Exception("Erro ao executar consulta: " . $stmt->error);
+            }
+
+            $result = $stmt->get_result();
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                // Mapear tipo_atividade chave
+                $tipoChave = array_search($row['tipo'], self::TIPOS_ATIVIDADES) ?: 'outros';
+                $atividades[] = [
+                    'id' => (int)$row['atividades_por_resolucao_id'],
+                    'atividade_complementar_id' => (int)$row['atividade_complementar_id'],
+                    'nome' => $row['nome'],
+                    'descricao' => $row['descricao'],
+                    'observacoes' => $row['observacoes'],
+                    'categoria' => $row['categoria'],
+                    'carga_horaria_maxima' => (int)$row['carga_horaria_maxima'],
+                    'tipo' => $row['tipo'],
+                    'horas_max' => (int)$row['horas_max'],
+                    'tipo_atividade' => $tipoChave
+                ];
+            }
+            $stmt->close();
+
+            error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Registros retornados: " . count($atividades));
+            if (!empty($atividades)) {
+                $preview = array_slice($atividades, 0, 3);
+                error_log("ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro - Amostra: " . json_encode($preview));
+            }
+
+            $totalPaginas = $limite > 0 ? (int)ceil($total / $limite) : 0;
+            $temProxima = $pagina < $totalPaginas;
+            $temAnterior = $pagina > 1;
+
+            return [
+                'atividades' => $atividades,
+                'paginacao' => [
+                    'pagina_atual' => $pagina,
+                    'total_paginas' => $totalPaginas,
+                    'total_registros' => $total,
+                    'limite' => $limite,
+                    'tem_proxima' => $temProxima,
+                    'tem_anterior' => $temAnterior
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Erro em ListarAtividadesDisponiveisModel::listarPorTipoSemFiltro: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista atividades por tipo filtrando por um resolucao_id específico
+     * @param string $tipo Tipo de atividade (ensino, estagio, extracurriculares, pesquisa)
+     * @param int $resolucaoId ID da resolução (ex.: 1 para BCC 2017-2022)
+     * @param int $pagina Página atual
+     * @param int $limite Limite por página
+     * @param string $ordenacao Campo de ordenação
+     * @param string $direcao Direção de ordenação
+     * @param string $busca Termo de busca
+     * @return array
+     */
+    public static function listarPorTipoComResolucaoId($tipo, $resolucaoId, $pagina = 1, $limite = 20, $ordenacao = 'nome', $direcao = 'ASC', $busca = '')
+    {
+        try {
+            $db = Database::getInstance();
+            $conn = $db->getConnection();
+
+            if (!isset(self::TIPOS_ATIVIDADES[$tipo])) {
+                throw new Exception("Tipo de atividade inválido: $tipo");
+            }
+            $nomeAtividade = self::TIPOS_ATIVIDADES[$tipo];
+            $tipoId = self::TIPOS_ATIVIDADES_ID[$tipo] ?? null;
+            if ($tipoId === null) {
+                throw new Exception("ID de tipo de atividade não mapeado para: $tipo");
+            }
+
+            $pagina = max(1, (int)$pagina);
+            $limite = max(1, min(100, (int)$limite));
+            $offset = ($pagina - 1) * $limite;
+
+            // Quando consolidado por tipo, usar aliases agregados para ordenação
+            $camposOrdenacao = [
+                'nome' => 'nome',
+                'categoria' => 'ta.nome',
+                'carga_horaria_maxima' => 'carga_horaria_maxima'
+            ];
+            $campoOrdenacao = isset($camposOrdenacao[$ordenacao]) ? $camposOrdenacao[$ordenacao] : 'nome';
+            $direcao = strtoupper($direcao) === 'DESC' ? 'DESC' : 'ASC';
+
+            $condicaoBusca = '';
+            $parametros = [$resolucaoId, $tipoId];
+            $tiposBind = 'ii';
+            if (!empty($busca)) {
+                $condicaoBusca = " AND (ac.titulo LIKE ? OR ac.descricao LIKE ?)";
+                $termoBusca = '%' . $busca . '%';
+                $parametros[] = $termoBusca;
+                $parametros[] = $termoBusca;
+                $tiposBind .= 'ss';
+            }
+
+            // Filtro extra para evitar duplicação de estágios no BCC 2017–2022 (resolução_id = 1)
+            // Mapeamento: rta.id=4 corresponde à resolução BCC17 para Estágio
+            $filtroExtraApr = '';
+            if ($tipo === 'estagio' && (int)$resolucaoId === 4) {
+                // Garantir que apenas a atividade (1, 4, 16, 100) apareça
+                $filtroExtraApr = ' AND apr.atividades_complementares_id = 16 AND apr.carga_horaria_maxima_por_atividade = 100';
+            }
+
+            // Definir consultas de COUNT e MAIN conforme caso especial (Estágio BCC17) ou padrão
+            $sqlCount = '';
+            $sql = '';
+
+            $isCasoEspecialEstagioBCC17 = ($tipo === 'estagio' && (int)$resolucaoId === 4);
+
+            if ($isCasoEspecialEstagioBCC17) {
+                // COUNT consolidando por tipo (evita duplicadas no BCC17 estágio)
+                $sqlCount = "SELECT COUNT(*) AS total
+                             FROM (
+                                SELECT ta_apr.id AS tipo_atividade_id
+                                FROM atividades_por_resolucao apr
+                                JOIN resolucao_tipo_atividade rta 
+                                  ON rta.resolucao_id = apr.resolucao_id 
+                                 AND rta.tipo_atividade_id = apr.tipo_atividade_id
+                                JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
+                                JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                                JOIN tipo_atividade ta_apr ON apr.tipo_atividade_id = ta_apr.id
+                                WHERE rta.id = ? 
+                                  AND ta_apr.id = ? 
+                                  $condicaoBusca $filtroExtraApr
+                                GROUP BY ta_apr.id
+                             ) t";
+            } else {
+                // COUNT padrão: contar atividades distintas dentro do rta.id e tipo
+                $sqlCount = "SELECT COUNT(*) AS total
+                             FROM (
+                                SELECT apr.id
+                                FROM atividades_por_resolucao apr
+                                JOIN resolucao_tipo_atividade rta 
+                                  ON rta.resolucao_id = apr.resolucao_id 
+                                 AND rta.tipo_atividade_id = apr.tipo_atividade_id
+                                JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
+                                JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                                JOIN tipo_atividade ta_apr ON apr.tipo_atividade_id = ta_apr.id
+                                WHERE rta.id = ? 
+                                  AND ta_apr.id = ? 
+                                  $condicaoBusca
+                                GROUP BY apr.id
+                             ) t";
+            }
+
+            $stmtCount = $conn->prepare($sqlCount);
+            if (!$stmtCount) {
+                throw new Exception("Erro ao preparar consulta de contagem: " . $conn->error);
+            }
+            $stmtCount->bind_param($tiposBind, ...$parametros);
+            if (!$stmtCount->execute()) {
+                throw new Exception("Erro ao executar consulta de contagem: " . $stmtCount->error);
+            }
+            $resultCount = $stmtCount->get_result();
+            $rowCount = $resultCount->fetch_assoc();
+            $total = $rowCount && isset($rowCount['total']) ? (int)$rowCount['total'] : 0;
+            $stmtCount->close();
+
+            if ($isCasoEspecialEstagioBCC17) {
+                // MAIN consolidado por tipo para evitar duplicatas (ex.: dois estágios para a mesma resolução)
+                $sql = "SELECT 
+                            MIN(apr.id) AS atividades_por_resolucao_id,
+                            MIN(ac.id) AS atividade_complementar_id,
+                            MIN(ac.titulo) AS nome,
+                            MIN(ac.descricao) AS descricao,
+                            MIN(ac.observacoes) AS observacoes,
+                            ta.nome AS categoria,
+                            MIN(apr.carga_horaria_maxima_por_atividade) AS carga_horaria_maxima,
+                            ta_apr.nome AS tipo,
+                            MIN(apr.carga_horaria_maxima_por_atividade) AS horas_max
+                        FROM atividades_por_resolucao apr
+                        JOIN resolucao_tipo_atividade rta 
+                          ON rta.resolucao_id = apr.resolucao_id 
+                         AND rta.tipo_atividade_id = apr.tipo_atividade_id
+                        JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
+                        JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                        JOIN tipo_atividade ta_apr ON apr.tipo_atividade_id = ta_apr.id
+                        WHERE rta.id = ? 
+                          AND ta_apr.id = ? 
+                          $condicaoBusca $filtroExtraApr
+                        GROUP BY ta_apr.id, ta.nome
+                        ORDER BY $campoOrdenacao $direcao
+                        LIMIT ? OFFSET ?";
+            } else {
+                // MAIN padrão: listar cada atividade normalmente
+                $sql = "SELECT 
+                            apr.id AS atividades_por_resolucao_id,
+                            ac.id AS atividade_complementar_id,
+                            ac.titulo AS nome,
+                            ac.descricao AS descricao,
+                            ac.observacoes AS observacoes,
+                            ta.nome AS categoria,
+                            apr.carga_horaria_maxima_por_atividade AS carga_horaria_maxima,
+                            ta_apr.nome AS tipo,
+                            apr.carga_horaria_maxima_por_atividade AS horas_max
+                        FROM atividades_por_resolucao apr
+                        JOIN resolucao_tipo_atividade rta 
+                          ON rta.resolucao_id = apr.resolucao_id 
+                         AND rta.tipo_atividade_id = apr.tipo_atividade_id
+                        JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
+                        JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                        JOIN tipo_atividade ta_apr ON apr.tipo_atividade_id = ta_apr.id
+                        WHERE rta.id = ? 
+                          AND ta_apr.id = ? 
+                          $condicaoBusca
+                        ORDER BY $campoOrdenacao $direcao
+                        LIMIT ? OFFSET ?";
+            }
+
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erro ao preparar consulta: " . $conn->error);
+            }
+
+            $paramExec = $parametros;
+            $tiposExec = $tiposBind;
+            $paramExec[] = $limite;
+            $paramExec[] = $offset;
+            $tiposExec .= 'ii';
+
+            $stmt->bind_param($tiposExec, ...$paramExec);
+            if (!$stmt->execute()) {
+                throw new Exception("Erro ao executar consulta: " . $stmt->error);
+            }
+
+            $result = $stmt->get_result();
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                // Mapear tipo_atividade via ID conhecido
+                $inverseTipoId = array_flip(self::TIPOS_ATIVIDADES_ID);
+                $tipoChave = $inverseTipoId[$tipoId] ?? $tipo;
+                $atividades[] = [
+                    'id' => (int)$row['atividades_por_resolucao_id'],
+                    'atividade_complementar_id' => (int)$row['atividade_complementar_id'],
+                    'nome' => $row['nome'],
+                    'descricao' => $row['descricao'],
+                    'observacoes' => $row['observacoes'],
+                    'categoria' => $row['categoria'],
+                    'carga_horaria_maxima' => (int)$row['carga_horaria_maxima'],
+                    'tipo' => $nomeAtividade,
+                    'horas_max' => (int)$row['horas_max'],
+                    'tipo_atividade' => $tipoChave
+                ];
+            }
+            $stmt->close();
+
+            $totalPaginas = $limite > 0 ? (int)ceil($total / $limite) : 0;
+            $temProxima = $pagina < $totalPaginas;
+            $temAnterior = $pagina > 1;
+
+            return [
+                'atividades' => $atividades,
+                'paginacao' => [
+                    'pagina_atual' => $pagina,
+                    'total_paginas' => $totalPaginas,
+                    'total_registros' => $total,
+                    'limite' => $limite,
+                    'tem_proxima' => $temProxima,
+                    'tem_anterior' => $temAnterior
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Erro em ListarAtividadesDisponiveisModel::listarPorTipoComResolucaoId: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
      * Lista todas as atividades disponíveis (todos os tipos) por resolução
      * @param int $resolucaoTipoAtividadeId ID da resolução
      * @param int $pagina Página atual (padrão: 1)
@@ -397,6 +844,153 @@ class ListarAtividadesDisponiveisModel
             ];
         } catch (Exception $e) {
             error_log("Erro em ListarAtividadesDisponiveisModel::listarTodasPorResolucao: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista todas as atividades disponíveis sem filtrar por resolução (todas as categorias para todos os cursos)
+     * @param int $pagina Página atual (padrão: 1)
+     * @param int $limite Limite de registros por página (padrão: 20)
+     * @param string $ordenacao Campo para ordenação (padrão: 'nome')
+     * @param string $direcao Direção da ordenação ASC/DESC (padrão: 'ASC')
+     * @param string $busca Termo de busca (padrão: '')
+     * @return array Array com as atividades encontradas e metadados de paginação
+     */
+    public static function listarTodasSemFiltro($pagina = 1, $limite = 20, $ordenacao = 'nome', $direcao = 'ASC', $busca = '')
+    {
+        try {
+            $db = Database::getInstance();
+            $conn = $db->getConnection();
+
+            $pagina = max(1, (int)$pagina);
+            $limite = max(1, min(100, (int)$limite));
+            $offset = ($pagina - 1) * $limite;
+
+            $camposOrdenacao = [
+                'nome' => 'ac.titulo',
+                'categoria' => 'ta.nome',
+                'carga_horaria_maxima' => 'carga_horaria_maxima'
+            ];
+            $campoOrdenacao = isset($camposOrdenacao[$ordenacao]) ? $camposOrdenacao[$ordenacao] : 'ac.titulo';
+            $direcao = strtoupper($direcao) === 'DESC' ? 'DESC' : 'ASC';
+
+            $condicaoBusca = '';
+            $parametros = [];
+            $tipos = '';
+            if (!empty($busca)) {
+                $condicaoBusca = " AND (ac.titulo LIKE ? OR ac.descricao LIKE ? OR ta.nome LIKE ?)";
+                $termoBusca = '%' . $busca . '%';
+                $parametros[] = $termoBusca;
+                $parametros[] = $termoBusca;
+                $parametros[] = $termoBusca;
+                $tipos .= 'sss';
+            }
+
+            $tiposValidos = "'" . implode("', '", array_values(self::TIPOS_ATIVIDADES)) . "'";
+
+            $sqlCount = "SELECT COUNT(*) AS total
+                        FROM (
+                            SELECT ac.id
+                            FROM atividades_complementares ac
+                            JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                            LEFT JOIN atividades_por_resolucao apr ON apr.atividades_complementares_id = ac.id
+                            WHERE ta.nome IN ($tiposValidos) $condicaoBusca
+                            GROUP BY ac.id
+                        ) t";
+
+            $stmtCount = $conn->prepare($sqlCount);
+            if (!$stmtCount) {
+                throw new Exception("Erro ao preparar consulta de contagem: " . $conn->error);
+            }
+            if ($tipos) {
+                $stmtCount->bind_param($tipos, ...$parametros);
+            }
+            if (!$stmtCount->execute()) {
+                throw new Exception("Erro ao executar consulta de contagem: " . $stmtCount->error);
+            }
+            $resultCount = $stmtCount->get_result();
+            $total = (int)$resultCount->fetch_assoc()['total'];
+            $stmtCount->close();
+
+            $sql = "SELECT 
+                        MAX(apr.id) as atividades_por_resolucao_id,
+                        ac.id as atividade_complementar_id,
+                        ac.titulo as nome,
+                        ac.descricao,
+                        ac.observacoes,
+                        ta.nome as categoria,
+                        COALESCE(MAX(apr.carga_horaria_maxima_por_atividade), 0) as carga_horaria_maxima,
+                        ta.nome as tipo,
+                        COALESCE(MAX(apr.carga_horaria_maxima_por_atividade), 0) as horas_max,
+                        CASE 
+                            WHEN ta.nome = 'Ensino' THEN 'ensino'
+                            WHEN ta.nome = 'Estágio' THEN 'estagio'
+                            WHEN ta.nome = 'Atividades extracurriculares' THEN 'extracurriculares'
+                            WHEN ta.nome = 'Pesquisa' THEN 'pesquisa'
+                            WHEN ta.nome = 'PET' THEN 'pet'
+                            WHEN ta.nome = 'Atividades sociais e comunitárias' THEN 'acao_social'
+                            ELSE 'outros'
+                        END as tipo_atividade
+                    FROM atividades_complementares ac
+                    JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                    LEFT JOIN atividades_por_resolucao apr ON apr.atividades_complementares_id = ac.id
+                    WHERE ta.nome IN ($tiposValidos) $condicaoBusca
+                    GROUP BY ac.id, ac.titulo, ac.descricao, ac.observacoes, ta.nome
+                    ORDER BY $campoOrdenacao $direcao
+                    LIMIT ? OFFSET ?";
+
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erro ao preparar consulta: " . $conn->error);
+            }
+
+            $parametrosExec = $parametros;
+            $tiposExec = $tipos;
+            $parametrosExec[] = $limite;
+            $parametrosExec[] = $offset;
+            $tiposExec .= 'ii';
+
+            $stmt->bind_param($tiposExec, ...$parametrosExec);
+            if (!$stmt->execute()) {
+                throw new Exception("Erro ao executar consulta: " . $stmt->error);
+            }
+
+            $result = $stmt->get_result();
+            $atividades = [];
+            while ($row = $result->fetch_assoc()) {
+                $atividades[] = [
+                    'id' => (int)$row['atividades_por_resolucao_id'],
+                    'atividade_complementar_id' => (int)$row['atividade_complementar_id'],
+                    'nome' => $row['nome'],
+                    'descricao' => $row['descricao'],
+                    'observacoes' => $row['observacoes'],
+                    'categoria' => $row['categoria'],
+                    'carga_horaria_maxima' => (int)$row['carga_horaria_maxima'],
+                    'tipo' => $row['tipo'],
+                    'horas_max' => (int)$row['horas_max'],
+                    'tipo_atividade' => $row['tipo_atividade']
+                ];
+            }
+            $stmt->close();
+
+            $totalPaginas = ceil($total / $limite);
+            $temProxima = $pagina < $totalPaginas;
+            $temAnterior = $pagina > 1;
+
+            return [
+                'atividades' => $atividades,
+                'paginacao' => [
+                    'pagina_atual' => $pagina,
+                    'total_paginas' => $totalPaginas,
+                    'total_registros' => $total,
+                    'limite' => $limite,
+                    'tem_proxima' => $temProxima,
+                    'tem_anterior' => $temAnterior
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Erro em ListarAtividadesDisponiveisModel::listarTodasSemFiltro: " . $e->getMessage());
             throw $e;
         }
     }

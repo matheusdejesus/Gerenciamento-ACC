@@ -71,10 +71,10 @@ try {
             enviarErro('Acesso negado. Apenas coordenadores e alunos podem acessar atividades enviadas.', 403);
         }
     } else {
-        // Para listar atividades disponíveis, apenas alunos podem acessar
-        if ($usuario['tipo'] !== 'aluno') {
+        // Para listar atividades disponíveis, permitir alunos, coordenadores e administradores
+        if (!in_array($usuario['tipo'], ['aluno', 'coordenador', 'admin', 'administrador'])) {
             error_log("Tipo de usuário inválido: " . $usuario['tipo']);
-            enviarErro('Acesso negado. Apenas alunos podem acessar.', 403);
+            enviarErro('Acesso negado. Perfil sem permissão para listar atividades.', 403);
         }
     }
     

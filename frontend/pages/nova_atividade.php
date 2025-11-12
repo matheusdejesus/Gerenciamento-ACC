@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nova Atividade - ACC Discente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    
+
     <!-- Carregar AuthClient PRIMEIRO, antes de qualquer outro script -->
     <script src="../assets/js/auth.js"></script>
-    
+
     <style>
         .bg-pattern {
             background-color: #0D1117;
         }
     </style>
 </head>
+
 <body class="bg-pattern font-montserrat min-h-screen flex flex-col">
     <nav class="bg-white shadow-lg fixed top-0 w-full z-50" style="background-color: #151B23">
         <div class="max-w-7xl mx-auto px-4">
@@ -50,7 +52,7 @@
                     </div>
                 </div>
                 <div id="categoriasContainer"></div>
-                
+
                 <div class="mt-8 p-6 rounded-lg" style="background-color: #E6F3FF; border-left: 4px solid #0969DA">
                     <h4 class="font-bold mb-2" style="color: #0969DA">Informações Importantes</h4>
                     <ul class="text-sm text-gray-700 space-y-1">
@@ -63,7 +65,7 @@
             </main>
         </div>
     </div>
-    
+
     <footer class="w-full py-6" style="background-color: #151B23">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex flex-col items-center justify-center space-y-4">
@@ -76,7 +78,6 @@
             </div>
         </div>
     </footer>
-    
 
     <script>
         // Verificar autenticação JWT
@@ -92,13 +93,14 @@
             }
             return true;
         }
-        
+
         verificarAutenticacao();
 
         // Carregar categorias via JWT
         let todasCategorias = [];
         let isAlunoAntigo = false;
         let isBSI = false;
+        let isBCC = false;
         let deveMostrarPET = false;
         let tentativasCarregamento = 0;
         const MAX_TENTATIVAS = 3;
@@ -116,6 +118,10 @@
                 // Detectar curso BSI: curso_id === 2 ou nome contém "Sistemas de Informação"
                 isBSI = (user.curso_id === 2) || (user.curso_nome && user.curso_nome.toLowerCase().includes('sistemas de informação'));
 
+                // Detectar curso BCC
+                const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                isBCC = (user.curso_id === 1) || cursoNomeNorm.includes('ciencia da computacao') || cursoNomeNorm.includes('bcc');
+
                 // Regra de aluno antigo já existente
                 if (anoMatricula) {
                     isAlunoAntigo = anoMatricula >= 2017 && anoMatricula <= 2022;
@@ -128,6 +134,51 @@
             }
         }
 
+        // Função para normalizar nomes de categorias (remove acentos e caracteres especiais)
+        function normalizarCategoria(nome) {
+            if (!nome) return '';
+            let s = nome.toString().trim().toLowerCase();
+            s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            s = s.replace(/ß/g, 'ss');
+            s = s.replace(/[^a-z0-9\s]/g, ' ');
+            s = s.replace(/\s+/g, ' ').trim();
+            return s;
+        }
+
+        // Função para verificar se é categoria estágio (corrigindo problemas de encoding)
+        function ehEstagioCategoria(nome) {
+            if (!nome) return false;
+            const n = normalizarCategoria(nome);
+            if (n === 'estagio') return true;
+            if (/^est.*gio$/.test(n)) return true;
+            const raw = nome.toString().toLowerCase();
+            if (raw.includes('estßgio')) return true;
+            return false;
+        }
+
+        function obterConfigCategoria(nomeOriginal) {
+            const categoriaConfig = {
+                'Ensino': { cor: '#1A7F37', icone: '📚', titulo: 'Ensino' },
+                'Pesquisa': { cor: '#0969DA', icone: '🔬', titulo: 'Pesquisa' },
+                'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓', titulo: 'Atividades extracurriculares' },
+                'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓', titulo: 'Atividades Extracurriculares' },
+                'Estágio': { cor: '#F59E0B', icone: '💼', titulo: 'Estágio' },
+                'Ação Social': { cor: '#DC2626', icone: '🤝', titulo: 'Ação Social' },
+                'Atividades sociais e comunitárias': { cor: '#DC2626', icone: '🤝', titulo: 'Atividades sociais e comunitárias' },
+                'PET': { cor: '#1E3A8A', icone: '📋', titulo: 'PET' }
+            };
+
+            if (ehEstagioCategoria(nomeOriginal)) {
+                return categoriaConfig['Estágio'];
+            }
+
+            if (categoriaConfig[nomeOriginal]) {
+                return categoriaConfig[nomeOriginal];
+            }
+
+            return { cor: '#6B7280', icone: '📋', titulo: nomeOriginal };
+        }
+
         // Função para aguardar um tempo específico
         function aguardar(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
@@ -137,18 +188,18 @@
         async function verificarAuthClientDisponivel() {
             let tentativas = 0;
             const maxTentativas = 10;
-            
+
             while (tentativas < maxTentativas) {
                 if (typeof AuthClient !== 'undefined' && AuthClient.isLoggedIn()) {
                     console.log('✅ AuthClient disponível e usuário logado');
                     return true;
                 }
-                
+
                 console.log(`⏳ Aguardando AuthClient... Tentativa ${tentativas + 1}/${maxTentativas}`);
                 await aguardar(500); // Aguardar 500ms
                 tentativas++;
             }
-            
+
             console.error('❌ AuthClient não disponível após múltiplas tentativas');
             return false;
         }
@@ -163,7 +214,7 @@
                         'X-API-Key': AuthClient.getApiKey() || 'frontend-gerenciamento-acc-2025'
                     }
                 });
-                
+
                 console.log('📡 Status de conectividade:', response.status);
                 return response.status < 500; // Aceitar até erros 4xx, mas não 5xx
             } catch (error) {
@@ -176,41 +227,41 @@
             try {
                 tentativasCarregamento++;
                 console.log(`🔄 Iniciando carregamento de categorias - Tentativa ${tentativasCarregamento}/${MAX_TENTATIVAS}`);
-                
+
                 // Verificar se AuthClient está disponível
                 const authDisponivel = await verificarAuthClientDisponivel();
                 if (!authDisponivel) {
                     throw new Error('AuthClient não disponível - redirecionando para login');
                 }
-                
+
                 // Verificar conectividade
                 const conectividade = await verificarConectividade();
                 if (!conectividade) {
                     throw new Error('Servidor não disponível');
                 }
-                
+
                 // Verificar tokens antes da requisição
                 const token = AuthClient.getToken();
                 const apiKey = AuthClient.getApiKey();
                 const user = AuthClient.getUser();
-                
+
                 console.log('🎫 Token disponível:', !!token);
                 console.log('🔑 API Key disponível:', !!apiKey);
                 console.log('👤 Usuário disponível:', !!user);
-                
+
                 if (!token) {
                     console.error('❌ Token JWT não encontrado - fazendo logout');
                     AuthClient.logout();
                     return;
                 }
-                
+
                 if (!apiKey) {
                     console.error('❌ API Key não encontrada - usando padrão');
                     localStorage.setItem('acc_api_key', 'frontend-gerenciamento-acc-2025');
                 }
-                
+
                 console.log('🌐 Fazendo requisição para categorias...');
-                
+
                 const response = await AuthClient.fetch('../../backend/api/routes/listar_categorias.php', {
                     method: 'POST',
                     headers: {
@@ -218,19 +269,23 @@
                     },
                     body: JSON.stringify({})
                 });
-                
+
                 console.log('📡 Status da resposta:', response.status);
-                
+
                 if (!response.ok) {
                     console.error('❌ Resposta não OK:', response.status, response.statusText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                
+
                 const data = await response.json();
                 console.log('📊 Resposta da API:', data);
-                
+
                 if (data.success && data.data) {
-                    todasCategorias = data.data;
+                    // Aplicar regras de negócio para filtrar categorias
+                    // IMPORTANTE: NÃO filtrar estágio - todos os alunos devem ver esta categoria
+                    let categoriasFiltradas = data.data;
+
+                    todasCategorias = categoriasFiltradas;
                     console.log('✅ Categorias carregadas com sucesso:', todasCategorias.length);
                     renderizarCategorias();
                     document.getElementById('alertaCategorias').classList.add('hidden');
@@ -239,10 +294,10 @@
                     console.error('❌ Erro na resposta da API:', data.error || 'Erro desconhecido');
                     throw new Error(data.error || 'Erro ao carregar categorias');
                 }
-                
+
             } catch (error) {
                 console.error('💥 Erro ao carregar categorias:', error);
-                
+
                 // Mostrar alerta de erro
                 const alertaElement = document.getElementById('alertaCategorias');
                 alertaElement.classList.remove('hidden');
@@ -253,7 +308,7 @@
                         '<p class="text-red-600 text-sm mt-2">Máximo de tentativas atingido. Recarregue a página ou verifique sua conexão.</p>'
                     }
                 `;
-                
+
                 // Retry automático se não atingiu o máximo de tentativas
                 if (tentativasCarregamento < MAX_TENTATIVAS) {
                     console.log(`🔄 Tentando novamente em 3 segundos... (${tentativasCarregamento}/${MAX_TENTATIVAS})`);
@@ -277,29 +332,78 @@
 
             // Definir cores e ícones para cada categoria
             const categoriaConfig = {
-                'Ensino': { cor: '#1A7F37', icone: '📚' },
-                'Pesquisa': { cor: '#0969DA', icone: '🔬' },
-                'Atividades extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
-                'Atividades Extracurriculares': { cor: '#8B5CF6', icone: '🎓' },
-                'Estágio': { cor: '#F59E0B', icone: '💼' },
-                'Ação Social': { cor: '#DC2626', icone: '🤝' },
-                'Atividades sociais e comunitárias': { cor: '#DC2626', icone: '🤝' },
-                'PET': { cor: '#1E3A8A', icone: '📋' }
+                'Ensino': {
+                    cor: '#1A7F37',
+                    icone: '📚',
+                    titulo: 'Ensino'
+                },
+                'Pesquisa': {
+                    cor: '#0969DA',
+                    icone: '🔬',
+                    titulo: 'Pesquisa'
+                },
+                'Atividades extracurriculares': {
+                    cor: '#8B5CF6',
+                    icone: '🎓',
+                    titulo: 'Atividades extracurriculares'
+                },
+                'Atividades Extracurriculares': {
+                    cor: '#8B5CF6',
+                    icone: '🎓',
+                    titulo: 'Atividades Extracurriculares'
+                },
+                'Estágio': {
+                    cor: '#F59E0B',
+                    icone: '💼',
+                    titulo: 'Estágio'
+                },
+                'Ação Social': {
+                    cor: '#DC2626',
+                    icone: '🤝',
+                    titulo: 'Ação Social'
+                },
+                'Atividades sociais e comunitárias': {
+                    cor: '#DC2626',
+                    icone: '🤝',
+                    titulo: 'Atividades sociais e comunitárias'
+                },
+                'PET': {
+                    cor: '#1E3A8A',
+                    icone: '📋',
+                    titulo: 'PET'
+                }
             };
 
             // Se for aluno antigo (2017-2022), mostrar interface especial
             if (isAlunoAntigo) {
-                const categoriasEspeciais = [
-                    { nome: 'Atividades extracurriculares', config: categoriaConfig['Atividades extracurriculares'] },
-                    { nome: 'Ensino', config: categoriaConfig['Ensino'] },
-                    { nome: 'Estágio', config: categoriaConfig['Estágio'] },
-                    { nome: 'Pesquisa', config: categoriaConfig['Pesquisa'] },
-                    { nome: 'Atividades sociais e comunitárias', config: categoriaConfig['Atividades sociais e comunitárias'] }
+                const categoriasEspeciais = [{
+                        nome: 'Atividades extracurriculares',
+                        config: categoriaConfig['Atividades extracurriculares']
+                    },
+                    {
+                        nome: 'Ensino',
+                        config: categoriaConfig['Ensino']
+                    },
+                    {
+                        nome: 'Estágio',
+                        config: categoriaConfig['Estágio']
+                    },
+                    {
+                        nome: 'Pesquisa',
+                        config: categoriaConfig['Pesquisa']
+                    },
+                    {
+                        nome: 'Atividades sociais e comunitárias',
+                        config: categoriaConfig['Atividades sociais e comunitárias']
+                    }
                 ];
 
                 // Incluir PET somente quando permitido pela regra
                 if (deveMostrarPET) {
-                    categoriasEspeciais.push({ nome: 'PET', config: categoriaConfig['PET'] });
+                    categoriasEspeciais.push({
+                        nome: 'PET',
+                        config: categoriaConfig['PET']
+                    });
                 }
 
                 container.innerHTML = `
@@ -313,7 +417,7 @@
                                  onclick="selecionarCategoria('${item.nome}')">
                                 <div class="p-6 text-center" style="${item.nome === 'PET' ? 'background-color: ' + item.config.cor : 'background: linear-gradient(135deg, ' + item.config.cor + ', ' + item.config.cor + 'dd)'}">
                                     <div class="text-4xl mb-3">${item.config.icone}</div>
-                                    <h3 class="text-xl font-bold text-white">${item.nome}</h3>
+                                    <h3 class="text-xl font-bold text-white">${item.config.titulo}</h3>
                                 </div>
                                 <div class="p-4 text-center">
                                     <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
@@ -339,16 +443,16 @@
                     if (ehPET && !deveMostrarPET) return false;
                     return true;
                 });
-                
+
                 container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     ${categoriasFiltradas.map(categoria => {
-                        const config = categoriaConfig[categoria.nome] || { cor: '#6B7280', icone: '📋' };
+                        const config = obterConfigCategoria(categoria.nome);
                         return `
                             <div class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
-                                 onclick="selecionarCategoria('${categoria.nome}')">
-                                <div class="p-6 text-center" style="${categoria.nome === 'PET' ? 'background-color: ' + config.cor : 'background: linear-gradient(135deg, ' + config.cor + ', ' + config.cor + 'dd)'}">
+                                 onclick="selecionarCategoria('${categoria.nome}', ${categoria.id})">
+                                <div class="p-6 text-center" style="${config.titulo === 'PET' ? 'background-color: ' + config.cor : 'background: linear-gradient(135deg, ' + config.cor + ', ' + config.cor + 'dd)'}">
                                     <div class="text-4xl mb-3">${config.icone}</div>
-                                    <h3 class="text-xl font-bold text-white">${categoria.nome}</h3>
+                                    <h3 class="text-xl font-bold text-white">${config.titulo}</h3>
                                 </div>
                                 <div class="p-4 text-center">
                                     <p class="text-gray-600 text-sm mb-4">Clique para ver as atividades disponíveis nesta categoria</p>
@@ -367,20 +471,41 @@
             }
         }
 
-        function selecionarCategoria(nomeCategoria) {
-            // Redirecionar para a página específica da categoria
-            const paginasCategoria = {
-                'Ensino': 'atividades_ensino.php',
-                'Pesquisa': 'atividades_pesquisa.php',
-                'Atividades extracurriculares': 'atividades_extracurriculares.php',
-                'Estágio': 'atividades_estagio.php',
-                'Ação Social': 'atividades_acao_social.php',
-                'Atividades sociais e comunitárias': 'atividades_acao_social.php',
-                // PET agora tem página própria específica
-                'PET': 'pet.php'
+        function selecionarCategoria(nomeCategoria, idCategoria) {
+            const idMap = {
+                1: 'atividades_ensino.php',
+                2: 'atividades_pesquisa.php',
+                3: 'atividades_extracurriculares.php',
+                4: 'atividades_estagio.php',
+                5: 'atividades_acao_social.php',
+                6: 'pet.php'
             };
-            
-            const pagina = paginasCategoria[nomeCategoria];
+            let pagina = undefined;
+            if (typeof idCategoria === 'number' && idMap[idCategoria]) {
+                pagina = idMap[idCategoria];
+            }
+            if (!pagina) {
+                const slug = normalizarCategoria(nomeCategoria);
+                const mapa = {
+                    'ensino': 'atividades_ensino.php',
+                    'pesquisa': 'atividades_pesquisa.php',
+                    'atividades extracurriculares': 'atividades_extracurriculares.php',
+                    'extracurriculares': 'atividades_extracurriculares.php',
+                    'extensao': 'atividades_extracurriculares.php',
+                    'estagio': 'atividades_estagio.php',
+                    'acao social': 'atividades_acao_social.php',
+                    'atividades sociais e comunitarias': 'atividades_acao_social.php',
+                    'pet': 'pet.php'
+                };
+                pagina = mapa[slug];
+                if (!pagina) {
+                    if (/^est.*gio$/.test(slug) || (slug.includes('est') && slug.includes('gio'))) pagina = 'atividades_estagio.php';
+                    else if (slug.includes('pesq')) pagina = 'atividades_pesquisa.php';
+                    else if (slug.includes('ensin')) pagina = 'atividades_ensino.php';
+                    else if (slug.includes('extrac') || slug.includes('extens')) pagina = 'atividades_extracurriculares.php';
+                    else if (slug.includes('social') || slug.includes('comunit')) pagina = 'atividades_acao_social.php';
+                }
+            }
             if (pagina) {
                 window.location.href = pagina;
             } else {
@@ -391,7 +516,7 @@
         // Inicializar página com verificação de dependências
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀 DOM carregado - iniciando verificações...');
-            
+
             // Verificar se AuthClient está disponível
             if (typeof AuthClient === 'undefined') {
                 console.error('❌ AuthClient não carregado - recarregando página');
@@ -400,17 +525,17 @@
                 }, 1000);
                 return;
             }
-            
+
             // Verificar autenticação
             if (!AuthClient.isLoggedIn()) {
                 console.log('❌ Usuário não autenticado - redirecionando para login');
                 window.location.href = 'login.php';
                 return;
             }
-            
+
             console.log('✅ Dependências verificadas - iniciando carregamento');
             verificarAlunoAntigo();
-            
+
             // Aguardar um pouco para garantir que tudo está carregado
             setTimeout(() => {
                 carregarCategorias();
@@ -418,4 +543,5 @@
         });
     </script>
 </body>
+
 </html>

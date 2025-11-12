@@ -488,9 +488,122 @@
                     console.log('📊 Dados de paginação:', data.data?.paginacao);
                     
                     // Armazenar dados
-                    todasAtividades = data.data?.atividades || [];
+                    const todasOriginais = data.data?.atividades || [];
+                    todasAtividades = [...todasOriginais];
                     dadosPaginacao = data.data?.paginacao || {};
-                    
+
+                    try {
+                        const user = AuthClient.getUser() || {};
+                        const anoMatricula = (user.matricula && typeof user.matricula === 'string') ? parseInt(user.matricula.substring(0,4)) : null;
+                        const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const isBCC = (user.curso_id === 1) || cursoNomeNorm.includes('ciencia da computacao') || cursoNomeNorm.includes('bcc');
+                        const is2023Mais = !!(anoMatricula && anoMatricula >= 2023);
+
+                        if (isBCC && is2023Mais) {
+                            const RTA_EXTRACURRICULARES_BCC23 = 8;
+                            const filtradasPorRta = todasOriginais.filter(a => a.resolucao_tipo_atividade_id === RTA_EXTRACURRICULARES_BCC23);
+                            if (filtradasPorRta.length) {
+                                todasAtividades = filtradasPorRta;
+                            } else {
+                                const nomesEsperados = [
+                                    'Curso de extensão em áreas afins',
+                                    'Curso de extensão na área específica',
+                                    'Curso de língua estrangeira',
+                                    'Seminários e eventos',
+                                    'Seminários/eventos',
+                                    'Missões nacionais e internacionais',
+                                    'Eventos educação ambiental e diversidade cultural',
+                                    'Eventos e ações relacionados à educação ambiental e diversidade cultural',
+                                    'Membro efetivo e/ou assistente em eventos de extensão e profissionais',
+                                    'PET – Programa de Educação Tutorial'
+                                ];
+                                const norm = s => s ? s.toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') : '';
+                                const nomesNorm = nomesEsperados.map(e => norm(e));
+                                const matchKeywords = n => (
+                                    (n.includes('seminarios') && n.includes('eventos')) ||
+                                    (n.includes('educacao') && n.includes('ambiental')) ||
+                                    (n.includes('diversidade') && n.includes('cultural'))
+                                );
+                                todasAtividades = todasOriginais.filter(a => {
+                                    const n = norm(a.nome);
+                                    return nomesNorm.includes(n) || matchKeywords(n);
+                                });
+                            }
+                            // Garantir inclusão explícita de "Seminários/eventos" caso venha com pequenas variações
+                            const contemSeminariosEventos = todasAtividades.some(a => {
+                                const n = (a.nome || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                                return n.includes('seminarios') && (n.includes('eventos') || n.includes('evento'));
+                            });
+                            if (!contemSeminariosEventos) {
+                                const candidato = todasOriginais.find(a => {
+                                    const n = (a.nome || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                                    return n.includes('seminarios') && (n.includes('eventos') || n.includes('evento'));
+                                });
+                                if (candidato) {
+                                    todasAtividades.push(candidato);
+                                } else {
+                                    const porId = todasOriginais.find(a => a.atividade_complementar_id === 11);
+                                    if (porId) {
+                                        todasAtividades.push(porId);
+                                    }
+                                }
+                            }
+                            const ordem = {
+                                'Curso de extensão em áreas afins': 1,
+                                'Curso de extensão na área específica': 2,
+                                'Curso de língua estrangeira': 3,
+                                'Seminários e eventos': 4,
+                                'Seminários/eventos': 4,
+                                'Missões nacionais e internacionais': 5,
+                                'Eventos e ações relacionados à educação ambiental e diversidade cultural': 6,
+                                'Eventos educação ambiental e diversidade cultural': 6,
+                                'Membro efetivo e/ou assistente em eventos de extensão e profissionais': 7,
+                                'PET – Programa de Educação Tutorial': 8
+                            };
+                            todasAtividades.sort((a,b) => (ordem[a.nome]||99) - (ordem[b.nome]||99));
+                        }
+                    } catch (regraErr) {
+                        console.warn('Falha ao aplicar regra BCC 2023+:', regraErr);
+                    }
+
+                    // Fallback: se não veio nada por tipo=extracurriculares, buscar geral e filtrar por nome
+                    if (!todasAtividades.length) {
+                        console.warn('⚠️ Nenhuma atividade retornada para tipo=extracurriculares. Tentando fallback sem tipo...');
+                        const paramsFallback = new URLSearchParams();
+                        if (filtrosAtuais.busca) paramsFallback.append('busca', filtrosAtuais.busca);
+                        paramsFallback.append('pagina', filtrosAtuais.pagina);
+                        paramsFallback.append('limite', filtrosAtuais.limite);
+                        paramsFallback.append('ordenacao', filtrosAtuais.ordenacao);
+                        paramsFallback.append('direcao', filtrosAtuais.direcao);
+                        const urlFallback = `../../backend/api/routes/listar_atividades_disponiveis.php?${paramsFallback.toString()}`;
+                        console.log('🌐 Fallback requisição para:', urlFallback);
+                        try {
+                            const respFallback = await AuthClient.fetch(urlFallback, { method: 'GET' });
+                            const dataFallback = await respFallback.json();
+                            console.log('📊 Resposta Fallback:', dataFallback);
+                            if (dataFallback.success) {
+                                const todas = dataFallback.data?.atividades || [];
+                                // Filtrar por categorias que contenham 'extracurricular' ou 'extens' (extensão)
+                                todasAtividades = todas.filter(a => {
+                                    const cat = (a.categoria || a.tipo || '').toLowerCase();
+                                    return cat.includes('extracurricular') || cat.includes('extens');
+                                });
+                                // Ajustar paginação básica para refletir filtro
+                                dadosPaginacao = {
+                                    pagina_atual: 1,
+                                    total_paginas: 1,
+                                    total_registros: todasAtividades.length,
+                                    limite: todasAtividades.length,
+                                    tem_proxima: false,
+                                    tem_anterior: false
+                                };
+                                console.log('✅ Fallback encontrou atividades:', todasAtividades.length);
+                            }
+                        } catch (fbErr) {
+                            console.error('Erro no fallback:', fbErr);
+                        }
+                    }
+
                     // Renderizar atividades e controles
                     renderizarAtividades();
                     renderizarInfoResultados();
@@ -643,7 +756,7 @@
                         <div class="p-4" style="background-color: #8B5CF6">
                             <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
                             <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 mt-2">
-                                ${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || 'Atividades Extracurriculares')}
+                                ${atividade.categoria && (atividade.categoria.toLowerCase().includes('extracurricular') || atividade.categoria.toLowerCase().includes('extens')) ? 'Atividades Extracurriculares' : (atividade.categoria || 'Atividades Extracurriculares')}
                             </span>
                         </div>
                         <div class="p-4">
@@ -651,7 +764,7 @@
                             <div class="space-y-2 mb-4">
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #8B5CF6">Tipo:</span>
-                                    <span class="text-gray-600">${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || atividade.tipo)}</span>
+                                    <span class="text-gray-600">${atividade.categoria && (atividade.categoria.toLowerCase().includes('extracurricular') || atividade.categoria.toLowerCase().includes('extens')) ? 'Atividades Extracurriculares' : (atividade.categoria || atividade.tipo)}</span>
                                 </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="font-medium" style="color: #8B5CF6">Horas Máximas:</span>
@@ -685,11 +798,11 @@
                 <div class="space-y-3">
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Categoria:</span>
-                        <span class="ml-2">${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || 'Atividades Extracurriculares')}</span>
+                        <span class="ml-2">${atividade.categoria && (atividade.categoria.toLowerCase().includes('extracurricular') || atividade.categoria.toLowerCase().includes('extens')) ? 'Atividades Extracurriculares' : (atividade.categoria || 'Atividades Extracurriculares')}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Tipo:</span>
-                        <span class="ml-2">${atividade.categoria && atividade.categoria.toLowerCase().includes('extracurricular') ? 'Atividades Extracurriculares' : (atividade.categoria || atividade.tipo)}</span>
+                        <span class="ml-2">${atividade.categoria && (atividade.categoria.toLowerCase().includes('extracurricular') || atividade.categoria.toLowerCase().includes('extens')) ? 'Atividades Extracurriculares' : (atividade.categoria || atividade.tipo)}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #8B5CF6">Horas Máximas:</span>

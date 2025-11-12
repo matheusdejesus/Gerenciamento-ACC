@@ -176,6 +176,28 @@
     </footer>
 
     <script>
+        function normalizarCategoria(nome) {
+            if (!nome) return '';
+            let s = nome.toString().trim().toLowerCase();
+            s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            s = s.replace(/ß/g, 'ss');
+            s = s.replace(/[^a-z0-9\s]/g, ' ');
+            s = s.replace(/\s+/g, ' ').trim();
+            return s;
+        }
+
+        function ehEstagioCategoria(nome) {
+            const n = normalizarCategoria(nome);
+            if (n === 'estagio') return true;
+            if (/^est.*gio$/.test(n)) return true;
+            const raw = (nome || '').toString().toLowerCase();
+            return raw.includes('estßgio');
+        }
+
+        function tituloCanonicoCategoria(nome) {
+            if (ehEstagioCategoria(nome)) return 'Estágio';
+            return nome || 'Atividade';
+        }
         // Verificar autenticação
         function verificarAutenticacao() {
             if (!AuthClient.isLoggedIn()) {
@@ -287,7 +309,7 @@
                         <div class="p-4" style="background-color: #F59E0B">
                             <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
                             <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 mt-2">
-                                ${atividade.categoria}
+                                ${tituloCanonicoCategoria(atividade.categoria)}
                             </span>
                         </div>
                         <div class="p-4">
@@ -405,11 +427,11 @@
                 <div class="space-y-3">
                     <div>
                         <span class="font-medium" style="color: #F59E0B">Categoria:</span>
-                        <span class="ml-2">${atividade.categoria}</span>
+                        <span class="ml-2">${tituloCanonicoCategoria(atividade.categoria)}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #F59E0B">Tipo:</span>
-                        <span class="ml-2">${atividade.tipo}</span>
+                        <span class="ml-2">${tituloCanonicoCategoria(atividade.tipo)}</span>
                     </div>
                     <div>
                         <span class="font-medium" style="color: #F59E0B">Horas Máximas:</span>
