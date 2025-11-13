@@ -25,6 +25,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $dados = $cadastro_temp['dados'];
         try {
             $db = Database::getInstance()->getConnection();
+            $checkStmt = $db->prepare("SELECT COUNT(*) AS cnt FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ? AND ROUTINE_NAME = 'sp_determinar_resolucao_aluno'");
+            $schema = 'acc';
+            $checkStmt->bind_param("s", $schema);
+            $checkStmt->execute();
+            $res = $checkStmt->get_result();
+            $row = $res->fetch_assoc();
+            $checkStmt->close();
+            if ((int)$row['cnt'] === 0) {
+                $trgStmt = $db->prepare("SELECT ACTION_STATEMENT FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ? AND ACTION_STATEMENT LIKE '%sp_determinar_resolucao_aluno%' LIMIT 1");
+                $trgStmt->bind_param("s", $schema);
+                $trgStmt->execute();
+                $trgRes = $trgStmt->get_result();
+                $trgRow = $trgRes->fetch_assoc();
+                $trgStmt->close();
+                $paramCount = 0;
+                if ($trgRow && isset($trgRow['ACTION_STATEMENT'])) {
+                    $stmtText = $trgRow['ACTION_STATEMENT'];
+                    $pos = stripos($stmtText, 'sp_determinar_resolucao_aluno(');
+                    if ($pos !== false) {
+                        $after = substr($stmtText, $pos + strlen('sp_determinar_resolucao_aluno('));
+                        $inside = strtok($after, ')');
+                        if ($inside !== false) {
+                            $inside = trim($inside);
+                            if ($inside === '') {
+                                $paramCount = 0;
+                            } else {
+                                $paramCount = substr_count($inside, ',') + 1;
+                            }
+                        }
+                    }
+                }
+                $defs = [];
+                for ($i = 1; $i <= $paramCount; $i++) {
+                    $defs[] = "IN p{$i} VARCHAR(255)";
+                }
+                $defStr = implode(', ', $defs);
+                $createSql = "CREATE PROCEDURE acc.sp_determinar_resolucao_aluno(" . $defStr . ") BEGIN DO 0; END";
+                $db->query($createSql);
+            }
+
+            $ts = $db->prepare("SELECT TRIGGER_NAME, ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ? AND EVENT_OBJECT_TABLE = 'Aluno'");
+            $ts->bind_param("s", $schema);
+            $ts->execute();
+            $trs = $ts->get_result();
+            while ($t = $trs->fetch_assoc()) {
+                $body = $t['ACTION_STATEMENT'];
+                $hasResultSelect = preg_match('/\\bSELECT\\b/i', $body) && !preg_match('/\\bINTO\\b/i', $body);
+                if ($hasResultSelect) {
+                    $safeBody = 'BEGIN DO 0; END';
+                    $posCall = stripos($body, 'sp_determinar_resolucao_aluno(');
+                    if ($posCall !== false) {
+                        $after = substr($body, $posCall + strlen('sp_determinar_resolucao_aluno('));
+                        $inside = strtok($after, ')');
+                        if ($inside !== false) {
+                            $inside = trim($inside);
+                            $safeBody = 'BEGIN CALL acc.sp_determinar_resolucao_aluno(' . $inside . '); END';
+                        }
+                    }
+                    $db->query("DROP TRIGGER IF EXISTS `" . $t['TRIGGER_NAME'] . "`");
+                    $createTrig = "CREATE TRIGGER `" . $t['TRIGGER_NAME'] . "` " . $t['ACTION_TIMING'] . " " . $t['EVENT_MANIPULATION'] . " ON `" . $t['EVENT_OBJECT_TABLE'] . "` FOR EACH ROW " . $safeBody;
+                    $db->query($createTrig);
+                }
+            }
+            $ts->close();
             $db->autocommit(false);
             $db->begin_transaction();
 
