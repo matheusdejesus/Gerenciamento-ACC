@@ -518,6 +518,7 @@ class ListarAtividadesDisponiveisModel
             $sql = '';
 
             $isCasoEspecialEstagioBCC17 = ($tipo === 'estagio' && (int)$resolucaoId === 4);
+            $isDedupAcaoSocialBCC17 = ($tipo === 'acao_social' && (int)$resolucaoId === 5);
 
             if ($isCasoEspecialEstagioBCC17) {
                 // COUNT consolidando por tipo (evita duplicadas no BCC17 estágio)
@@ -535,6 +536,23 @@ class ListarAtividadesDisponiveisModel
                                   AND ta_apr.id = ? 
                                   $condicaoBusca $filtroExtraApr
                                 GROUP BY ta_apr.id
+                             ) t";
+            } else if ($isDedupAcaoSocialBCC17) {
+                // COUNT deduplicando por título para Ação Social BCC17
+                $sqlCount = "SELECT COUNT(*) AS total
+                             FROM (
+                                SELECT ac.titulo
+                                FROM atividades_por_resolucao apr
+                                JOIN resolucao_tipo_atividade rta 
+                                  ON rta.resolucao_id = apr.resolucao_id 
+                                 AND rta.tipo_atividade_id = apr.tipo_atividade_id
+                                JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
+                                JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                                JOIN tipo_atividade ta_apr ON apr.tipo_atividade_id = ta_apr.id
+                                WHERE rta.id = ? 
+                                  AND ta_apr.id = ? 
+                                  $condicaoBusca
+                                GROUP BY ac.titulo
                              ) t";
             } else {
                 // COUNT padrão: contar atividades distintas dentro do rta.id e tipo
@@ -591,6 +609,31 @@ class ListarAtividadesDisponiveisModel
                           AND ta_apr.id = ? 
                           $condicaoBusca $filtroExtraApr
                         GROUP BY ta_apr.id, ta.nome
+                        ORDER BY $campoOrdenacao $direcao
+                        LIMIT ? OFFSET ?";
+            } else if ($isDedupAcaoSocialBCC17) {
+                // MAIN deduplicado por título para Ação Social BCC17
+                $sql = "SELECT 
+                            MIN(apr.id) AS atividades_por_resolucao_id,
+                            MIN(ac.id) AS atividade_complementar_id,
+                            ac.titulo AS nome,
+                            MIN(ac.descricao) AS descricao,
+                            MIN(ac.observacoes) AS observacoes,
+                            ta.nome AS categoria,
+                            MIN(apr.carga_horaria_maxima_por_atividade) AS carga_horaria_maxima,
+                            ta_apr.nome AS tipo,
+                            MIN(apr.carga_horaria_maxima_por_atividade) AS horas_max
+                        FROM atividades_por_resolucao apr
+                        JOIN resolucao_tipo_atividade rta 
+                          ON rta.resolucao_id = apr.resolucao_id 
+                         AND rta.tipo_atividade_id = apr.tipo_atividade_id
+                        JOIN atividades_complementares ac ON apr.atividades_complementares_id = ac.id
+                        JOIN tipo_atividade ta ON ac.tipo_atividade_id = ta.id
+                        JOIN tipo_atividade ta_apr ON apr.tipo_atividade_id = ta_apr.id
+                        WHERE rta.id = ? 
+                          AND ta_apr.id = ? 
+                          $condicaoBusca
+                        GROUP BY ac.titulo, ta_apr.id, ta.nome
                         ORDER BY $campoOrdenacao $direcao
                         LIMIT ? OFFSET ?";
             } else {

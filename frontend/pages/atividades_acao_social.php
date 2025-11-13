@@ -170,6 +170,24 @@
     </footer>
 
     <script>
+        function normalizarCategoria(nome) {
+            if (!nome) return '';
+            let s = nome.toString().trim().toLowerCase();
+            s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            s = s.replace(/ß/g, 'ss');
+            s = s.replace(/[^a-z0-9\s]/g, ' ');
+            s = s.replace(/\s+/g, ' ').trim();
+            return s;
+        }
+
+        function tituloCanonicoAcaoSocial(nome) {
+            const raw = (nome || '').toString().toLowerCase();
+            const norm = normalizarCategoria(nome || '');
+            if (raw.includes('comunitßr')) return 'Atividades sociais e comunitárias';
+            if (norm === 'atividades sociais e comunitarias') return 'Atividades sociais e comunitárias';
+            if (!nome) return 'Ação Social';
+            return nome;
+        }
         // Verificar autenticação ao carregar a página
         document.addEventListener('DOMContentLoaded', function() {
             if (!AuthClient.isLoggedIn()) {
@@ -245,7 +263,7 @@
                             <div class="p-4" style="background-color: #DC2626">
                                 <h3 class="text-lg font-bold text-white">${atividade.nome}</h3>
                                 <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 mt-2">
-                                    ${atividade.categoria || 'Ação Social'}
+                                    ${tituloCanonicoAcaoSocial(atividade.categoria)}
                                 </span>
                             </div>
                             <div class="p-4">
@@ -304,7 +322,7 @@
                         </div>
                         <div>
                             <span class="font-medium text-gray-700">Categoria:</span>
-                            <span class="ml-2 text-gray-600">${atividade.categoria || 'Ação Social'}</span>
+                            <span class="ml-2 text-gray-600">${tituloCanonicoAcaoSocial(atividade.categoria)}</span>
                         </div>
                         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                             <h5 class="font-medium text-yellow-800 mb-2">Documentos Necessários:</h5>

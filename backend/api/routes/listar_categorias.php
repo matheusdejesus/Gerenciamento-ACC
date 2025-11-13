@@ -16,7 +16,14 @@ ob_clean();
 ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
+// Tratar preflight e sondagens leves
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Permitir HEAD como verificação de conectividade sem executar lógica
+if ($_SERVER['REQUEST_METHOD'] === 'HEAD') {
     http_response_code(200);
     exit();
 }
