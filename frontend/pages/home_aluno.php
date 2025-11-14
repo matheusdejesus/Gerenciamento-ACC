@@ -152,6 +152,23 @@
                         </div>
                     </div>
                 </div>
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4" style="color:#0969DA">Resumo por Atividade</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead style="background-color: #F6F8FA">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Atividade</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Acumulado</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Máximo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: #0969DA">Restante</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaResumoAtividades" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                        <div id="mensagemResumoVazio" class="p-4 text-center text-gray-500 hidden">Sem dados de atividades.</div>
+                    </div>
+                </div>
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
                     <div class="p-4" style="background-color: #151B23">
                         <h3 class="text-xl font-bold text-white">Minhas Atividades</h3>
@@ -344,10 +361,11 @@
 
                 // Atualizar dashboard após carregar atividades
                 atualizarDashboard();
+                atualizarResumoPorAtividade();
 
             } catch (error) {
                 console.error('Erro ao carregar atividades:', error);
-                exibirMensagemErro('Erro de conexão ao carregar atividades');
+                exibirMensagemErro(error && error.message ? error.message : 'Erro de conexão ao carregar atividades');
             }
         }
         
@@ -420,17 +438,15 @@
                 tbody.innerHTML = minhasAtividades.map(atividade => {
                     const statusDetalhado = getStatusDetalhado(atividade);
 
-                    // Formatação das horas
-                    let horasDisplay = `${atividade.carga_horaria_solicitada}h`;
-                    if (atividade.carga_horaria_aprovada !== null && atividade.carga_horaria_aprovada !== undefined) {
-                        if (atividade.status === 'Aprovada') {
-                            horasDisplay = `${atividade.carga_horaria_aprovada}h`;
-                            if (atividade.carga_horaria_aprovada != atividade.carga_horaria_solicitada) {
-                                horasDisplay += ` (de ${atividade.carga_horaria_solicitada}h)`;
-                            }
-                        } else if (atividade.status === 'Rejeitada') {
-                            horasDisplay = `0h (de ${atividade.carga_horaria_solicitada}h)`;
-                        }
+                    // Formatação das horas: primeiro solicitadas, depois aprovadas
+                    const statusLower = (atividade.status || '').toString().toLowerCase();
+                    const solicitadas = typeof atividade.carga_horaria_solicitada === 'number' ? atividade.carga_horaria_solicitada : (parseInt(atividade.ch_solicitada||0)||0);
+                    const aprovadasVal = typeof atividade.carga_horaria_aprovada === 'number' ? atividade.carga_horaria_aprovada : (atividade.ch_atribuida ? parseInt(atividade.ch_atribuida) : null);
+                    let horasDisplay = `${solicitadas}h`;
+                    if (statusLower === 'aprovado' || statusLower === 'aprovada') {
+                        horasDisplay = `${solicitadas}h → ${aprovadasVal !== null && aprovadasVal !== undefined ? aprovadasVal : 0}h`;
+                    } else if (statusLower === 'rejeitado' || statusLower === 'rejeitada') {
+                        horasDisplay = `${solicitadas}h → 0h`;
                     }
 
                     return `
@@ -684,6 +700,44 @@
                     </td>
                 </tr>
             `;
+        }
+
+        function atualizarResumoPorAtividade() {
+            const tbody = document.getElementById('tabelaResumoAtividades');
+            const vazio = document.getElementById('mensagemResumoVazio');
+            if (!tbody || !vazio) return;
+            const grupos = {};
+            for (const a of minhasAtividades) {
+                const key = a.atividades_por_resolucao_id;
+                if (!key) continue;
+                const status = (a.status || '').toLowerCase();
+                const aprovado = status === 'aprovado' || status === 'aprovada';
+                if (!aprovado) continue;
+                const horas = parseInt(a.ch_atribuida || 0) || 0;
+                if (horas <= 0) continue;
+                if (!grupos[key]) grupos[key] = { titulo: a.atividade_titulo || a.titulo || 'N/A', soma: 0, max: a.carga_horaria_maxima_por_atividade || null };
+                grupos[key].soma += horas;
+                if (a.carga_horaria_maxima_por_atividade) grupos[key].max = a.carga_horaria_maxima_por_atividade;
+            }
+            const linhas = Object.values(grupos).map(g => {
+                const max = g.max || 0;
+                const restante = Math.max(0, max - g.soma);
+                return `
+                    <tr>
+                        <td class="px-6 py-4 text-sm text-gray-900">${g.titulo}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${g.soma}h</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${max ? max + 'h' : '--'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${max ? restante + 'h' : '--'}</td>
+                    </tr>
+                `;
+            });
+            if (!linhas.length) {
+                tbody.innerHTML = '';
+                vazio.classList.remove('hidden');
+            } else {
+                vazio.classList.add('hidden');
+                tbody.innerHTML = linhas.join('');
+            }
         }
 
         document.getElementById('modalDetalhesAtividade').addEventListener('click', function(e) {

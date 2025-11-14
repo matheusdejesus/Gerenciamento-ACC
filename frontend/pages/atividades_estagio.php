@@ -141,6 +141,9 @@
                         <input type="number" id="horas" name="horas" required min="1" 
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                                placeholder="Total de horas do estágio">
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restanteHorasEstagio">--</span> horas</p>
+                        <p class="text-xs text-yellow-700 mt-1" id="sugestoesEstagio">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimiteEstagio" style="color:#DC2626"></p>
                     </div>
                 </div>
 
@@ -513,6 +516,24 @@
             
             // Abrir modal
             document.getElementById('modalSelecao').classList.remove('hidden');
+            
+            aplicarLimitesEstagio(id);
+            (async function(){
+                try {
+                    const resp = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/calcular_horas_categorias.php', { method: 'POST' });
+                    const json = await resp.json();
+                    const categorias = json?.data?.categorias || {}; const limites = json?.data?.limites || {};
+                    const atual = categorias['estagio'] || 0; const lim = limites['estagio'] || 0;
+                    if (lim > 0 && atual >= lim) {
+                        const msg = document.getElementById('mensagemLimiteEstagio');
+                        if (msg) { msg.textContent = 'Você atingiu o limite de horas da categoria Estágio. Novos cadastros não são permitidos.'; msg.classList.remove('hidden'); }
+                        const submitBtn = document.querySelector('#formCadastro button[type="submit"]');
+                        const inputHoras = document.getElementById('horas');
+                        if (submitBtn) submitBtn.disabled = true;
+                        if (inputHoras) { inputHoras.disabled = true; inputHoras.min = 0; inputHoras.max = 0; }
+                    }
+                } catch(e) {}
+            })();
         }
 
         function selecionarAtividade(id) {
@@ -561,7 +582,13 @@
             formData.append('atividades_por_resolucao_id', document.getElementById('atividadeId').value);
             formData.append('titulo', empresa); // Mapear empresa para título
             formData.append('descricao', area); // Mapear área para descrição
-            formData.append('ch_solicitada', parseInt(horas));
+            const restantes = await obterRestanteEstagio(document.getElementById('atividadeId').value);
+            const horasInt = parseInt(horas);
+            if (horasInt > restantes.restante) {
+                alert(`As horas informadas excedem o restante disponível (${restantes.restante}h). ${gerarSugestoesEstagio(restantes.restante, 1, restantes.restante) ? 'Sugestões: ' + gerarSugestoesEstagio(restantes.restante, 1, restantes.restante) : ''}`);
+                return;
+            }
+            formData.append('ch_solicitada', horasInt);
             formData.append('declaracao', declaracao);
             
             // Desabilitar botão de submit para evitar duplo envio
@@ -596,6 +623,66 @@
                 btnSubmit.disabled = false;
                 btnSubmit.textContent = textoOriginal;
             }
+        });
+
+        async function obterRestanteEstagio(aprId) {
+            try {
+                const resp = await AuthClient.fetch('/Gerenciamento-ACC/backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas&limite=200');
+                const json = await resp.json();
+                const lista = json?.data?.atividades || [];
+                const relevantes = lista.filter(a => parseInt(a.atividades_por_resolucao_id) === parseInt(aprId) && ['aprovado','aprovada'].includes(String(a.status).toLowerCase()));
+                const soma = relevantes.reduce((acc, a) => acc + (parseInt(a.ch_atribuida||0)||0), 0);
+                const max = (todasAtividades.find(x => x.id == aprId)?.horas_max) || (todasAtividades.find(x => x.id == aprId)?.carga_horaria_maxima) || 0;
+                const restante = Math.max(0, max - soma);
+                return { restante, max };
+            } catch (e) {
+                const max = (todasAtividades.find(x => x.id == aprId)?.horas_max) || (todasAtividades.find(x => x.id == aprId)?.carga_horaria_maxima) || 0;
+                return { restante: max, max };
+            }
+        }
+
+        function gerarSugestoesEstagio(restante, minCadastro, maxCadastro) {
+            const sugs = [];
+            if (restante <= 0) return '';
+            if (restante % maxCadastro === 0) sugs.push(`${Math.floor(restante/maxCadastro)}x${maxCadastro}h`);
+            if (restante % minCadastro === 0) sugs.push(`${Math.floor(restante/minCadastro)}x${minCadastro}h`);
+            for (let k = Math.floor(restante/maxCadastro); k >= 1 && sugs.length < 3; k--) {
+                const left = restante - k*maxCadastro;
+                if (left >= 0 && left % minCadastro === 0) sugs.push(`${k}x${maxCadastro}h + ${Math.floor(left/minCadastro)}x${minCadastro}h`);
+            }
+            if (!sugs.length) sugs.push(`${restante}h`);
+            return sugs.join(', ');
+        }
+
+        async function aplicarLimitesEstagio(aprId) {
+            const dados = await obterRestanteEstagio(aprId);
+            let restanteTotal = null;
+            try { const t = await verificarBloqueioCategoria('estagio'); restanteTotal = t.lim - t.atual; } catch (e) { restanteTotal = null; }
+            const inputHoras = document.getElementById('horas');
+            inputHoras.max = restanteTotal !== null ? Math.min(dados.restante, Math.max(0, restanteTotal)) : dados.restante;
+            inputHoras.min = dados.restante === 0 ? 0 : 1;
+            document.getElementById('restanteHorasEstagio').textContent = dados.restante;
+            document.getElementById('sugestoesEstagio').textContent = `Sugestões: ${gerarSugestoesEstagio(dados.restante, 1, dados.restante) || '--'}`;
+            const msg = document.getElementById('mensagemLimiteEstagio');
+            const submitBtn = document.querySelector('#formCadastro button[type="submit"]');
+            const bloqueadoTotal = (restanteTotal !== null && Math.max(0, restanteTotal) === 0);
+            if (dados.restante === 0 || bloqueadoTotal) {
+                msg.textContent = 'Você atingiu o limite de horas para esta atividade.';
+                msg.classList.remove('hidden');
+                inputHoras.value = '';
+                inputHoras.disabled = true;
+                if (submitBtn) submitBtn.disabled = true;
+            } else {
+                msg.classList.add('hidden');
+                inputHoras.disabled = false;
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        document.getElementById('horas').addEventListener('input', function() {
+            const v = parseInt(this.value)||0;
+            const m = parseInt(this.max)||0;
+            if (m && v > m) this.value = m;
         });
 
         // Função para atualizar "Minhas Atividades" automaticamente

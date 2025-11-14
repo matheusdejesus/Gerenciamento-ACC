@@ -119,6 +119,9 @@
                             placeholder="Digite a carga horária em horas"
                             aria-describedby="cargaHoraria-error cargaHoraria-help">
                         <p id="cargaHoraria-help" class="text-sm text-gray-500 mt-1">Informe a carga horária em horas (mínimo 1)</p>
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restantePesquisaSelecao">--</span> horas</p>
+                        <p class="text-xs text-blue-700 mt-1" id="sugestoesPesquisaSelecao">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimitePesquisaSelecao" style="color:#DC2626"></p>
                         <p id="cargaHoraria-error" class="text-sm text-red-600 mt-1 hidden" role="alert"></p>
                     </div>
 
@@ -242,6 +245,9 @@
                                 readonly required>
                             <div id="cargaHorariaEvento-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
                             <p class="text-xs text-gray-500 mt-1">Calculado automaticamente baseado na quantidade e local das apresentações</p>
+                            <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restantePesquisaEvento">--</span> horas</p>
+                            <p class="text-xs text-blue-700 mt-1" id="sugestoesPesquisaEvento">Sugestões: --</p>
+                            <p class="text-xs font-medium mt-1 hidden" id="mensagemLimitePesquisaEvento" style="color:#DC2626"></p>
                         </div>
 
                         <!-- Declaração Comprobatória -->
@@ -414,6 +420,9 @@
                             placeholder="Digite a carga horária em horas"
                             oninput="validarCampoIniciacaoCientifica('cargaHorariaProjeto')" required>
                         <div id="cargaHorariaProjeto-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restantePesquisaProjeto">--</span> horas</p>
+                        <p class="text-xs text-blue-700 mt-1" id="sugestoesPesquisaProjeto">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimitePesquisaProjeto" style="color:#DC2626"></p>
                     </div>
                     <!-- Declaração/Certificado -->
                     <div>
@@ -508,6 +517,9 @@
                             placeholder="Calculado automaticamente baseado na quantidade"
                             readonly required>
                         <div id="cargaHorariaArtigo-error" class="text-red-500 text-sm mt-1 hidden" role="alert"></div>
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restantePesquisaArtigo">--</span> horas</p>
+                        <p class="text-xs text-blue-700 mt-1" id="sugestoesPesquisaArtigo">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimitePesquisaArtigo" style="color:#DC2626"></p>
 
                         <!-- Exibição do cálculo automático -->
                         <div id="calculo-artigo-info" class="mt-2 hidden">
@@ -630,6 +642,106 @@
         // Carregar atividades de pesquisa via JWT
         let todasAtividades = [];
 
+        async function obterRestantePesquisa(aprId) {
+            try {
+                const resp = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas&limite=200');
+                const json = await resp.json();
+                const lista = json?.data?.atividades || [];
+                const relevantes = lista.filter(a => parseInt(a.atividades_por_resolucao_id) === parseInt(aprId) && ['aprovado','aprovada'].includes(String(a.status).toLowerCase()));
+                const soma = relevantes.reduce((acc, a) => acc + (parseInt(a.ch_atribuida||0)||0), 0);
+                const max = (todasAtividades.find(x => (x.id === aprId || x.atividades_por_resolucao_id === aprId))?.horas_max)
+                    || (todasAtividades.find(x => (x.id === aprId || x.atividades_por_resolucao_id === aprId))?.carga_horaria_maxima)
+                    || 0;
+                const restante = Math.max(0, max - soma);
+                return { restante, max };
+            } catch (e) {
+                const max = (todasAtividades.find(x => (x.id === aprId || x.atividades_por_resolucao_id === aprId))?.horas_max)
+                    || (todasAtividades.find(x => (x.id === aprId || x.atividades_por_resolucao_id === aprId))?.carga_horaria_maxima)
+                    || 0;
+                return { restante: max, max };
+            }
+        }
+
+        function gerarSugestoesPesquisa(restante, minCadastro, maxCadastro) {
+            const sugs = [];
+            const r = parseInt(restante)||0; const min = Math.max(1, parseInt(minCadastro)||1); const max = Math.max(min, parseInt(maxCadastro)||min);
+            if (r <= 0) return '';
+            if (r % max === 0) sugs.push(`${r/max}x${max}h`);
+            if (r % min === 0) sugs.push(`${r/min}x${min}h`);
+            for (let k = Math.floor(r/max); k >= 1 && sugs.length < 3; k--) {
+                const left = r - k*max;
+                if (left >= 0 && left % min === 0) sugs.push(`${k}x${max}h + ${left/min}x${min}h`);
+            }
+            if (!sugs.length) sugs.push(`${r}h`);
+            return sugs.join(', ');
+        }
+
+        async function aplicarLimitesPesquisaSelecao(aprId) {
+            const dados = await obterRestantePesquisa(aprId);
+            const input = document.getElementById('cargaHoraria');
+            if (input) input.max = dados.restante;
+            if (input) input.min = dados.restante === 0 ? 0 : 1;
+            const restanteEl = document.getElementById('restantePesquisaSelecao');
+            if (restanteEl) restanteEl.textContent = dados.restante;
+            const sugEl = document.getElementById('sugestoesPesquisaSelecao');
+            if (sugEl) sugEl.textContent = `Sugestões: ${gerarSugestoesPesquisa(dados.restante, 1, dados.restante) || '--'}`;
+            const msg = document.getElementById('mensagemLimitePesquisaSelecao');
+            const submitBtn = document.querySelector('#formSelecao button[type="submit"]');
+            if (msg) {
+                if (dados.restante === 0) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); if (input) { input.disabled = true; } if (submitBtn) submitBtn.disabled = true; }
+                else { msg.classList.add('hidden'); if (input) { input.disabled = false; } if (submitBtn) submitBtn.disabled = false; }
+            }
+        }
+
+        async function aplicarLimitesPesquisaEvento(aprId) {
+            const dados = await obterRestantePesquisa(aprId);
+            window.__ultimoRestantePesquisaEvento = dados;
+            const restanteEl = document.getElementById('restantePesquisaEvento');
+            const sugEl = document.getElementById('sugestoesPesquisaEvento');
+            if (restanteEl) restanteEl.textContent = dados.restante;
+            if (sugEl) sugEl.textContent = `Sugestões: ${gerarSugestoesPesquisa(dados.restante, 1, dados.restante) || '--'}`;
+            const msg = document.getElementById('mensagemLimitePesquisaEvento');
+            const submitBtn = document.getElementById('btnConfirmarEvento');
+            if (msg) {
+                if (dados.restante === 0) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); if (submitBtn) submitBtn.disabled = true; }
+                else { msg.classList.add('hidden'); if (submitBtn) submitBtn.disabled = false; }
+            }
+        }
+
+        async function aplicarLimitesPesquisaProjeto(aprId) {
+            const dados = await obterRestantePesquisa(aprId);
+            window.__ultimoRestantePesquisaProjeto = dados;
+            const campo = document.getElementById('cargaHorariaProjeto');
+            if (campo) campo.max = dados.restante;
+            if (campo) campo.min = dados.restante === 0 ? 0 : 1;
+            const restanteEl = document.getElementById('restantePesquisaProjeto');
+            const sugEl = document.getElementById('sugestoesPesquisaProjeto');
+            if (restanteEl) restanteEl.textContent = dados.restante;
+            if (sugEl) sugEl.textContent = `Sugestões: ${gerarSugestoesPesquisa(dados.restante, 1, dados.restante) || '--'}`;
+            const msg = document.getElementById('mensagemLimitePesquisaProjeto');
+            const submitBtn = document.getElementById('btnConfirmarProjeto');
+            if (msg) {
+                if (dados.restante === 0) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); if (campo) campo.disabled = true; if (submitBtn) submitBtn.disabled = true; }
+                else { msg.classList.add('hidden'); if (campo) campo.disabled = false; if (submitBtn) submitBtn.disabled = false; }
+            }
+        }
+
+        async function aplicarLimitesPesquisaArtigo(aprId) {
+            const dados = await obterRestantePesquisa(aprId);
+            window.__ultimoRestantePesquisaArtigo = dados;
+            const restanteEl = document.getElementById('restantePesquisaArtigo');
+            const sugEl = document.getElementById('sugestoesPesquisaArtigo');
+            if (restanteEl) restanteEl.textContent = dados.restante;
+            if (sugEl) sugEl.textContent = `Sugestões: ${gerarSugestoesPesquisa(dados.restante, 1, dados.restante) || '--'}`;
+            const msg = document.getElementById('mensagemLimitePesquisaArtigo');
+            const submitBtn = document.getElementById('btnConfirmarArtigo');
+            const inputCarga = document.getElementById('cargaHorariaArtigo');
+            if (msg) {
+                if (dados.restante === 0) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); if (submitBtn) submitBtn.disabled = true; if (inputCarga) inputCarga.disabled = true; }
+                else { msg.classList.add('hidden'); if (submitBtn) submitBtn.disabled = false; if (inputCarga) inputCarga.disabled = false; }
+            }
+        }
+
         async function carregarAtividades() {
             try {
                 console.log('🔍 Carregando atividades de pesquisa...');
@@ -702,8 +814,16 @@
                         console.warn('Falha ao aplicar regra BSI18 em Pesquisa:', regraErr);
                     }
                     console.log('✅ Atividades carregadas:', todasAtividades.length);
-                    renderizarAtividades();
-                    document.getElementById('alertaAtividades').classList.add('hidden');
+                renderizarAtividades();
+                document.getElementById('alertaAtividades').classList.add('hidden');
+                try {
+                    const resp = await AuthClient.fetch('../../backend/api/routes/calcular_horas_categorias.php', { method: 'POST' });
+                    const json = await resp.json();
+                    const categorias = json?.data?.categorias || {}; const limites = json?.data?.limites || {};
+                    const atual = categorias['pesquisa'] || 0; const lim = limites['pesquisa'] || 0;
+                    if (lim > 0 && atual >= lim) {
+                    }
+                } catch (e) {}
                 } else {
                     console.error('❌ Erro ao carregar atividades:', data.message || data.erro);
                     document.getElementById('alertaAtividades').classList.remove('hidden');
@@ -850,6 +970,8 @@
 
             // Adicionar listeners de eventos
             adicionarEventListeners();
+
+            aplicarLimitesPesquisaSelecao(id);
         }
 
         // Função para fechar modal de seleção
@@ -1111,7 +1233,7 @@
         }
 
         // Função para confirmar seleção
-        function confirmarSelecao() {
+        async function confirmarSelecao() {
             if (!atividadeSelecionadaId) {
                 alert('Erro: ID da atividade não foi definido. Tente fechar e abrir o modal novamente.');
                 return;
@@ -1138,6 +1260,15 @@
                 const local = document.getElementById('local').value.trim();
                 const quantidade = document.getElementById('quantidade').value;
                 const cargaHoraria = document.getElementById('cargaHoraria').value;
+
+                // Validação contra restante calculado
+                const rest = await obterRestantePesquisa(atividadeSelecionadaId);
+                if (parseInt(cargaHoraria) > rest.restante) {
+                    alert(`As horas informadas excedem o restante disponível (${rest.restante}h). ${gerarSugestoesPesquisa(rest.restante, 1, rest.restante) ? 'Sugestões: ' + gerarSugestoesPesquisa(rest.restante, 1, rest.restante) : ''}`);
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.textContent = 'Confirmar';
+                    return;
+                }
 
                 // Preparar dados do formulário para a nova rota
                 const formData = new FormData();
@@ -1393,12 +1524,6 @@
 
             if (atividade) {
                 horasMaximasEventoCientifico = parseInt(atividade.horas_max);
-                // Atualizar o atributo max do campo de carga horária
-                const campoCargaHoraria = document.getElementById('cargaHoraria');
-                if (campoCargaHoraria) {
-                    campoCargaHoraria.max = horasMaximasEventoCientifico;
-                    campoCargaHoraria.placeholder = `Digite a carga horária (máximo ${horasMaximasEventoCientifico}h)`;
-                }
             }
 
             const modal = document.getElementById('modalEventoCientifico');
@@ -1418,6 +1543,7 @@
 
             // Limpar formulário
             limparFormularioEvento();
+            aplicarLimitesPesquisaEvento(id);
         }
 
         // Função para fechar modal de evento científico
@@ -1755,7 +1881,15 @@
 
                 // Para apresentações em eventos científicos, o limite máximo é sempre 20h
                 const horasMaximas = 20;
-                const horasRealizadas = Math.min(horasCalculadas, horasMaximas);
+                // Validar contra restante disponível
+                const rest = window.__ultimoRestantePesquisaEvento || { restante: horasMaximas };
+                if (horasCalculadas > rest.restante) {
+                    alert(`As horas calculadas excedem o restante disponível (${rest.restante}h). ${gerarSugestoesPesquisa(rest.restante, 1, rest.restante) ? 'Sugestões: ' + gerarSugestoesPesquisa(rest.restante, 1, rest.restante) : ''}`);
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.textContent = 'Confirmar';
+                    return;
+                }
+                const horasRealizadas = Math.min(horasCalculadas, rest.restante);
                 console.log('✅ Debug - Horas realizadas finais (limitadas ao máximo):', horasRealizadas);
 
                 console.log('=== RESUMO DO CÁLCULO ===');
@@ -1872,6 +2006,7 @@
 
             // Limpar formulário
             limparFormularioCadastro();
+            aplicarLimitesPesquisaCadastro(id);
         }
 
         // Função para fechar modal de cadastro de evento
@@ -2125,6 +2260,15 @@
                 return;
             }
 
+            // Validar contra restante disponível
+            const rest = window.__ultimoRestantePesquisaCadastro || { restante: parseFloat(cargaHoraria) };
+            if (parseFloat(cargaHoraria) > rest.restante) {
+                alert(`As horas informadas excedem o restante disponível (${rest.restante}h). ${gerarSugestoesPesquisa(rest.restante, 1, rest.restante) ? 'Sugestões: ' + gerarSugestoesPesquisa(rest.restante, 1, rest.restante) : ''}`);
+                btnConfirmar.disabled = false;
+                btnConfirmar.textContent = 'Confirmar';
+                return;
+            }
+
             // Preparar dados do formulário para a nova rota
             const formData = new FormData();
             formData.append('atividades_por_resolucao_id', atividadeCadastroEventoId);
@@ -2329,16 +2473,14 @@
             const atividade = todasAtividades.find(a => a.id === id);
             if (atividade) {
                 horasMaximasIniciacaoCientifica = parseInt(atividade.horas_max);
-                // Atualizar o atributo max do campo de carga horária
-                const campoCargaHoraria = document.getElementById('cargaHorariaProjeto');
-                campoCargaHoraria.max = horasMaximasIniciacaoCientifica;
-                campoCargaHoraria.placeholder = `Digite a carga horária (máximo ${horasMaximasIniciacaoCientifica}h)`;
             }
 
             const modal = document.getElementById('modalIniciacaoCientifica');
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
 
+            // Aplicar limites por restante
+            aplicarLimitesPesquisaProjeto(id);
             // Focar no primeiro campo
             setTimeout(() => {
                 document.getElementById('nomeProjeto').focus();
@@ -2544,7 +2686,15 @@
                 const formData = new FormData();
                 formData.append('atividades_por_resolucao_id', atividadeIniciacaoCientificaId);
                 formData.append('titulo', document.getElementById('nomeProjeto').value.trim());
-                formData.append('ch_solicitada', document.getElementById('cargaHorariaProjeto').value);
+                const cargaVal = parseInt(document.getElementById('cargaHorariaProjeto').value);
+                const rest = window.__ultimoRestantePesquisaProjeto || { restante: cargaVal };
+                if (cargaVal > rest.restante) {
+                    alert(`As horas informadas excedem o restante disponível (${rest.restante}h). ${gerarSugestoesPesquisa(rest.restante, 1, rest.restante) ? 'Sugestões: ' + gerarSugestoesPesquisa(rest.restante, 1, rest.restante) : ''}`);
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.textContent = 'Confirmar';
+                    return;
+                }
+                formData.append('ch_solicitada', cargaVal);
                 formData.append('descricao', `Projeto de Iniciação Científica: ${document.getElementById('nomeProjeto').value.trim()}`);
 
                 // Adicionar arquivo se selecionado
@@ -2767,7 +2917,8 @@
             let cargaCalculada = quantidade * horasPorPublicacao;
 
             // Aplicar limite máximo de 40h
-            const cargaHoraria = Math.min(cargaCalculada, 40);
+            const rest = window.__ultimoRestantePesquisaArtigo || { restante: 40 };
+            const cargaHoraria = Math.min(cargaCalculada, 40, rest.restante);
 
             // Atualizar o campo de carga horária
             cargaHorariaInput.value = cargaHoraria > 0 ? cargaHoraria : '';
@@ -2778,8 +2929,9 @@
                 let detalhes = `${quantidade} publicação${quantidade > 1 ? 'ões' : ''} × ${horasPorPublicacao}h = ${cargaCalculada}h`;
 
                 // Se houve limitação, adicionar informação
-                if (cargaCalculada > 40) {
-                    detalhes += ` → limitado a 40h`;
+                if (cargaCalculada > 40 || cargaCalculada > rest.restante) {
+                    const lim = Math.min(40, rest.restante);
+                    detalhes += ` → limitado a ${lim}h`;
                     warningDiv.classList.remove('hidden');
                 } else {
                     warningDiv.classList.add('hidden');

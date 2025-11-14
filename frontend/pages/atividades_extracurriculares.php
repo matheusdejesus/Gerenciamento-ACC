@@ -251,6 +251,8 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                    placeholder="Ex: 10" min="1" max="" required>
                             <p class="text-xs text-gray-500 mt-1">Máximo: <span id="maxHoras">--</span> horas</p>
+                            <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restanteHoras">--</span> horas</p>
+                            <p class="text-xs font-medium mt-1 hidden" id="mensagemLimiteExtras" style="color:#DC2626"></p>
                         </div>
                     </div>
 
@@ -656,6 +658,10 @@
                     renderizarAtividades();
                     renderizarInfoResultados();
                     renderizarPaginacao();
+                    try {
+                        const bloqueio = await verificarBloqueioCategoria('acc');
+                        if (bloqueio.completo) desabilitarSelecaoCategoria('acc');
+                    } catch (e) { console.warn('Falha ao verificar bloqueio de categoria ACC:', e); }
                     
                     document.getElementById('alertaAtividades').classList.add('hidden');
                 } else {
@@ -1203,12 +1209,24 @@
 
 
         // Função simplificada para verificar limite de horas
-        function verificarLimiteHoras(atividade, inputHoras, spanMaxHoras) {
-            // Usar limite padrão da atividade
-            inputHoras.max = atividade.horas_max;
-            spanMaxHoras.textContent = atividade.horas_max;
-            
-            // Atualizar informações da atividade selecionada
+        async function obterRestantePorAtividade(aprId) {
+            try {
+                const resp = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas&limite=200');
+                const json = await resp.json();
+                const lista = json?.data?.atividades || [];
+                const relevantes = lista.filter(a => parseInt(a.atividades_por_resolucao_id) === parseInt(aprId) && ['aprovado','aprovada'].includes(String(a.status).toLowerCase()));
+                const soma = relevantes.reduce((acc, a) => acc + (parseInt(a.ch_atribuida||0)||0), 0);
+                const max = (atividadeSelecionada.carga_horaria_maxima || atividadeSelecionada.horas_max);
+                const restante = Math.max(0, max - soma);
+                return { restante, max };
+            } catch (e) {
+                return { restante: (atividadeSelecionada.carga_horaria_maxima || atividadeSelecionada.horas_max), max: (atividadeSelecionada.carga_horaria_maxima || atividadeSelecionada.horas_max) };
+            }
+        }
+
+        
+
+        async function verificarLimiteHoras(atividade, inputHoras, spanMaxHoras) {
             const infoDiv = document.getElementById('infoAtividadeSelecionada');
             infoDiv.innerHTML = `
                 <div class="space-y-1">
@@ -1218,6 +1236,41 @@
                     <p><strong>Horas Máximas:</strong> ${atividade.horas_max}h</p>
                 </div>
             `;
+            const dados = await obterRestantePorAtividade(atividade.id);
+            let restanteTotal = null;
+            try { const t = await verificarBloqueioCategoria('acc'); restanteTotal = t.lim - t.atual; } catch (e) { restanteTotal = null; }
+            inputHoras.max = restanteTotal !== null ? Math.min(dados.restante, Math.max(0, restanteTotal)) : dados.restante;
+            inputHoras.min = dados.restante === 0 ? 0 : 1;
+            spanMaxHoras.textContent = dados.restante;
+            const restanteEl = document.getElementById('restanteHoras');
+            restanteEl.textContent = dados.restante;
+
+            const msg = document.getElementById('mensagemLimiteExtras');
+            const submitBtn = document.querySelector('#formSelecaoAtividade button[type="submit"]');
+            const bloqueadoTotal = (restanteTotal !== null && Math.max(0, restanteTotal) === 0);
+            if (dados.restante === 0 || bloqueadoTotal) {
+                msg.textContent = 'Você atingiu o limite de horas para esta atividade.';
+                msg.classList.remove('hidden');
+                inputHoras.value = '';
+                inputHoras.disabled = true;
+                if (submitBtn) submitBtn.disabled = true;
+            } else {
+                msg.classList.add('hidden');
+                inputHoras.disabled = false;
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        async function verificarBloqueioCategoria(slug) {
+            const resp = await AuthClient.fetch('../../backend/api/routes/calcular_horas_categorias.php', { method: 'POST' });
+            const json = await resp.json();
+            const categorias = json?.data?.categorias || {}; const limites = json?.data?.limites || {};
+            const atual = categorias[slug] || 0; const lim = limites[slug] || 0;
+            return { completo: lim > 0 && atual >= lim, atual, lim };
+        }
+
+        function desabilitarSelecaoCategoria(slug) {
+            return;
         }
 
         // Validação simples no campo de horas

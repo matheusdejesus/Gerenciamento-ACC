@@ -140,13 +140,35 @@ class ListarAtividadesDisponiveisModel
 
             $stmtCount = $conn->prepare($sqlCount);
             if (!$stmtCount) {
-                throw new Exception("Erro ao preparar consulta de contagem: " . $conn->error);
+                error_log("Falha ao preparar consulta de contagem de pendentes: " . $conn->error);
+                return [
+                    'atividades' => [],
+                    'paginacao' => [
+                        'pagina_atual' => $pagina,
+                        'total_paginas' => 0,
+                        'total_registros' => 0,
+                        'limite' => $limite,
+                        'tem_proxima' => false,
+                        'tem_anterior' => false
+                    ]
+                ];
             }
 
             $stmtCount->bind_param($tipos, ...$parametros);
 
             if (!$stmtCount->execute()) {
-                throw new Exception("Erro ao executar consulta de contagem: " . $stmtCount->error);
+                error_log("Falha ao executar consulta de contagem de pendentes: " . $stmtCount->error);
+                return [
+                    'atividades' => [],
+                    'paginacao' => [
+                        'pagina_atual' => $pagina,
+                        'total_paginas' => 0,
+                        'total_registros' => 0,
+                        'limite' => $limite,
+                        'tem_proxima' => false,
+                        'tem_anterior' => false
+                    ]
+                ];
             }
 
             $resultCount = $stmtCount->get_result();
@@ -181,7 +203,18 @@ class ListarAtividadesDisponiveisModel
 
             $stmt = $conn->prepare($sql);
             if (!$stmt) {
-                throw new Exception("Erro ao preparar consulta: " . $conn->error);
+                error_log("Falha ao preparar consulta de pendentes: " . $conn->error);
+                return [
+                    'atividades' => [],
+                    'paginacao' => [
+                        'pagina_atual' => $pagina,
+                        'total_paginas' => 0,
+                        'total_registros' => 0,
+                        'limite' => $limite,
+                        'tem_proxima' => false,
+                        'tem_anterior' => false
+                    ]
+                ];
             }
 
             // Adicionar parâmetros de paginação
@@ -192,7 +225,18 @@ class ListarAtividadesDisponiveisModel
             $stmt->bind_param($tipos, ...$parametros);
 
             if (!$stmt->execute()) {
-                throw new Exception("Erro ao executar consulta: " . $stmt->error);
+                error_log("Falha ao executar consulta de pendentes: " . $stmt->error);
+                return [
+                    'atividades' => [],
+                    'paginacao' => [
+                        'pagina_atual' => $pagina,
+                        'total_paginas' => 0,
+                        'total_registros' => 0,
+                        'limite' => $limite,
+                        'tem_proxima' => false,
+                        'tem_anterior' => false
+                    ]
+                ];
             }
 
             $result = $stmt->get_result();
@@ -1406,6 +1450,7 @@ class ListarAtividadesDisponiveisModel
                         ac.titulo as atividade_titulo,
                         ta.nome as categoria_nome,
                         apr.id as atividades_por_resolucao_id,
+                        apr.carga_horaria_maxima_por_atividade as carga_horaria_maxima_por_atividade,
                         CASE 
                             WHEN ta.nome = 'Ensino' THEN 'ensino'
                             WHEN ta.nome = 'Estágio' THEN 'estagio'
@@ -1448,23 +1493,24 @@ class ListarAtividadesDisponiveisModel
             $result = $stmt->get_result();
             $atividades = [];
 
-            while ($row = $result->fetch_assoc()) {
-                $atividades[] = [
-                    'id' => (int)$row['id'],
-                    'titulo' => $row['titulo'],
-                    'descricao' => $row['descricao'],
-                    'ch_solicitada' => (int)$row['ch_solicitada'],
-                    'ch_atribuida' => $row['ch_atribuida'] ? (int)$row['ch_atribuida'] : null,
-                    'status' => $row['status'],
-                    'data_avaliacao' => $row['data_avaliacao'],
-                    'data_submissao' => $row['data_submissao'],
-                    'caminho_declaracao' => $row['caminho_declaracao'],
-                    'atividade_titulo' => $row['atividade_titulo'],
-                    'categoria_nome' => $row['categoria_nome'],
-                    'atividades_por_resolucao_id' => (int)$row['atividades_por_resolucao_id'],
-                    'tipo_atividade' => $row['tipo_atividade']
-                ];
-            }
+                while ($row = $result->fetch_assoc()) {
+                    $atividades[] = [
+                        'id' => (int)$row['id'],
+                        'titulo' => $row['titulo'],
+                        'descricao' => $row['descricao'],
+                        'ch_solicitada' => (int)$row['ch_solicitada'],
+                        'ch_atribuida' => $row['ch_atribuida'] ? (int)$row['ch_atribuida'] : null,
+                        'status' => $row['status'],
+                        'data_avaliacao' => $row['data_avaliacao'],
+                        'data_submissao' => $row['data_submissao'],
+                        'caminho_declaracao' => $row['caminho_declaracao'],
+                        'atividade_titulo' => $row['atividade_titulo'],
+                        'categoria_nome' => $row['categoria_nome'],
+                        'atividades_por_resolucao_id' => (int)$row['atividades_por_resolucao_id'],
+                        'carga_horaria_maxima_por_atividade' => isset($row['carga_horaria_maxima_por_atividade']) ? (int)$row['carga_horaria_maxima_por_atividade'] : null,
+                        'tipo_atividade' => $row['tipo_atividade']
+                    ];
+                }
 
             $stmt->close();
 
@@ -1729,7 +1775,17 @@ class ListarAtividadesDisponiveisModel
             ];
         } catch (Exception $e) {
             error_log("Erro em ListarAtividadesDisponiveisModel::listarTodasAtividadesEnviadas: " . $e->getMessage());
-            throw $e;
+            return [
+                'atividades' => [],
+                'paginacao' => [
+                    'pagina_atual' => $pagina,
+                    'total_paginas' => 0,
+                    'total_registros' => 0,
+                    'limite' => $limite,
+                    'tem_proxima' => false,
+                    'tem_anterior' => false
+                ]
+            ];
         }
     }
 }

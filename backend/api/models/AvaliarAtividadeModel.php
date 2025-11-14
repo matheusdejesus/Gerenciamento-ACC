@@ -18,6 +18,18 @@ class AvaliarAtividadeModel
         try {
             $conn = Database::getInstance()->getConnection();
 
+            try {
+                $checkCol = $conn->query("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'atividade_enviada' AND COLUMN_NAME = 'data_submissao'");
+                if ($checkCol) {
+                    $rowCol = $checkCol->fetch_assoc();
+                    if ((int)$rowCol['cnt'] === 0) {
+                        $conn->query("ALTER TABLE atividade_enviada ADD COLUMN data_submissao datetime NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                    }
+                }
+            } catch (\Exception $e) {
+                error_log("[WARN] Falha ao garantir coluna data_submissao em listarCertificadosProcessados: " . $e->getMessage());
+            }
+
             // Buscar curso do coordenador para filtragem
             $cursoId = null;
             if (!empty($coordenadorId)) {
@@ -87,7 +99,8 @@ class AvaliarAtividadeModel
 
             $stmt = $conn->prepare($sql);
             if (!$stmt) {
-                throw new Exception("Erro ao preparar consulta: " . $conn->error);
+                error_log("Falha ao preparar consulta de certificados processados: " . $conn->error);
+                return [];
             }
 
             if (!empty($params)) {
@@ -95,7 +108,8 @@ class AvaliarAtividadeModel
             }
 
             if (!$stmt->execute()) {
-                throw new Exception("Erro ao executar consulta: " . $stmt->error);
+                error_log("Falha ao executar consulta de certificados processados: " . $stmt->error);
+                return [];
             }
 
             $result = $stmt->get_result();
@@ -126,7 +140,7 @@ class AvaliarAtividadeModel
             return $certificados;
         } catch (Exception $e) {
             error_log("Erro em AvaliarAtividadeModel::listarCertificadosProcessados: " . $e->getMessage());
-            throw $e;
+            return [];
         }
     }
 
@@ -247,6 +261,59 @@ class AvaliarAtividadeModel
             if ($result->num_rows === 0) {
                 throw new Exception("Atividade não encontrada ou já foi avaliada");
             }
+
+            $rowAe = null;
+            $resRow = $db->query("SELECT aluno_id, resolucao_id, tipo_atividade_id, atividades_complementares_id FROM atividade_enviada WHERE id = " . intval($atividadeId) . " LIMIT 1");
+            if ($resRow && $resRow->num_rows > 0) { $rowAe = $resRow->fetch_assoc(); }
+            if (!$rowAe) { throw new Exception("Falha ao obter contexto da atividade"); }
+
+            $maxTotal = 0;
+            $stmtMax = $db->prepare("SELECT carga_horaria_maxima_por_atividade FROM atividades_por_resolucao WHERE resolucao_id = ? AND tipo_atividade_id = ? AND atividades_complementares_id = ? LIMIT 1");
+            if ($stmtMax) {
+                $stmtMax->bind_param("iii", $rowAe['resolucao_id'], $rowAe['tipo_atividade_id'], $rowAe['atividades_complementares_id']);
+                if ($stmtMax->execute()) {
+                    $rMax = $stmtMax->get_result();
+                    if ($rMax && $rMax->num_rows > 0) {
+                        $maxTotal = (int)$rMax->fetch_assoc()['carga_horaria_maxima_por_atividade'];
+                    }
+                }
+                $stmtMax->close();
+            }
+            if ($maxTotal <= 0) { $maxTotal = (int)$chAtribuida; }
+
+            $stmtSum = $db->prepare("SELECT SUM(COALESCE(ch_atribuida,0)) AS total FROM atividade_enviada WHERE aluno_id = ? AND resolucao_id = ? AND tipo_atividade_id = ? AND atividades_complementares_id = ? AND LOWER(status) IN ('aprovado','aprovada') AND avaliado = 1 AND id <> ?");
+            if ($stmtSum) {
+                $stmtSum->bind_param("iiiii", $rowAe['aluno_id'], $rowAe['resolucao_id'], $rowAe['tipo_atividade_id'], $rowAe['atividades_complementares_id'], $atividadeId);
+                if ($stmtSum->execute()) {
+                    $rSum = $stmtSum->get_result();
+                    $aprovadas = 0;
+                    if ($rSum && $rSum->num_rows > 0) { $aprovadas = (int)($rSum->fetch_assoc()['total'] ?? 0); }
+                    $restante = max(0, $maxTotal - $aprovadas);
+                    if ($chAtribuida > $restante) {
+                        throw new Exception("Carga aprovada excede o máximo permitido para esta atividade. Restante: {$restante}h.");
+                    }
+                }
+                $stmtSum->close();
+            }
+
+            // Limite total do curso
+            $cursoId = null; $matricula = null;
+            $resAluno = $db->query("SELECT curso_id, matricula FROM aluno WHERE usuario_id = " . intval($rowAe['aluno_id']) . " LIMIT 1");
+            if ($resAluno && $resAluno->num_rows > 0) { $ra = $resAluno->fetch_assoc(); $cursoId = isset($ra['curso_id']) ? (int)$ra['curso_id'] : null; $matricula = isset($ra['matricula']) ? (string)$ra['matricula'] : null; }
+            $anoMatricula = $matricula ? (int)substr($matricula, 0, 4) : null;
+            $limiteTotal = ($cursoId === 2) ? 300 : (($anoMatricula && $anoMatricula >= 2023) ? 120 : 240);
+            $totGeral = 0;
+            $stmtAll = $db->prepare("SELECT SUM(COALESCE(ch_atribuida,0)) AS total FROM atividade_enviada WHERE aluno_id = ? AND LOWER(status) IN ('aprovado','aprovada') AND avaliado = 1 AND id <> ?");
+            if ($stmtAll) {
+                $stmtAll->bind_param("ii", $rowAe['aluno_id'], $atividadeId);
+                if ($stmtAll->execute()) {
+                    $rAll = $stmtAll->get_result();
+                    if ($rAll && $rAll->num_rows > 0) { $totGeral = (int)($rAll->fetch_assoc()['total'] ?? 0); }
+                }
+                $stmtAll->close();
+            }
+            $restanteTotal = max(0, $limiteTotal - $totGeral);
+            if ($chAtribuida > $restanteTotal) { throw new Exception("Carga aprovada excede o restante total do curso. Restante: {$restanteTotal}h."); }
 
             // Validar carga horária atribuída
             if (!is_numeric($chAtribuida) || $chAtribuida <= 0) {

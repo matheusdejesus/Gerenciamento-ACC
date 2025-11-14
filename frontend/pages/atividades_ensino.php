@@ -130,6 +130,9 @@
                         <input type="number" id="horasMonitoria" name="horas_monitoria" min="1" max="500"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             placeholder="Digite a quantidade de horas">
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restanteHorasMonitoria">--</span> horas</p>
+                        <p class="text-xs text-green-700 mt-1" id="sugestoesMonitoria">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimiteMonitoria" style="color:#DC2626"></p>
                     </div>
 
 
@@ -151,6 +154,9 @@
                         <input type="number" id="horasOutrasIES" name="carga_horaria" min="1" max="500"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             placeholder="Digite a quantidade de horas">
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restanteHorasOutrasIES">--</span> horas</p>
+                        <p class="text-xs text-green-700 mt-1" id="sugestoesOutrasIES">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimiteOutrasIES" style="color:#DC2626"></p>
                     </div>
 
 
@@ -168,6 +174,9 @@
                         <input type="number" id="horasUFOPA" name="carga_horaria" min="1" max="500"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             placeholder="Digite a quantidade de horas">
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restanteHorasUFOPA">--</span> horas</p>
+                        <p class="text-xs text-green-700 mt-1" id="sugestoesUFOPA">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimiteUFOPA" style="color:#DC2626"></p>
                     </div>
 
 
@@ -240,6 +249,7 @@
         let buscaAtual = '';
         let ordenacaoAtual = 'nome';
         let direcaoAtual = 'ASC';
+        let atividadeSelecionadaEnsino = null;
 
         async function carregarAtividades(pagina = 1, busca = '', ordenacao = 'nome', direcao = 'ASC') {
             try {
@@ -506,6 +516,7 @@
             });
 
             const atividade = todasAtividades.find(a => a.id === id);
+            atividadeSelecionadaEnsino = atividade;
             document.getElementById('atividadeId').value = id;
 
             // Definir categoria_id como 1 para todas atividades de ensino
@@ -557,6 +568,7 @@
                 document.getElementById('nomeDisciplinaLab').setAttribute('required', 'required');
                 document.getElementById('horasMonitoria').setAttribute('required', 'required');
                 document.getElementById('comprovante').setAttribute('required', 'required');
+                aplicarLimitesEnsino(atividade, 'Monitoria');
 
                 // Remover obrigatoriedade dos campos de outras IES e UFOPA
                 document.getElementById('nomeDisciplinaIES').removeAttribute('required');
@@ -584,6 +596,7 @@
                 // Tornar campos de outras IES obrigatórios
                 document.getElementById('nomeDisciplinaIES').setAttribute('required', 'required');
                 document.getElementById('horasOutrasIES').setAttribute('required', 'required');
+                aplicarLimitesEnsino(atividade, 'Outras IES');
 
                 // Remover obrigatoriedade dos campos de monitoria e UFOPA
                 document.getElementById('nomeDisciplinaLab').removeAttribute('required');
@@ -611,6 +624,7 @@
                 // Tornar campos da UFOPA obrigatórios
                 document.getElementById('nomeDisciplinaUFOPA').setAttribute('required', 'required');
                 document.getElementById('horasUFOPA').setAttribute('required', 'required');
+                aplicarLimitesEnsino(atividade, 'UFOPA');
 
                 // Remover obrigatoriedade dos outros campos
                 document.getElementById('nomeDisciplinaLab').removeAttribute('required');
@@ -741,6 +755,13 @@
                 let titulo, descricao, chSolicitada, arquivo;
                 let atividadesPorResolucaoId;
 
+                if (!atividadeSelecionadaEnsino) {
+                    alert('Nenhuma atividade selecionada. Tente novamente.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
                 if (tipoAtividade === 'Outras IES') {
                     const nomeDisciplina = document.getElementById('nomeDisciplinaIES').value;
                     const horas = document.getElementById('horasOutrasIES').value;
@@ -748,7 +769,7 @@
                     descricao = `Disciplina cursada em outras instituições de ensino superior: ${nomeDisciplina} - ${horas}h`;
                     chSolicitada = parseInt(horas);
                     arquivo = document.getElementById('declaracaoIES').files[0];
-                    atividadesPorResolucaoId = 1; // ID para "Disciplinas em áreas correlatas cursadas em outras IES"
+                    atividadesPorResolucaoId = atividadeSelecionadaEnsino.id;
                 } else if (tipoAtividade === 'UFOPA') {
                     const nomeDisciplina = document.getElementById('nomeDisciplinaUFOPA').value;
                     const horas = document.getElementById('horasUFOPA').value;
@@ -756,7 +777,7 @@
                     descricao = `Disciplina cursada na própria UFOPA: ${nomeDisciplina} - ${horas}h`;
                     chSolicitada = parseInt(horas);
                     arquivo = document.getElementById('comprovanteUFOPA').files[0];
-                    atividadesPorResolucaoId = 2; // ID para "Disciplinas em áreas correlatas cursadas na UFOPA"
+                    atividadesPorResolucaoId = atividadeSelecionadaEnsino.id;
                 } else if (tipoAtividade === 'Monitoria') {
                     const nomeDisciplina = document.getElementById('nomeDisciplinaLab').value;
                     const horas = document.getElementById('horasMonitoria').value;
@@ -764,7 +785,7 @@
                     descricao = `Atividade de monitoria em disciplina de graduação ou laboratório: ${nomeDisciplina} - ${horas}h`;
                     chSolicitada = parseInt(horas);
                     arquivo = document.getElementById('comprovante').files[0];
-                    atividadesPorResolucaoId = 3; // ID para "Monitoria em disciplina de graduação ou laboratório"
+                    atividadesPorResolucaoId = atividadeSelecionadaEnsino.id;
                 }
 
                 // Verificar se o usuário está autenticado
@@ -780,6 +801,15 @@
                 formData.append('titulo', titulo);
                 formData.append('descricao', descricao);
                 formData.append('ch_solicitada', chSolicitada);
+
+                // Validação contra restante calculado
+                const rest = await obterRestanteEnsino(atividadeSelecionadaEnsino.id);
+                if (chSolicitada > rest.restante) {
+                    alert(`As horas informadas excedem o restante disponível (${rest.restante}h). ${gerarSugestoesEnsino(rest.restante, 1, rest.restante) ? 'Sugestões: '+gerarSugestoesEnsino(rest.restante, 1, rest.restante) : ''}`);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
                 
                 if (arquivo) {
                     formData.append('declaracao', arquivo);
@@ -848,6 +878,90 @@
             }
         });
 
+        async function obterRestanteEnsino(aprId) {
+            try {
+                const resp = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas&limite=200');
+                const json = await resp.json();
+                const lista = json?.data?.atividades || [];
+                const relevantes = lista.filter(a => parseInt(a.atividades_por_resolucao_id) === parseInt(aprId) && ['aprovado','aprovada'].includes(String(a.status).toLowerCase()));
+                const soma = relevantes.reduce((acc, a) => acc + (parseInt(a.ch_atribuida||0)||0), 0);
+                const max = (todasAtividades.find(x => x.id === aprId)?.horas_max) || (todasAtividades.find(x => x.id === aprId)?.carga_horaria_maxima) || 0;
+                const restante = Math.max(0, max - soma);
+                return { restante, max };
+            } catch (e) {
+                const max = (todasAtividades.find(x => x.id === aprId)?.horas_max) || (todasAtividades.find(x => x.id === aprId)?.carga_horaria_maxima) || 0;
+                return { restante: max, max };
+            }
+        }
+
+        function gerarSugestoesEnsino(restante, minCadastro, maxCadastro) {
+            const sugs = [];
+            if (restante <= 0) return '';
+            if (restante % maxCadastro === 0) sugs.push(`${restante/maxCadastro}x${maxCadastro}h`);
+            if (restante % minCadastro === 0) sugs.push(`${restante/minCadastro}x${minCadastro}h`);
+            for (let k = Math.floor(restante/maxCadastro); k >= 1 && sugs.length < 3; k--) {
+                const left = restante - k*maxCadastro;
+                if (left >= 0 && left % minCadastro === 0) sugs.push(`${k}x${maxCadastro}h + ${left/minCadastro}x${minCadastro}h`);
+            }
+            if (!sugs.length) sugs.push(`${restante}h`);
+            return sugs.join(', ');
+        }
+
+        async function aplicarLimitesEnsino(atividade, tipo) {
+            const dados = await obterRestanteEnsino(atividade.id);
+            let restanteTotal = null;
+            try { const t = await AuthClient.fetch('../../backend/api/routes/calcular_horas_categorias.php', { method: 'POST' }); const j = await t.json(); const atual = (j?.data?.categorias || {})['ensino'] || 0; const lim = (j?.data?.limites || {})['ensino'] || 0; restanteTotal = lim - atual; } catch (e) { restanteTotal = null; }
+            const minCadastro = 1;
+            const maxCadastro = dados.restante;
+            const sug = gerarSugestoesEnsino(dados.restante, minCadastro, maxCadastro);
+            if (tipo === 'Monitoria') {
+                const input = document.getElementById('horasMonitoria');
+                input.max = restanteTotal !== null ? Math.min(dados.restante, Math.max(0, restanteTotal)) : dados.restante;
+                input.min = dados.restante === 0 ? 0 : 1;
+                document.getElementById('restanteHorasMonitoria').textContent = dados.restante;
+                document.getElementById('sugestoesMonitoria').textContent = `Sugestões: ${sug || '--'}`;
+                const msg = document.getElementById('mensagemLimiteMonitoria');
+                const submitBtn = document.querySelector('#formSelecao button[type="submit"]');
+                const bloqueadoTotal = (restanteTotal !== null && Math.max(0, restanteTotal) === 0);
+                if (dados.restante === 0 || bloqueadoTotal) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); input.disabled = true; if (submitBtn) submitBtn.disabled = true; } else { msg.classList.add('hidden'); input.disabled = false; if (submitBtn) submitBtn.disabled = false; }
+            } else if (tipo === 'Outras IES') {
+                const input = document.getElementById('horasOutrasIES');
+                input.max = restanteTotal !== null ? Math.min(dados.restante, Math.max(0, restanteTotal)) : dados.restante;
+                input.min = dados.restante === 0 ? 0 : 1;
+                document.getElementById('restanteHorasOutrasIES').textContent = dados.restante;
+                document.getElementById('sugestoesOutrasIES').textContent = `Sugestões: ${sug || '--'}`;
+                const msg = document.getElementById('mensagemLimiteOutrasIES');
+                const submitBtn = document.querySelector('#formSelecao button[type="submit"]');
+                const bloqueadoTotal = (restanteTotal !== null && Math.max(0, restanteTotal) === 0);
+                if (dados.restante === 0 || bloqueadoTotal) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); input.disabled = true; if (submitBtn) submitBtn.disabled = true; } else { msg.classList.add('hidden'); input.disabled = false; if (submitBtn) submitBtn.disabled = false; }
+            } else if (tipo === 'UFOPA') {
+                const input = document.getElementById('horasUFOPA');
+                input.max = restanteTotal !== null ? Math.min(dados.restante, Math.max(0, restanteTotal)) : dados.restante;
+                input.min = dados.restante === 0 ? 0 : 1;
+                document.getElementById('restanteHorasUFOPA').textContent = dados.restante;
+                document.getElementById('sugestoesUFOPA').textContent = `Sugestões: ${sug || '--'}`;
+                const msg = document.getElementById('mensagemLimiteUFOPA');
+                const submitBtn = document.querySelector('#formSelecao button[type="submit"]');
+                const bloqueadoTotal = (restanteTotal !== null && Math.max(0, restanteTotal) === 0);
+                if (dados.restante === 0 || bloqueadoTotal) { msg.textContent = 'Você atingiu o limite de horas para esta atividade.'; msg.classList.remove('hidden'); input.disabled = true; if (submitBtn) submitBtn.disabled = true; } else { msg.classList.add('hidden'); input.disabled = false; if (submitBtn) submitBtn.disabled = false; }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const capInputs = (id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('input', function() {
+                    const v = parseInt(this.value)||0;
+                    const m = parseInt(this.max)||0;
+                    if (m && v > m) this.value = m;
+                });
+            };
+            capInputs('horasMonitoria');
+            capInputs('horasOutrasIES');
+            capInputs('horasUFOPA');
+        });
+
         // Função para atualizar "Minhas Atividades" automaticamente
         async function atualizarMinhasAtividades() {
             try {
@@ -870,8 +984,25 @@
         // Carregar atividades ao inicializar a página
         document.addEventListener('DOMContentLoaded', function() {
             carregarAtividades();
+            (async function(){
+                try {
+                    const resp = await AuthClient.fetch('../../backend/api/routes/calcular_horas_categorias.php', { method: 'POST' });
+                    const json = await resp.json();
+                    const categorias = json?.data?.categorias || {}; const limites = json?.data?.limites || {};
+                    const atual = categorias['ensino'] || 0; const lim = limites['ensino'] || 0;
+                    if (lim > 0 && atual >= lim) {
+                        const aviso = document.createElement('div');
+                        aviso.className = 'p-3 rounded bg-red-50 border border-red-200 text-red-700 mb-4';
+                        aviso.textContent = 'Você atingiu o limite de horas da categoria Ensino. Novos cadastros não são permitidos.';
+                        const main = document.querySelector('main');
+                        if (main) main.insertBefore(aviso, main.firstChild);
+                        const btns = document.querySelectorAll('button');
+                        btns.forEach(b => { if (/Selecionar/i.test(b.textContent)) { b.disabled = true; b.classList.add('opacity-50'); } });
+                    }
+                } catch (e) {}
+            })();
         });
-    </script>
+</script>
 </body>
 
 </html>

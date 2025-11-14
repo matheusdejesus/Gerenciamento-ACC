@@ -134,6 +134,9 @@
                         <div id="cargaHoraria-error" class="text-red-500 text-sm mt-1 hidden" role="alert">
                             A carga horária não pode exceder 30 horas
                         </div>
+                        <p class="text-xs text-gray-600 mt-1">Restante disponível: <span id="restanteAcaoSocial">--</span> horas</p>
+                        <p class="text-xs text-red-700 mt-1" id="sugestoesAcaoSocial">Sugestões: --</p>
+                        <p class="text-xs font-medium mt-1 hidden" id="mensagemLimiteAcaoSocial" style="color:#DC2626"></p>
                     </div>
 
                     <!-- Comprovante -->
@@ -347,6 +350,23 @@
             atividadeSelecionada = atividade;
             document.getElementById('atividadeId').value = atividade.id;
             document.getElementById('modalSelecao').classList.remove('hidden');
+            aplicarLimitesAcaoSocial(atividade.id);
+            (async function(){
+                try {
+                    const resp = await AuthClient.fetch('../../backend/api/routes/calcular_horas_categorias.php', { method: 'POST' });
+                    const json = await resp.json();
+                    const categorias = json?.data?.categorias || {}; const limites = json?.data?.limites || {};
+                    const atual = categorias['acao_social'] || 0; const lim = limites['acao_social'] || 0;
+                    if (lim > 0 && atual >= lim) {
+                        const msg = document.getElementById('mensagemLimiteAcaoSocial');
+                        if (msg) { msg.textContent = 'Você atingiu o limite de horas da categoria Ação Social. Novos cadastros não são permitidos.'; msg.classList.remove('hidden'); }
+                        const submitBtn = document.querySelector('#formCadastro button[type="submit"]');
+                        const input = document.getElementById('cargaHoraria');
+                        if (submitBtn) submitBtn.disabled = true;
+                        if (input) { input.disabled = true; input.min = 0; input.max = 0; }
+                    }
+                } catch(e) {}
+            })();
         }
 
         function abrirModalSelecao() {
@@ -355,6 +375,7 @@
             document.getElementById('modalDetalhes').classList.add('hidden');
             document.getElementById('atividadeId').value = atividadeSelecionada.id;
             document.getElementById('modalSelecao').classList.remove('hidden');
+            aplicarLimitesAcaoSocial(atividadeSelecionada.id);
         }
 
         function fecharModal() {
@@ -402,6 +423,13 @@
                     throw new Error('A carga horária deve estar entre 1 e 200 horas.');
                 }
                 
+                // Validar contra restante disponível
+                const rest = await obterRestanteAcaoSocial(document.getElementById('atividadeId').value);
+                if (horas > rest.restante) {
+                    alert(`As horas informadas excedem o restante disponível (${rest.restante}h). ${gerarSugestoesAcaoSocial(rest.restante, 1, rest.restante) ? 'Sugestões: ' + gerarSugestoesAcaoSocial(rest.restante, 1, rest.restante) : ''}`);
+                    return;
+                }
+
                 // Preparar dados para a API cadastrar_atividades.php
                 const apiFormData = new FormData();
                 
@@ -474,7 +502,70 @@
             } else {
                 this.setCustomValidity('');
             }
+
+            // Limitar ao restante disponível
+            const maxPermitido = parseInt(this.max)||0;
+            if (maxPermitido && valor > maxPermitido) {
+                this.value = maxPermitido;
+            }
         });
+
+        async function obterRestanteAcaoSocial(aprId) {
+            try {
+                const resp = await AuthClient.fetch('../../backend/api/routes/listar_atividades_disponiveis.php?acao=enviadas&limite=200');
+                const json = await resp.json();
+                const lista = json?.data?.atividades || [];
+                const relevantes = lista.filter(a => parseInt(a.atividades_por_resolucao_id) === parseInt(aprId) && ['aprovado','aprovada'].includes(String(a.status).toLowerCase()));
+                const soma = relevantes.reduce((acc, a) => acc + (parseInt(a.ch_atribuida||0)||0), 0);
+                const max = (atividadeSelecionada?.carga_horaria_maxima || atividadeSelecionada?.horas_max || 0);
+                const restante = Math.max(0, max - soma);
+                return { restante, max };
+            } catch (e) {
+                const max = (atividadeSelecionada?.carga_horaria_maxima || atividadeSelecionada?.horas_max || 0);
+                return { restante: max, max };
+            }
+        }
+
+        function gerarSugestoesAcaoSocial(restante, minCadastro, maxCadastro) {
+            const r = parseInt(restante)||0; const min = Math.max(1, parseInt(minCadastro)||1); const max = Math.max(min, parseInt(maxCadastro)||min);
+            const sugs = [];
+            if (r <= 0) return '';
+            if (r % max === 0) sugs.push(`${r/max}x${max}h`);
+            if (r % min === 0) sugs.push(`${r/min}x${min}h`);
+            for (let k = Math.floor(r/max); k >= 1 && sugs.length < 3; k--) {
+                const left = r - k*max;
+                if (left >= 0 && left % min === 0) sugs.push(`${k}x${max}h + ${Math.floor(left/min)}x${min}h`);
+            }
+            if (!sugs.length) sugs.push(`${r}h`);
+            return sugs.join(', ');
+        }
+
+        async function aplicarLimitesAcaoSocial(aprId) {
+            const dados = await obterRestanteAcaoSocial(aprId);
+            let restanteTotal = null;
+            try { const t = await verificarBloqueioCategoria('acao_social'); restanteTotal = t.lim - t.atual; } catch (e) { restanteTotal = null; }
+            const input = document.getElementById('cargaHoraria');
+            input.max = restanteTotal !== null ? Math.min(dados.restante, Math.max(0, restanteTotal)) : dados.restante;
+            input.min = dados.restante === 0 ? 0 : 1;
+            const restanteEl = document.getElementById('restanteAcaoSocial');
+            restanteEl.textContent = dados.restante;
+            const sugEl = document.getElementById('sugestoesAcaoSocial');
+            sugEl.textContent = `Sugestões: ${gerarSugestoesAcaoSocial(dados.restante, 1, dados.restante) || '--'}`;
+            const msg = document.getElementById('mensagemLimiteAcaoSocial');
+            const submitBtn = document.querySelector('#formCadastro button[type="submit"]');
+            const bloqueadoTotal = (restanteTotal !== null && Math.max(0, restanteTotal) === 0);
+            if (dados.restante === 0 || bloqueadoTotal) {
+                msg.textContent = 'Você atingiu o limite de horas para esta atividade.';
+                msg.classList.remove('hidden');
+                input.value = '';
+                input.disabled = true;
+                if (submitBtn) submitBtn.disabled = true;
+            } else {
+                msg.classList.add('hidden');
+                input.disabled = false;
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
 
 
     </script>

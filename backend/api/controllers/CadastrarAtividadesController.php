@@ -91,12 +91,12 @@ class CadastrarAtividadesController extends Controller {
                     'atividade_id' => $atividadeId
                 ], 201);
             } else {
-                $this->sendJsonResponse(['error' => 'Erro ao cadastrar atividade'], 500);
+                $this->sendJsonResponse(['success' => false, 'error' => 'Erro ao cadastrar atividade', 'message' => 'Erro ao cadastrar atividade'], 200);
             }
             
         } catch (\Exception $e) {
             error_log("Erro em CadastrarAtividadesController::cadastrarAtividade: " . $e->getMessage());
-            $this->sendJsonResponse(['error' => $e->getMessage()], 400);
+            $this->sendJsonResponse(['success' => false, 'error' => $e->getMessage(), 'message' => $e->getMessage()], 200);
         }
     }
     
