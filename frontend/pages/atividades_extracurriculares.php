@@ -497,6 +497,7 @@
                         const anoMatricula = (user.matricula && typeof user.matricula === 'string') ? parseInt(user.matricula.substring(0,4)) : null;
                         const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                         const isBCC = (user.curso_id === 1) || cursoNomeNorm.includes('ciencia da computacao') || cursoNomeNorm.includes('bcc');
+                        const isBSI = (user.curso_id === 2) || cursoNomeNorm.includes('sistemas de informacao') || cursoNomeNorm.includes('si') || cursoNomeNorm.includes('bsi');
                         const is2023Mais = !!(anoMatricula && anoMatricula >= 2023);
 
                         if (isBCC && is2023Mais) {
@@ -561,6 +562,53 @@
                                 'PET – Programa de Educação Tutorial': 8
                             };
                             todasAtividades.sort((a,b) => (ordem[a.nome]||99) - (ordem[b.nome]||99));
+                        }
+                        if (isBSI) {
+                            const RTA_EXTRACURRICULARES_BSI18 = 12;
+                            const baseSI = [
+                                { acId: 25, nome: 'Curso de extensão em áreas afins', horas: 30, desc: 'Cursos de extensão relacionados à área' },
+                                { acId: 26, nome: 'Curso de extensão na área específica', horas: 60, desc: 'Cursos de extensão específicos da área' },
+                                { acId: 27, nome: 'Curso de língua estrangeira', horas: 75, desc: 'Cursos de idiomas' },
+                                { acId: 28, nome: 'Seminários, simpósios, convenções, conferências, palestras, congressos, jornadas, fóruns, debates, visitas técnicas, viagens de estudos, workshops, programas de treinamento e eventos promovidos pela UFOPA e/ou outras IES', horas: 90, desc: 'Participação em eventos acadêmicos' },
+                                { acId: 29, nome: 'Missões nacionais e internacionais', horas: 45, desc: 'Participação em missões acadêmicas' }
+                            ];
+                            const porRta = todasOriginais.filter(a => a.resolucao_tipo_atividade_id === RTA_EXTRACURRICULARES_BSI18);
+                            let listaSI = porRta.length ? porRta : [];
+                            if (!listaSI.length) {
+                                const porIds = [];
+                                for (const item of baseSI) {
+                                    const encontrado = todasOriginais.find(a => a.atividade_complementar_id === item.acId);
+                                    if (encontrado) {
+                                        encontrado.carga_horaria_maxima = item.horas;
+                                        encontrado.horas_max = item.horas;
+                                        encontrado.descricao = encontrado.descricao || item.desc;
+                                        encontrado.categoria = encontrado.categoria || 'Atividades extracurriculares';
+                                        encontrado.resolucao_tipo_atividade_id = encontrado.resolucao_tipo_atividade_id || RTA_EXTRACURRICULARES_BSI18;
+                                        porIds.push(encontrado);
+                                    } else {
+                                        porIds.push({
+                                            id: item.acId,
+                                            atividade_complementar_id: item.acId,
+                                            nome: item.nome,
+                                            categoria: 'Atividades extracurriculares',
+                                            descricao: item.desc,
+                                            carga_horaria_maxima: item.horas,
+                                            horas_max: item.horas,
+                                            resolucao_tipo_atividade_id: RTA_EXTRACURRICULARES_BSI18
+                                        });
+                                    }
+                                }
+                                listaSI = porIds;
+                            }
+                            const ordemSI = {
+                                'Curso de extensão em áreas afins': 1,
+                                'Curso de extensão na área específica': 2,
+                                'Curso de língua estrangeira': 3,
+                                'Seminários, simpósios, convenções, conferências, palestras, congressos, jornadas, fóruns, debates, visitas técnicas, viagens de estudos, workshops, programas de treinamento e eventos promovidos pela UFOPA e/ou outras IES': 4,
+                                'Missões nacionais e internacionais': 5
+                            };
+                            listaSI.sort((a,b) => (ordemSI[a.nome]||99) - (ordemSI[b.nome]||99));
+                            todasAtividades = listaSI;
                         }
                     } catch (regraErr) {
                         console.warn('Falha ao aplicar regra BCC 2023+:', regraErr);

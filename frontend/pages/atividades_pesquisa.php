@@ -648,6 +648,59 @@
 
                 if (data.success || data.sucesso) {
                     todasAtividades = data.data?.atividades || [];
+                    try {
+                        const user = AuthClient.getUser() || {};
+                        const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const isBSI = (user.curso_id === 2) || cursoNomeNorm.includes('sistemas de informacao') || cursoNomeNorm.includes('si') || cursoNomeNorm.includes('bsi');
+                        if (isBSI) {
+                            const RTA_PESQUISA_BSI18 = 11;
+                            const baseSI = [
+                                { acId: 22, nome: 'Atividades de iniciação científica', horas: 45, desc: 'Participação em projetos de iniciação científica' },
+                                { acId: 23, nome: 'Apresentação em eventos científicos', horas: 30, desc: 'Apresentação de trabalhos em eventos científicos' },
+                                { acId: 24, nome: 'Publicação de artigo em periódicos ou capítulo de livro', horas: 60, desc: 'Publicação científica' }
+                            ];
+                            const orig = data.data?.atividades || [];
+                            const porRta = orig.filter(a => a.resolucao_tipo_atividade_id === RTA_PESQUISA_BSI18);
+                            let listaSI = porRta.length ? porRta : [];
+                            if (!listaSI.length) {
+                                const porIds = [];
+                                for (const item of baseSI) {
+                                    const encontrado = orig.find(a => a.atividade_complementar_id === item.acId);
+                                    if (encontrado) {
+                                        encontrado.carga_horaria_maxima = item.horas;
+                                        encontrado.horas_max = item.horas;
+                                        encontrado.descricao = encontrado.descricao || item.desc;
+                                        encontrado.categoria = encontrado.categoria || 'Pesquisa';
+                                        encontrado.tipo = encontrado.tipo || 'Pesquisa';
+                                        encontrado.resolucao_tipo_atividade_id = encontrado.resolucao_tipo_atividade_id || RTA_PESQUISA_BSI18;
+                                        porIds.push(encontrado);
+                                    } else {
+                                        porIds.push({
+                                            id: item.acId,
+                                            atividade_complementar_id: item.acId,
+                                            nome: item.nome,
+                                            categoria: 'Pesquisa',
+                                            tipo: 'Pesquisa',
+                                            descricao: item.desc,
+                                            carga_horaria_maxima: item.horas,
+                                            horas_max: item.horas,
+                                            resolucao_tipo_atividade_id: RTA_PESQUISA_BSI18
+                                        });
+                                    }
+                                }
+                                listaSI = porIds;
+                            }
+                            const ordemSI = {
+                                'Apresentação em eventos científicos': 1,
+                                'Atividades de iniciação científica': 2,
+                                'Publicação de artigo em periódicos ou capítulo de livro': 3
+                            };
+                            listaSI.sort((a,b) => (ordemSI[a.nome]||99) - (ordemSI[b.nome]||99));
+                            todasAtividades = listaSI;
+                        }
+                    } catch (regraErr) {
+                        console.warn('Falha ao aplicar regra BSI18 em Pesquisa:', regraErr);
+                    }
                     console.log('✅ Atividades carregadas:', todasAtividades.length);
                     renderizarAtividades();
                     document.getElementById('alertaAtividades').classList.add('hidden');

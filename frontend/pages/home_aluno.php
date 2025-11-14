@@ -66,13 +66,13 @@
                             <div id="dashboardTotalProgress" class="h-3 rounded-full" style="background:#246BFD;width:0%"></div>
                         </div>
                         <div class="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>0h</span>
-                            <span>120h</span>
-                            <span>240h</span>
+                            <span id="dashboardScaleLeft">0h</span>
+                            <span id="dashboardScaleMid">120h</span>
+                            <span id="dashboardScaleRight">240h</span>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div id="dashboardCardsGrid" class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <!-- ACC -->
                         <div class="rounded-lg p-4" style="background:#EFF6FF">
                             <div class="text-sm" style="color:#246BFD">Atividades Extracurriculares</div>
@@ -126,7 +126,7 @@
                         </div>
 
                         <!-- Ação Social -->
-                        <div class="rounded-lg p-4" style="background:#FDF2F8">
+                        <div id="cardAcaoSocial" class="rounded-lg p-4" style="background:#FDF2F8">
                             <div class="text-sm" style="color:#E91E63">Ação Social</div>
                             <div id="acaoHorasDisplay" class="text-3xl font-bold" style="color:#E91E63">0h</div>
                             <div class="mt-2 h-2 bg-gray-200 rounded-full">
@@ -135,6 +135,19 @@
                             <div class="mt-2 flex justify-between text-xs" style="color:#E91E63">
                                 <span id="acaoBottomLeft">0h / 30h</span>
                                 <span id="acaoPercent">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- PET -->
+                        <div id="cardPet" class="rounded-lg p-4 hidden" style="background:#E6F0FF">
+                            <div class="text-sm" style="color:#1E3A8A">PET</div>
+                            <div id="petHorasDisplay" class="text-3xl font-bold" style="color:#1E3A8A">0h</div>
+                            <div class="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div id="petProgress" class="h-2 rounded-full" style="background:#1E3A8A;width:0%"></div>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs" style="color:#1E3A8A">
+                                <span id="petBottomLeft">0h / 90h</span>
+                                <span id="petPercent">0%</span>
                             </div>
                         </div>
                     </div>
@@ -494,10 +507,21 @@
                     return;
                 }
                 const data = result.data || {};
-                const limites = data.limites || { acc:80, ensino:80, pesquisa:80, estagio:100, acao_social:30 };
-                const categorias = data.categorias || { acc:0, ensino:0, pesquisa:0, estagio:0, acao_social:0 };
-                const limiteTotal = data.limite_total || 240;
+                let limites = data.limites || { acc:40, ensino:40, pesquisa:40, estagio:90 };
+                const categorias = data.categorias || { acc:0, ensino:0, pesquisa:0, estagio:0, acao_social:0, pet:0 };
+                let limiteTotal = data.limite_total || 240;
                 const totalHoras = data.total_horas || 0;
+
+                // Detectar curso e ajustar limites antes de desenhar
+                const cursoRaw = (data.curso_nome || user?.curso_nome || user?.curso || '').toString();
+                const cursoNome = cursoRaw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                const ano = parseInt((data.matricula || user?.matricula || '').slice(0,4), 10);
+                const isBCC = cursoNome.includes('comput') || cursoNome.includes('bcc');
+                const isBSI = cursoNome.includes('sistemas') || cursoNome.includes('informacao') || cursoNome.includes('si') || cursoNome.includes('bsi') || (user?.curso_id === 2);
+                if (isBSI) {
+                    limites = { acc:90, ensino:90, pesquisa:90, estagio:225, acao_social:30, pet:90 };
+                    if (!limiteTotal || limiteTotal < 300) limiteTotal = 300;
+                }
 
                 // Total
                 const totalPercent = Math.min(100, (totalHoras / Math.max(1, limiteTotal)) * 100);
@@ -505,6 +529,12 @@
                 const totalLabel = document.getElementById('dashboardTotalLabel');
                 if (totalBar) totalBar.style.width = totalPercent + '%';
                 if (totalLabel) totalLabel.textContent = `${totalHoras}h / ${limiteTotal}h`;
+                const scaleLeft = document.getElementById('dashboardScaleLeft');
+                const scaleMid = document.getElementById('dashboardScaleMid');
+                const scaleRight = document.getElementById('dashboardScaleRight');
+                if (scaleLeft) scaleLeft.textContent = '0h';
+                if (scaleMid) scaleMid.textContent = `${Math.round(limiteTotal/2)}h`;
+                if (scaleRight) scaleRight.textContent = `${limiteTotal}h`;
 
                 // Helper para atualizar cada card
                 const atualizarCard = (prefixo, horas, limite) => {
@@ -523,7 +553,33 @@
                 atualizarCard('ensino', categorias.ensino || 0, limites.ensino || 80);
                 atualizarCard('pesquisa', categorias.pesquisa || 0, limites.pesquisa || 80);
                 atualizarCard('estagio', categorias.estagio || 0, limites.estagio || 100);
-                atualizarCard('acao', categorias.acao_social || 0, limites.acao_social || 30);
+                if (typeof limites.acao_social === 'number') {
+                    atualizarCard('acao', categorias.acao_social || 0, limites.acao_social);
+                }
+                if (typeof limites.pet === 'number') {
+                    atualizarCard('pet', categorias.pet || 0, limites.pet);
+                }
+
+                // cursoNome, ano, isBCC, isBSI já definidos acima
+                if (isBCC && ano >= 2023) {
+                    const card = document.getElementById('cardAcaoSocial');
+                    if (card) card.classList.add('hidden');
+                    const grid = document.getElementById('dashboardCardsGrid');
+                    if (grid) {
+                        grid.classList.remove('md:grid-cols-5');
+                        grid.classList.add('md:grid-cols-4');
+                    }
+                }
+                if (isBSI) {
+                    const petCard = document.getElementById('cardPet');
+                    if (petCard) petCard.classList.remove('hidden');
+                    const grid = document.getElementById('dashboardCardsGrid');
+                    if (grid) {
+                        grid.classList.remove('md:grid-cols-5');
+                        grid.classList.remove('md:grid-cols-4');
+                        grid.classList.add('md:grid-cols-6');
+                    }
+                }
             } catch (e) {
                 console.error('Erro ao atualizar dashboard:', e);
             }

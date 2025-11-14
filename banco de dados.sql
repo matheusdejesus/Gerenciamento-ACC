@@ -362,7 +362,7 @@ INSERT INTO atividades_por_resolucao (resolucao_id, tipo_atividade_id, atividade
 -- Pesquisa BSI18 (resolucao_tipo_atividade_id = 11)
 (3, 2, 22, 45), -- Iniciação científica
 (3, 2, 23, 30), -- Evento Científico
-(3, 2, 24, 60), -- Iniciação científica
+(3, 2, 24, 60), -- Publicação de artigo em periódicos ou capítulo de livro
 
 -- Extracurriculares BSI18 (resolucao_tipo_atividade_id = 12)
 (3, 3, 25, 30),  -- Curso extensão afins

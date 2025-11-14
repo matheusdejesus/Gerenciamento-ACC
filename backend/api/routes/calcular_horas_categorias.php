@@ -186,13 +186,31 @@ try {
     $totalHorasSoma = array_sum($categorias);
     $totalHoras = min($limite_total, $totalHorasSoma);
 
-    $limites = [
-        'acc' => 80,
-        'ensino' => 80,
-        'pesquisa' => 80,
-        'estagio' => 100,
-        'acao_social' => 30
-    ];
+    $limites = [];
+    if ($isBSI) {
+        $limites = [
+            'acc' => 80,
+            'ensino' => 80,
+            'pesquisa' => 80,
+            'estagio' => 100,
+            'acao_social' => 30
+        ];
+    } elseif ($anoMatricula >= 2023) {
+        $limites = [
+            'acc' => 40,
+            'ensino' => 40,
+            'pesquisa' => 40,
+            'estagio' => 90
+        ];
+    } else {
+        $limites = [
+            'acc' => 80,
+            'ensino' => 80,
+            'pesquisa' => 80,
+            'estagio' => 100,
+            'acao_social' => 30
+        ];
+    }
 
     $response = [
         'elegivel' => true,

@@ -420,8 +420,48 @@
                 console.log('📦 Dados recebidos:', data);
                 
                 if (data.success) {
-                    // A API já retorna por tipo=pet; usar diretamente
                     atividadesPET = Array.isArray(data.data?.atividades) ? data.data.atividades : [];
+
+                    try {
+                        const user = AuthClient.getUser() || {};
+                        const anoMatricula = (user.matricula && typeof user.matricula === 'string') ? parseInt(user.matricula.substring(0,4)) : null;
+                        const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const isBSI = (user.curso_id === 2) || cursoNomeNorm.includes('sistemas de informacao') || cursoNomeNorm.includes('si') || cursoNomeNorm.includes('bsi');
+                        const isBCC = (user.curso_id === 1) || cursoNomeNorm.includes('ciencia da computacao') || cursoNomeNorm.includes('bcc');
+
+                        if ((!atividadesPET || atividadesPET.length === 0) && (isBSI || isBCC)) {
+                            const base = [];
+                            if (isBSI) {
+                                base.push({
+                                    id: 32,
+                                    atividade_complementar_id: 32,
+                                    nome: 'PET – Programa de Educação Tutorial',
+                                    categoria: 'PET',
+                                    tipo: 'PET',
+                                    descricao: 'Participação no programa PET',
+                                    carga_horaria_maxima: 90,
+                                    horas_max: 90,
+                                    resolucao_tipo_atividade_id: 14
+                                });
+                            } else if (isBCC && anoMatricula && anoMatricula >= 2023) {
+                                base.push({
+                                    id: 15,
+                                    atividade_complementar_id: 15,
+                                    nome: 'PET – Programa de Educação Tutorial',
+                                    categoria: 'PET',
+                                    tipo: 'PET',
+                                    descricao: 'Participação no programa PET',
+                                    carga_horaria_maxima: 40,
+                                    horas_max: 40,
+                                    resolucao_tipo_atividade_id: 8
+                                });
+                            }
+                            if (base.length) atividadesPET = base;
+                        }
+                    } catch (regraErr) {
+                        console.warn('Falha ao aplicar fallback PET:', regraErr);
+                    }
+
                     const total = Number.isFinite(Number(data.data?.total)) ? Number(data.data.total) : atividadesPET.length;
                     console.log('🐾 Atividades PET encontradas:', atividadesPET.length);
                     exibirAtividadesPET(atividadesPET, total, pagina);

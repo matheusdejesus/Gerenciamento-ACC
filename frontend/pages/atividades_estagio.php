@@ -255,7 +255,53 @@
                     paginaAtual = data.data?.paginacao?.pagina_atual || 1;
                     totalPaginas = data.data?.paginacao?.total_paginas || 1;
                     termoBusca = busca;
-                    
+
+                    try {
+                        const user = AuthClient.getUser() || {};
+                        const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const isBSI = (user.curso_id === 2) || cursoNomeNorm.includes('sistemas de informacao') || cursoNomeNorm.includes('si') || cursoNomeNorm.includes('bsi');
+                        if (isBSI) {
+                            const RTA_ESTAGIO_BSI18 = 13;
+                            const baseSI = [
+                                { acId: 30, nome: 'Cumprimento de estágio supervisionado', horas: 225, desc: 'Estágio supervisionado' }
+                            ];
+                            const orig = data.data?.atividades || [];
+                            const porRta = orig.filter(a => a.resolucao_tipo_atividade_id === RTA_ESTAGIO_BSI18);
+                            let listaSI = porRta.length ? porRta : [];
+                            if (!listaSI.length) {
+                                const porIds = [];
+                                for (const item of baseSI) {
+                                    const encontrado = orig.find(a => a.atividade_complementar_id === item.acId);
+                                    if (encontrado) {
+                                        encontrado.carga_horaria_maxima = item.horas;
+                                        encontrado.horas_max = item.horas;
+                                        encontrado.descricao = encontrado.descricao || item.desc;
+                                        encontrado.categoria = encontrado.categoria || 'Estágio';
+                                        encontrado.tipo = encontrado.tipo || 'Estágio';
+                                        encontrado.resolucao_tipo_atividade_id = encontrado.resolucao_tipo_atividade_id || RTA_ESTAGIO_BSI18;
+                                        porIds.push(encontrado);
+                                    } else {
+                                        porIds.push({
+                                            id: item.acId,
+                                            atividade_complementar_id: item.acId,
+                                            nome: item.nome,
+                                            categoria: 'Estágio',
+                                            tipo: 'Estágio',
+                                            descricao: item.desc,
+                                            carga_horaria_maxima: item.horas,
+                                            horas_max: item.horas,
+                                            resolucao_tipo_atividade_id: RTA_ESTAGIO_BSI18
+                                        });
+                                    }
+                                }
+                                listaSI = porIds;
+                            }
+                            todasAtividades = listaSI;
+                        }
+                    } catch (regraErr) {
+                        console.warn('Falha ao aplicar regra BSI18 em Estágio:', regraErr);
+                    }
+
                     renderizarAtividades();
                     renderizarPaginacao();
                     document.getElementById('alertaAtividades').classList.add('hidden');

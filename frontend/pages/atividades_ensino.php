@@ -266,6 +266,60 @@
                 if (data.success || data.sucesso) {
                     todasAtividades = data.data.atividades || [];
 
+                    try {
+                        const user = AuthClient.getUser() || {};
+                        const cursoNomeNorm = (user.curso_nome || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const isBSI = (user.curso_id === 2) || cursoNomeNorm.includes('sistemas de informacao') || cursoNomeNorm.includes('si') || cursoNomeNorm.includes('bsi');
+                        if (isBSI) {
+                            const RTA_ENSINO_BSI18 = 10;
+                            const baseSI = [
+                                { acId: 18, nome: 'Disciplinas em áreas correlatas cursadas em outras IES', horas: 45, desc: 'Disciplinas cursadas em outras instituições de ensino superior' },
+                                { acId: 19, nome: 'Disciplinas em áreas correlatas cursadas na UFOPA', horas: 90, desc: 'Disciplinas cursadas na própria UFOPA' },
+                                { acId: 20, nome: 'Estágios/Bolsas extracurriculares alinhadas à área do curso', horas: 90, desc: 'Estágios ou bolsas extracurriculares alinhadas à área do curso' },
+                                { acId: 21, nome: 'Monitoria em disciplina de graduação ou laboratório', horas: 90, desc: 'Atividade de monitoria acadêmica' }
+                            ];
+                            const orig = data.data?.atividades || [];
+                            const porRta = orig.filter(a => a.resolucao_tipo_atividade_id === RTA_ENSINO_BSI18);
+                            let listaSI = porRta.length ? porRta : [];
+                            if (!listaSI.length) {
+                                const porIds = [];
+                                for (const item of baseSI) {
+                                    const encontrado = orig.find(a => a.atividade_complementar_id === item.acId);
+                                    if (encontrado) {
+                                        encontrado.carga_horaria_maxima = item.horas;
+                                        encontrado.horas_max = item.horas;
+                                        encontrado.descricao = encontrado.descricao || item.desc;
+                                        encontrado.categoria = encontrado.categoria || 'Ensino';
+                                        encontrado.resolucao_tipo_atividade_id = encontrado.resolucao_tipo_atividade_id || RTA_ENSINO_BSI18;
+                                        porIds.push(encontrado);
+                                    } else {
+                                        porIds.push({
+                                            id: item.acId,
+                                            atividade_complementar_id: item.acId,
+                                            nome: item.nome,
+                                            categoria: 'Ensino',
+                                            descricao: item.desc,
+                                            carga_horaria_maxima: item.horas,
+                                            horas_max: item.horas,
+                                            resolucao_tipo_atividade_id: RTA_ENSINO_BSI18
+                                        });
+                                    }
+                                }
+                                listaSI = porIds;
+                            }
+                            const ordemSI = {
+                                'Disciplinas em áreas correlatas cursadas em outras IES': 1,
+                                'Disciplinas em áreas correlatas cursadas na UFOPA': 2,
+                                'Estágios/Bolsas extracurriculares alinhadas à área do curso': 3,
+                                'Monitoria em disciplina de graduação ou laboratório': 4
+                            };
+                            listaSI.sort((a,b) => (ordemSI[a.nome]||99) - (ordemSI[b.nome]||99));
+                            todasAtividades = listaSI;
+                        }
+                    } catch (regraErr) {
+                        console.warn('Falha ao aplicar regra BSI18 em Ensino:', regraErr);
+                    }
+
                     // Atualizar informações de paginação
                     if (data.data.paginacao) {
                         paginaAtual = data.data.paginacao.pagina_atual;
